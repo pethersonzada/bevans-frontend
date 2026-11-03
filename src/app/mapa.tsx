@@ -5,10 +5,20 @@ import MapboxGL from '@rnmapbox/maps';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import {
+    ActivityIndicator,
+    Alert,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { API_URL } from '../config/config';
-import { mapaStyles as styles } from '../constants/mapaStyles';
+import { auth } from '../config/firebase';
+import { theme } from '../styles/theme';
 import { useAuth } from './context/AuthContext';
 
 import { CabecalhoMapa } from '../components/mapa/CabecalhoMapa';
@@ -158,7 +168,7 @@ export default function Mapa() {
     const [manobras, setManobras] = useState<Manobra[]>([]);
     const [manobraAtual, setManobraAtual] = useState<Manobra | null>(null);
     const [loading, setLoading] = useState(true);
-    const [viagemAtiva, setViagemAtiva] = useState(false);
+    const [viagemAtiva, setViagemAtiva] = useState(true);
     const [online, setOnline] = useState(true);
     const [erroRede, setErroRede] = useState<string | null>(null);
     const [foraDaRota, setForaDaRota] = useState(false);
@@ -167,6 +177,7 @@ export default function Mapa() {
     const [horarioAtual, setHorarioAtual] = useState('');
     const [distanciaRestante, setDistanciaRestante] = useState<number | null>(null);
     const [etaMinutos, setEtaMinutos] = useState<number | null>(null);
+    const [turmaIdAtual, setTurmaIdAtual] = useState<number | null>(null);
     
     const montadoRef = useRef(true);
     const coordenadasRotaRef = useRef<[number, number][]>([]);
@@ -194,7 +205,12 @@ export default function Mapa() {
         controladoresAtivosRef.current.add(controller);
         const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
         try {
-            return await fetch(url, { ...options, signal: controller.signal });
+            const headers: Record<string, string> = { ...(options.headers as Record<string, string>) };
+            if (API_URL && url.startsWith(API_URL)) {
+                const token = await auth.currentUser?.getIdToken();
+                if (token) headers.Authorization = `Bearer ${token}`;
+            }
+            return await fetch(url, { ...options, headers, signal: controller.signal });
         } finally {
             clearTimeout(timeoutId);
             controladoresAtivosRef.current.delete(controller);
@@ -377,15 +393,11 @@ export default function Mapa() {
                 if (!montadoRef.current) return;
                 if (resStatus.ok) {
                     const dataStatus = await resStatus.json();
-                    if (dataStatus.status === 'ATIVA') {
-                        setViagemAtiva(true);
-                        if (dataStatus.sentido) direcaoDefinitiva = dataStatus.sentido.toLowerCase();
+                    if (dataStatus.status === 'ATIVA' && dataStatus.sentido) {
+                        direcaoDefinitiva = dataStatus.sentido.toLowerCase();
                     }
                 }
             } catch { }
-            
-            await carregarGaragemERota(direcaoDefinitiva);
-            if (!montadoRef.current) return;
             
             const { status } = await Location.requestForegroundPermissionsAsync();
             if (!montadoRef.current) return;
@@ -394,6 +406,17 @@ export default function Mapa() {
                 setLoading(false);
                 return;
             }
+
+            let posicaoInicial: LatLng = { latitude: -8.303, longitude: -35.992 };
+            try {
+                const locAtual = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+                if (locAtual) {
+                    posicaoInicial = { latitude: locAtual.coords.latitude, longitude: locAtual.coords.longitude };
+                }
+            } catch { }
+            
+            await carregarGaragemERota(direcaoDefinitiva, posicaoInicial);
+            if (!montadoRef.current) return;
             
             locationSubscription = await Location.watchPositionAsync(
                 { accuracy: Location.Accuracy.BestForNavigation, timeInterval: 2000, distanceInterval: 1 },
@@ -490,56 +513,78 @@ export default function Mapa() {
         };
     }, []);
 
-    async function carregarGaragemERota(direcaoUsada: Sentido) {
+    async function carregarGaragemERota(direcaoUsada: Sentido, posicaoInicial: LatLng) {
         let garagemCarregada: LatLng | null = null;
-        let rotaCarregada: PassageiroRota[] | null = null;
+        let rotaCarregada: PassageiroRota[] = [];
         
         try {
             await AsyncStorage.removeItem(CACHE_KEYS.rota(direcaoUsada));
             await AsyncStorage.removeItem(CACHE_KEYS.geometria(direcaoUsada));
             
-            const resMotorista = await fetchComTimeout(`${API_URL}/usuarios/motorista`, { headers: HEADERS_PADRAO });
-            console.log("STATUS MOTORISTA:", resMotorista.status);
+            if (!user?.id) throw new Error('Usuário não autenticado');
+
+            const resStatus = await fetchComTimeout(`${API_URL}/rota/status-atual`, { headers: HEADERS_PADRAO });
+            let turmaIdAtiva: number | null = null;
             
-            if (!resMotorista.ok) throw new Error('Erro ao buscar motorista');
-            const dadosMotorista = await resMotorista.json();
-            console.log("DADOS MOTORISTA RECEBIDOS:", dadosMotorista);
+            if (resStatus.ok) {
+                const dadosStatus = await resStatus.json();
+                if (dadosStatus.turmaId) {
+                    turmaIdAtiva = Number(dadosStatus.turmaId);
+                }
+                if (dadosStatus.sentido) {
+                    direcaoUsada = dadosStatus.sentido.toLowerCase() as Sentido;
+                    setDirecaoAtual(direcaoUsada);
+                    direcaoAtualRef.current = direcaoUsada;
+                }
+            }
+
+            const resTurmas = await fetchComTimeout(`${API_URL}/turmas/motorista/${user.id}`, { headers: HEADERS_PADRAO });
+            if (!resTurmas.ok) throw new Error('Erro ao buscar turmas do motorista');
             
-            const lat = Number(dadosMotorista.latitude);
-            const lng = Number(dadosMotorista.longitude);
+            const turmas = await resTurmas.json();
+            if (!turmas || turmas.length === 0) throw new Error('Nenhuma turma encontrada para este motorista');
+            
+            const turmaAtual = turmaIdAtiva 
+                ? (turmas.find((t: any) => t.id === turmaIdAtiva) || turmas[0]) 
+                : turmas[0];
+
+            setTurmaIdAtual(turmaAtual.id);
+
+            const lat = Number(turmaAtual.origemLatitude);
+            const lng = Number(turmaAtual.origemLongitude);
 
             if (!lat || !lng || (lat === 0 && lng === 0)) {
-                throw new Error('Coordenadas da garagem inválidas no servidor');
+                throw new Error('Coordenadas de origem da turma inválidas');
             }
 
             garagemCarregada = { latitude: lat, longitude: lng };
-            
-            const resRota = await fetchComTimeout(`${API_URL}/rota/otimizar?sentido=${direcaoUsada}`, { headers: HEADERS_PADRAO });
-            console.log("STATUS ROTA OTIMIZAR:", resRota.status);
-            
-            if (!resRota.ok) {
-                const erroJson = await resRota.json();
-                console.log("ERRO JSON ROTA:", erroJson);
-                throw new Error(erroJson.erro || 'Erro ao otimizar rota');
+
+            const resPassageiros = await fetchComTimeout(`${API_URL}/turmas/${turmaAtual.id}/passageiros`, { headers: HEADERS_PADRAO });
+            if (resPassageiros.ok) {
+                const lista = await resPassageiros.json();
+                rotaCarregada = lista.map((p: any) => ({
+                    id: p.id || p.usuarioId,
+                    nome: p.nome || 'Passageiro',
+                    latitude: Number(p.latitude || p.enderecoLatitude || -8.303),
+                    longitude: Number(p.longitude || p.enderecoLongitude || -35.992),
+                    embarcado: false
+                }));
             }
-            rotaCarregada = await resRota.json();
-            console.log("ROTA CARREGADA QUANTIDADE:", rotaCarregada?.length);
             
             await salvarCache(CACHE_KEYS.garagem, garagemCarregada);
             await salvarCache(CACHE_KEYS.rota(direcaoUsada), rotaCarregada);
-        } catch (e) {
-            console.log("ERRO NO CATCH DE CARREGAR GARAGEM:", e);
+        } catch {
             garagemCarregada = await lerCache<LatLng>(CACHE_KEYS.garagem);
-            rotaCarregada = await lerCache<PassageiroRota[]>(CACHE_KEYS.rota(direcaoUsada));
-            if (montadoRef.current) setErroRede('Sem conexão ou endereço inválido. Usando dados salvos.');
+            rotaCarregada = (await lerCache<PassageiroRota[]>(CACHE_KEYS.rota(direcaoUsada))) || [];
+            if (montadoRef.current) setErroRede('Sem conexão ou dados incompletos. Usando cache.');
         }
         
         if (!montadoRef.current) return;
         
-        if (!garagemCarregada || (garagemCarregada.latitude === 0 && garagemCarregada.longitude === 0) || !rotaCarregada || rotaCarregada.length === 0) {
+        if (!garagemCarregada || (garagemCarregada.latitude === 0 && garagemCarregada.longitude === 0)) {
             Alert.alert(
                 'Endereço não cadastrado', 
-                'Precisas de cadastrar o endereço da tua garagem/embarque primeiro na tela de endereços para traçar a rota corretamente.'
+                'Você precisa definir a origem (garagem) nas configurações da sua turma para traçar a rota corretamente.'
             );
             setLoading(false);
             return;
@@ -552,15 +597,15 @@ export default function Mapa() {
         setDirecaoAtual(direcaoUsada);
         direcaoAtualRef.current = direcaoUsada;
         
-        await carregarGeometriaRota(direcaoUsada, garagemCarregada, rotaCarregada);
+        await carregarGeometriaRota(direcaoUsada, garagemCarregada, rotaCarregada, posicaoInicial);
         if (montadoRef.current) setLoading(false);
     }
 
-    async function carregarGeometriaRota(direcaoUsada: Sentido, garagemPonto: LatLng, passageiros: PassageiroRota[]) {
+    async function carregarGeometriaRota(direcaoUsada: Sentido, garagemPonto: LatLng, passageiros: PassageiroRota[], posicaoAtual: LatLng) {
         const pontosOrdenados: LatLng[] = direcaoUsada === 'ida'
-            ? [garagemPonto, ...passageiros, UNI_CARUARU]
-            : [UNI_CARUARU, ...[...passageiros].reverse(), garagemPonto];
-            
+            ? [posicaoAtual, ...passageiros, UNI_CARUARU]
+            : [UNI_CARUARU, ...[...passageiros].reverse(), posicaoAtual];
+
         try {
             const { routeGeoJSON, coordenadas, manobras: manobrasCalculadas } = await buscarRotaMapbox(pontosOrdenados);
             if (!montadoRef.current) return;
@@ -605,26 +650,12 @@ export default function Mapa() {
         }
     }
 
-    async function handleIniciarViagem() {
-        if (!user?.id || !online) return Alert.alert('Conexão Necessária', 'Conecte-se à internet para iniciar a transmissão da rota.');
-        try {
-            const res = await fetchComTimeout(`${API_URL}/rota/iniciar`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...HEADERS_PADRAO },
-                body: JSON.stringify({ motoristaId: user.id, sentido: direcaoAtual.toUpperCase() }),
-            });
-            if (res.ok && montadoRef.current) setViagemAtiva(true);
-        } catch {
-            if (montadoRef.current) setErroRede('Não foi possível iniciar a viagem. Tente novamente.');
-        }
-    }
-
     async function handleEncerrarViagem() {
         if (!online) return Alert.alert('Conexão Necessária', 'Conecte-se à internet para sincronizar o encerramento.');
         
         Alert.alert(
             'Encerrar Viagem',
-            'Tens a certeza de que desejas encerrar a rota atual?',
+            'Você tem certeza de que deseja encerrar a rota atual?',
             [
                 { text: 'Cancelar', style: 'cancel' },
                 { 
@@ -632,9 +663,32 @@ export default function Mapa() {
                     style: 'destructive',
                     onPress: async () => {
                         try {
-                            const res = await fetchComTimeout(`${API_URL}/rota/encerrar`, { method: 'POST', headers: HEADERS_PADRAO });
-                            if (res.ok) router.replace('/(tabs)/home');
-                        } catch {
+                            // Passa os parâmetros corretos exigidos pelo backend
+                            const turmaIdParam = turmaIdAtual || 1;
+                            const motoristaIdParam = user?.id || 1;
+
+                            const res = await fetchComTimeout(
+                                `${API_URL}/rota/encerrar?turmaId=${turmaIdParam}&motoristaId=${motoristaIdParam}`, 
+                                { 
+                                    method: 'POST', 
+                                    headers: { 
+                                        'Content-Type': 'application/json', 
+                                        ...HEADERS_PADRAO 
+                                    },
+                                    body: JSON.stringify({
+                                        turmaId: Number(turmaIdParam),
+                                        motoristaId: Number(motoristaIdParam)
+                                    })
+                                }
+                            );
+
+                            if (res.ok) {
+                                await AsyncStorage.removeItem('@vanbora:viagem_ativa');
+                                router.replace('/(tabs)/home');
+                            } else {
+                                Alert.alert('Erro', 'O servidor não conseguiu encerrar a viagem.');
+                            }
+                        } catch (e: any) {
                             if (montadoRef.current) setErroRede('Não foi possível encerrar a viagem. Tente novamente.');
                         }
                     }
@@ -662,7 +716,7 @@ export default function Mapa() {
             properties: {
                 id: p.id,
                 label: p.embarcado ? '✓' : String(index + 1),
-                cor: p.embarcado ? '#4CAF50' : '#FFC107',
+                cor: p.embarcado ? '#10B981' : '#3B82F6',
             },
             geometry: { type: 'Point' as const, coordinates: [Number(p.longitude), Number(p.latitude)] },
         })),
@@ -687,9 +741,9 @@ export default function Mapa() {
 
     if (loading || !garagem) {
         return (
-            <View style={{ flex: 1, backgroundColor: '#121212', justifyContent: 'center', alignItems: 'center' }}>
-                <ActivityIndicator size="large" color="#FFC107" />
-                <Text style={{ color: '#888', marginTop: 12, fontSize: 13, fontWeight: '600' }}>Carregando telemetria...</Text>
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#00D2FF" />
+                <Text style={styles.loadingText}>Carregando telemetria...</Text>
             </View>
         );
     }
@@ -697,7 +751,7 @@ export default function Mapa() {
     const posicaoExibida = posicaoSuave || localizacao;
 
     return (
-        <View style={styles.container}>
+        <View style={styles.fullScreenContainer}>
             <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
             
             <CabecalhoMapa 
@@ -712,22 +766,23 @@ export default function Mapa() {
                 velocidadeAtual={velocidadeAtual} 
             />
             
+            {/* Banner reposicionado perfeitamente abaixo do Painel de Manobra (top: insets.top + 215) */}
             {recalculandoRota ? (
-                <View style={{ position: 'absolute', top: insets.top + 138, left: 16, right: 16, zIndex: 9, backgroundColor: '#0D2B3A', borderColor: '#29B6F6', borderWidth: 1, borderRadius: 10, padding: 8, flexDirection: 'row', alignItems: 'center' }}>
-                    <ActivityIndicator size="small" color="#29B6F6" style={{ marginRight: 8 }} />
-                    <Text style={{ color: '#29B6F6', fontSize: 11, fontWeight: '700' }}>Recalculando rota...</Text>
+                <View style={[styles.bannerNotificacao, { top: insets.top + 215, backgroundColor: '#0D2B3A', borderColor: '#29B6F6' }]}>
+                    <ActivityIndicator size="small" color="#29B6F6" style={styles.bannerIcon} />
+                    <Text style={[styles.bannerText, { color: '#29B6F6' }]}>Recalculando rota...</Text>
                 </View>
             ) : foraDaRota ? (
-                <View style={{ position: 'absolute', top: insets.top + 138, left: 16, right: 16, zIndex: 9, backgroundColor: '#3A1A00', borderColor: '#FF9800', borderWidth: 1, borderRadius: 10, padding: 8 }}>
-                    <Text style={{ color: '#FF9800', fontSize: 11, fontWeight: '700' }}>Fora da rota planejada. Recalculando automaticamente...</Text>
+                <View style={[styles.bannerNotificacao, { top: insets.top + 215, backgroundColor: '#3A1A00', borderColor: '#FF9800' }]}>
+                    <Text style={[styles.bannerText, { color: '#FF9800' }]}>Fora da rota planejada. Recalculando automaticamente...</Text>
                 </View>
             ) : erroRede ? (
-                <View style={{ position: 'absolute', top: insets.top + 138, left: 16, right: 16, zIndex: 9, backgroundColor: '#3A2E00', borderColor: '#FFC107', borderWidth: 1, borderRadius: 10, padding: 8 }}>
-                    <Text style={{ color: '#FFC107', fontSize: 11, fontWeight: '700' }}>{erroRede}</Text>
+                <View style={[styles.bannerNotificacao, { top: insets.top + 215, backgroundColor: '#1E293B', borderColor: '#3B82F6' }]}>
+                    <Text style={[styles.bannerText, { color: '#60A5FA' }]}>{erroRede}</Text>
                 </View>
             ) : null}
             
-            <MapboxGL.MapView style={{ flex: 1 }} styleURL={MapboxGL.StyleURL.Dark} logoEnabled={false} attributionEnabled={false} compassEnabled={false}>
+            <MapboxGL.MapView style={styles.mapa} styleURL={MapboxGL.StyleURL.Dark} logoEnabled={false} attributionEnabled={false} compassEnabled={false}>
                 <MapboxGL.Camera
                     ref={cameraRef}
                     zoomLevel={18}
@@ -736,24 +791,21 @@ export default function Mapa() {
                 
                 {geometriaPercorrida && (
                     <MapboxGL.ShapeSource id="rotaPercorridaSource" shape={geometriaPercorrida}>
-                        <MapboxGL.LineLayer id="rotaPercorridaLine" style={{ lineColor: '#4A4A4A', lineWidth: 6, lineCap: 'round', lineJoin: 'round', lineOpacity: 0.85 }} />
+                        <MapboxGL.LineLayer id="rotaPercorridaLine" style={{ lineColor: '#334155', lineWidth: 6, lineCap: 'round', lineJoin: 'round', lineOpacity: 0.8 }} />
                     </MapboxGL.ShapeSource>
                 )}
                 
                 {geometriaRestante && (
                     <MapboxGL.ShapeSource id="rotaRestanteSource" shape={geometriaRestante}>
-                        <MapboxGL.LineLayer id="rotaCasing" style={{ lineColor: '#8a6d00', lineWidth: 10, lineCap: 'round', lineJoin: 'round', lineOpacity: 0.5 }} />
-                        <MapboxGL.LineLayer id="rotaLine" style={{ lineColor: '#FFC107', lineWidth: 6, lineCap: 'round', lineJoin: 'round' }} />
+                        <MapboxGL.LineLayer id="rotaCasing" style={{ lineColor: '#0088CC', lineWidth: 10, lineCap: 'round', lineJoin: 'round', lineOpacity: 0.4 }} />
+                        <MapboxGL.LineLayer id="rotaLine" style={{ lineColor: '#00D2FF', lineWidth: 6, lineCap: 'round', lineJoin: 'round' }} />
                     </MapboxGL.ShapeSource>
                 )}
                 
                 {posicaoExibida && (
                     <MapboxGL.PointAnnotation id="van-marker" coordinate={[posicaoExibida.longitude, posicaoExibida.latitude]} anchor={{ x: 0.5, y: 0.5 }}>
                         <View style={{ transform: [{ rotate: `${headingAtual}deg` }], justifyContent: 'center', alignItems: 'center' }}>
-                            <View style={{
-                                backgroundColor: '#000', width: 36, height: 36, borderRadius: 18, borderWidth: 3, borderColor: '#FFC107',
-                                justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 4, elevation: 8,
-                            }}>
+                            <View style={styles.markerVanCircle}>
                                 <Ionicons name="navigate" size={18} color="#FFC107" style={{ transform: [{ rotate: '-45deg' }] }} />
                             </View>
                         </View>
@@ -761,14 +813,14 @@ export default function Mapa() {
                 )}
                 
                 <MapboxGL.PointAnnotation id="garagem" coordinate={[garagem.longitude, garagem.latitude]}>
-                    <View style={{ backgroundColor: '#1E1E1E', padding: 8, borderRadius: 22, borderColor: '#FFC107', borderWidth: 2 }}>
-                        <Text style={{ fontSize: 14 }}>🏠</Text>
+                    <View style={styles.markerPontoBox}>
+                        <Text style={styles.markerEmoji}>🏠</Text>
                     </View>
                 </MapboxGL.PointAnnotation>
                 
                 <MapboxGL.PointAnnotation id="uninassau" coordinate={[UNI_CARUARU.longitude, UNI_CARUARU.latitude]}>
-                    <View style={{ backgroundColor: '#E53935', padding: 8, borderRadius: 22, borderColor: '#FFF', borderWidth: 2 }}>
-                        <Text style={{ fontSize: 14 }}>🏁</Text>
+                    <View style={[styles.markerPontoBox, styles.markerDestino]}>
+                        <Text style={styles.markerEmoji}>🏁</Text>
                     </View>
                 </MapboxGL.PointAnnotation>
                 
@@ -779,7 +831,7 @@ export default function Mapa() {
                             circleRadius: 14,
                             circleColor: ['get', 'cor'],
                             circleStrokeWidth: 2,
-                            circleStrokeColor: '#121212',
+                            circleStrokeColor: '#0F172A',
                         }}
                     />
                     <MapboxGL.SymbolLayer
@@ -787,7 +839,7 @@ export default function Mapa() {
                         style={{
                             textField: ['get', 'label'],
                             textSize: 12,
-                            textColor: '#121212',
+                            textColor: '#FFFFFF',
                             textAllowOverlap: true,
                             iconAllowOverlap: true,
                             textIgnorePlacement: true,
@@ -796,17 +848,101 @@ export default function Mapa() {
                 </MapboxGL.ShapeSource>
             </MapboxGL.MapView>
             
-            <TouchableOpacity style={{ position: 'absolute', right: 16, bottom: insets.bottom + 170, zIndex: 20, backgroundColor: '#1E1E1E', borderWidth: 1, borderColor: '#333', width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' }} onPress={centralizarNaVan}>
-                <Ionicons name="locate" size={22} color="#FFC107" />
+            <TouchableOpacity 
+                style={[styles.locateButton, { bottom: insets.bottom + 170 }]} 
+                onPress={centralizarNaVan}
+                activeOpacity={0.8}
+            >
+                <Ionicons name="locate" size={22} color="#00D2FF" />
             </TouchableOpacity>
             
             <ControlesViagem 
                 distanciaRestante={distanciaRestante}
                 etaMinutos={etaMinutos}
                 viagemAtiva={viagemAtiva}
-                onIniciarViagem={handleIniciarViagem}
+                onIniciarViagem={() => {}}
                 onEncerrarViagem={handleEncerrarViagem}
             />
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    fullScreenContainer: {
+        flex: 1,
+        backgroundColor: '#0F172A',
+        padding: 0,
+        margin: 0,
+    },
+    mapa: {
+        flex: 1,
+    },
+    loadingContainer: {
+        flex: 1,
+        backgroundColor: '#0F172A',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingText: {
+        color: '#94A3B8',
+        marginTop: theme.spacing.sm,
+        fontSize: theme.typography.size.small,
+        fontWeight: '600',
+    },
+    bannerNotificacao: {
+        position: 'absolute',
+        left: theme.spacing.md,
+        right: theme.spacing.md,
+        zIndex: 9,
+        borderWidth: 1,
+        borderRadius: theme.borderRadius.md,
+        padding: theme.spacing.xs + 2,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    bannerIcon: {
+        marginRight: theme.spacing.xs,
+    },
+    bannerText: {
+        fontSize: theme.typography.size.small,
+        fontWeight: '700',
+    },
+    markerVanCircle: {
+        backgroundColor: '#0F172A',
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        borderWidth: 3,
+        borderColor: '#FFC107',
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 8,
+    },
+    markerPontoBox: {
+        backgroundColor: '#1E293B',
+        padding: 8,
+        borderRadius: theme.borderRadius.pill,
+        borderColor: '#00D2FF',
+        borderWidth: 2,
+    },
+    markerDestino: {
+        backgroundColor: '#EF4444',
+        borderColor: '#FFFFFF',
+    },
+    markerEmoji: {
+        fontSize: 14,
+    },
+    locateButton: {
+        position: 'absolute',
+        right: theme.spacing.md,
+        zIndex: 20,
+        backgroundColor: '#1E293B',
+        borderWidth: 1,
+        borderColor: '#334155',
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+});

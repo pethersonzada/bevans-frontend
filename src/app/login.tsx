@@ -1,18 +1,32 @@
 import { useRouter } from 'expo-router';
 import { sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/auth';
 import { useState } from 'react';
-import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import {
+    Alert,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { FormLogin } from '../components/FormLogin';
-import { API_URL } from '../config/config';
+import { apiFetch } from '../config/api';
 import { auth } from '../config/firebase';
-import { loginStyles as styles } from '../constants/loginStyles';
+import { globalStyles } from '../styles/globalStyles';
+import { theme } from '../styles/theme';
 import { useAuth } from './context/AuthContext';
 
 export default function Login() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    const { signIn } = useAuth(); 
+    const { signIn } = useAuth();
+
     const [email, setEmail] = useState('');
     const [senha, setSenha] = useState('');
     const [loading, setLoading] = useState(false);
@@ -31,7 +45,7 @@ export default function Login() {
             const userCredential = await signInWithEmailAndPassword(auth, emailFormatado, senha);
             const firebaseUid = userCredential.user.uid;
 
-            const response = await fetch(`${API_URL}/usuarios/por-uid/${firebaseUid}`, {
+            const response = await apiFetch(`/usuarios/por-uid/${firebaseUid}`, {
                 method: 'GET',
                 headers: { 
                     'Content-Type': 'application/json',
@@ -93,7 +107,7 @@ export default function Login() {
 
     return (
         <KeyboardAvoidingView 
-            style={styles.container} 
+            style={globalStyles.container} 
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
             <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
@@ -138,3 +152,52 @@ export default function Login() {
         </KeyboardAvoidingView>
     );
 }
+
+const styles = StyleSheet.create({
+    content: {
+        flexGrow: 1,
+        justifyContent: 'center',
+        paddingHorizontal: theme.spacing.md,
+    },
+    logoContainer: {
+        alignItems: 'center',
+        marginBottom: theme.spacing.lg,
+    },
+    logoImage: {
+        width: 120,
+        height: 120,
+        resizeMode: 'contain',
+    },
+    title: {
+        fontSize: theme.typography.size.title,
+        fontWeight: theme.typography.weight.bold,
+        color: theme.colors.text,
+        textAlign: 'center',
+        marginBottom: theme.spacing.xs,
+    },
+    subtitle: {
+        fontSize: theme.typography.size.regular,
+        color: theme.colors.textLight,
+        textAlign: 'center',
+        marginBottom: theme.spacing.xl,
+    },
+    registerContainer: {
+        alignItems: 'center',
+        marginTop: theme.spacing.xl,
+        gap: theme.spacing.xs,
+    },
+    row: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: theme.spacing.xs,
+    },
+    text: {
+        fontSize: theme.typography.size.regular,
+        color: theme.colors.textLight,
+    },
+    linkText: {
+        fontSize: theme.typography.size.regular,
+        fontWeight: theme.typography.weight.bold,
+        color: theme.colors.primary,
+    },
+});

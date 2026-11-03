@@ -11,15 +11,17 @@ import {
     Modal,
     Platform,
     StatusBar,
+    StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
-    View
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { API_URL } from '../config/config';
-import { cadastroEnderecoStyles as styles } from '../constants/cadastroEnderecoStyles';
-import { colors } from '../constants/colors';
+
+import { apiFetch } from '../config/api';
+import { globalStyles } from '../styles/globalStyles';
+import { theme } from '../styles/theme';
 
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
 MapboxGL.setAccessToken(MAPBOX_TOKEN);
@@ -146,7 +148,7 @@ export default function CadastroEndereco() {
                 longitude: currentCoords.current.longitude
             };
 
-            const response = await fetch(`${API_URL}/enderecos/usuario/${userId}`, {
+            const response = await apiFetch(`/enderecos/usuario/${userId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
                 body: JSON.stringify(payload)
@@ -168,15 +170,21 @@ export default function CadastroEndereco() {
         }
     };
 
-    if (loading || !initialLocation) return <View style={styles.center}><ActivityIndicator size="large" color={colors.primary} /></View>;
+    if (loading || !initialLocation) {
+        return (
+            <View style={[globalStyles.container, styles.center]}>
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+            </View>
+        );
+    }
 
     return (
-        <View style={styles.container}>
+        <View style={globalStyles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
-            <View style={[styles.headerOverlay, { paddingTop: insets.top + 15 }]}>
-                <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-                    <Ionicons name="arrow-back" size={24} color={colors.textMain} />
+            <View style={[styles.headerOverlay, { paddingTop: insets.top + theme.spacing.sm }]}>
+                <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.7}>
+                    <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
                 </TouchableOpacity>
                 <Text style={styles.headerText}>Onde você embarca?</Text>
             </View>
@@ -197,15 +205,16 @@ export default function CadastroEndereco() {
                     />
                 </MapboxGL.MapView>
 
-                <View style={{ position: 'absolute', top: '50%', left: '50%', marginLeft: -12, marginTop: -41, pointerEvents: 'none', zIndex: 10 }}>
-                    <Ionicons name="location" size={36} color={colors.primary} />
+                <View style={styles.pinMarker}>
+                    <Ionicons name="location" size={38} color={theme.colors.primary} />
                 </View>
             </View>
 
-            <View style={[styles.footer, { paddingBottom: insets.bottom + 25 }]}>
+            <View style={[styles.footer, { paddingBottom: insets.bottom + theme.spacing.md }]}>
                 <Text style={styles.enderecoLabel}>Endereço selecionado:</Text>
                 <Text style={styles.enderecoText}>{enderecoCompleto}</Text>
-                <TouchableOpacity style={styles.button} onPress={abrirModalConfirmacao}>
+                
+                <TouchableOpacity style={styles.button} onPress={abrirModalConfirmacao} activeOpacity={0.8}>
                     <Text style={styles.buttonText}>Confirmar Localização</Text>
                 </TouchableOpacity>
             </View>
@@ -214,7 +223,9 @@ export default function CadastroEndereco() {
                 <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
-                            <Ionicons name="bookmark" size={28} color={colors.primary} />
+                            <View style={styles.modalIconCircle}>
+                                <Ionicons name="bookmark" size={22} color={theme.colors.primary} />
+                            </View>
                             <Text style={styles.modalTitulo}>Salvar Endereço</Text>
                         </View>
 
@@ -225,7 +236,7 @@ export default function CadastroEndereco() {
                         <TextInput
                             style={styles.inputNome}
                             placeholder="Nome do local"
-                            placeholderTextColor={colors.textMuted}
+                            placeholderTextColor={theme.colors.textLight}
                             value={nomeLocal}
                             onChangeText={setNomeLocal}
                             autoCapitalize="words"
@@ -239,17 +250,19 @@ export default function CadastroEndereco() {
                                 style={[styles.botaoModal, styles.botaoCancelar]}
                                 onPress={() => setModalVisivel(false)}
                                 disabled={salvando}
+                                activeOpacity={0.7}
                             >
                                 <Text style={styles.textoBotaoCancelar}>Cancelar</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                                style={[styles.botaoModal, styles.botaoConfirmar]}
+                                style={[styles.botaoModal, styles.botaoConfirmar, (!nomeLocal.trim() || salvando) && styles.botaoDisabled]}
                                 onPress={salvarEndereco}
                                 disabled={salvando || !nomeLocal.trim()}
+                                activeOpacity={0.8}
                             >
                                 {salvando ? (
-                                    <ActivityIndicator color={colors.white} />
+                                    <ActivityIndicator color={theme.colors.surface} />
                                 ) : (
                                     <Text style={styles.textoBotaoConfirmar}>Salvar</Text>
                                 )}
@@ -261,3 +274,154 @@ export default function CadastroEndereco() {
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    center: {
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    headerOverlay: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: theme.spacing.md,
+        paddingBottom: theme.spacing.sm,
+        backgroundColor: theme.colors.surface,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.border,
+        zIndex: 10,
+    },
+    backButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: theme.spacing.sm,
+    },
+    headerText: {
+        fontSize: theme.typography.size.large,
+        fontWeight: theme.typography.weight.bold,
+        color: theme.colors.text,
+    },
+    mapContainer: {
+        flex: 1,
+        position: 'relative',
+    },
+    pinMarker: {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        marginLeft: -19,
+        marginTop: -38,
+        pointerEvents: 'none',
+        zIndex: 10,
+    },
+    footer: {
+        backgroundColor: theme.colors.surface,
+        paddingHorizontal: theme.spacing.lg,
+        paddingTop: theme.spacing.md,
+        borderTopWidth: 1,
+        borderTopColor: theme.colors.border,
+        gap: theme.spacing.xs,
+    },
+    enderecoLabel: {
+        fontSize: theme.typography.size.small,
+        color: theme.colors.textLight,
+        fontWeight: '600',
+    },
+    enderecoText: {
+        fontSize: theme.typography.size.regular,
+        fontWeight: theme.typography.weight.bold,
+        color: theme.colors.text,
+        marginBottom: theme.spacing.xs,
+    },
+    button: {
+        height: 50,
+        backgroundColor: theme.colors.primary,
+        borderRadius: theme.borderRadius.md,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    buttonText: {
+        color: theme.colors.surface,
+        fontSize: theme.typography.size.regular,
+        fontWeight: theme.typography.weight.bold,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        padding: theme.spacing.lg,
+    },
+    modalContent: {
+        backgroundColor: theme.colors.surface,
+        borderRadius: theme.borderRadius.lg,
+        padding: theme.spacing.lg,
+        gap: theme.spacing.md,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: theme.spacing.xs,
+    },
+    modalIconCircle: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: `${theme.colors.primary}15`,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalTitulo: {
+        fontSize: theme.typography.size.large,
+        fontWeight: theme.typography.weight.bold,
+        color: theme.colors.text,
+    },
+    modalTexto: {
+        fontSize: theme.typography.size.regular,
+        color: theme.colors.textLight,
+    },
+    inputNome: {
+        height: 48,
+        backgroundColor: theme.colors.background,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        borderRadius: theme.borderRadius.md,
+        paddingHorizontal: theme.spacing.md,
+        fontSize: theme.typography.size.regular,
+        color: theme.colors.text,
+    },
+    modalBotoes: {
+        flexDirection: 'row',
+        gap: theme.spacing.md,
+        marginTop: theme.spacing.xs,
+    },
+    botaoModal: {
+        flex: 1,
+        height: 48,
+        borderRadius: theme.borderRadius.md,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    botaoCancelar: {
+        backgroundColor: theme.colors.background,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+    },
+    textoBotaoCancelar: {
+        color: theme.colors.text,
+        fontWeight: theme.typography.weight.bold,
+        fontSize: theme.typography.size.regular,
+    },
+    botaoConfirmar: {
+        backgroundColor: theme.colors.primary,
+    },
+    botaoDisabled: {
+        opacity: 0.5,
+    },
+    textoBotaoConfirmar: {
+        color: theme.colors.surface,
+        fontWeight: theme.typography.weight.bold,
+        fontSize: theme.typography.size.regular,
+    },
+});

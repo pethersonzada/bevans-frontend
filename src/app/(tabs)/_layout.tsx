@@ -1,7 +1,7 @@
-import { colors } from '@/src/constants/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { theme } from '../../styles/theme';
 
 export default function TabLayout() {
     const insets = useSafeAreaInsets();
@@ -9,12 +9,12 @@ export default function TabLayout() {
     return (
         <Tabs screenOptions={{ 
             headerShown: false,
-            tabBarActiveTintColor: colors.primary,
-            tabBarInactiveTintColor: colors.textMuted,
+            tabBarActiveTintColor: theme.colors.primary,
+            tabBarInactiveTintColor: theme.colors.textLight,
             tabBarStyle: {
-                backgroundColor: colors.white,
+                backgroundColor: theme.colors.surface,
                 borderTopWidth: 1,
-                borderTopColor: colors.border,
+                borderTopColor: theme.colors.border,
                 height: 60 + (insets.bottom > 0 ? insets.bottom : 10), 
                 paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
                 paddingTop: 8,

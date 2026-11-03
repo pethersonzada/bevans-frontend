@@ -12,15 +12,17 @@ import {
     Pressable,
     ScrollView,
     StatusBar,
+    StyleSheet,
     Text,
     TextInput,
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { API_URL } from '../../config/config';
+
+import { apiFetch } from '@/src/config/api';
 import { auth } from '../../config/firebase';
-import { colors } from '../../constants/colors';
-import { perfilStyles as s } from '../../constants/perfilStyles';
+import { globalStyles } from '../../styles/globalStyles';
+import { theme } from '../../styles/theme';
 import { useAuth } from '../context/AuthContext';
 
 const WHATSAPP_URL = 'https://wa.me/5581991976404';
@@ -48,7 +50,6 @@ export default function Perfil() {
     const inicial = nome.charAt(0).toUpperCase();
     const confirmacaoOk = textoDigitado.trim().toUpperCase() === PALAVRA_CONFIRMACAO;
 
-    // Identifica se é passageiro (ajuste conforme a string que vem no teu objeto user.tipo, ex: 'PASSAGEIRO' ou 'ALUNO')
     const ehPassageiro = user?.tipo?.toUpperCase() === 'PASSAGEIRO' || user?.tipo?.toUpperCase() === 'ALUNO';
 
     const abrirWhatsApp = () => {
@@ -100,7 +101,7 @@ export default function Perfil() {
             await reauthenticateWithCredential(userFirebase, credential);
             await updateEmail(userFirebase, novoEmail.trim());
 
-            const resposta = await fetch(`${API_URL}/usuarios/${user.id}/email`, {
+            const resposta = await apiFetch(`/usuarios/${user.id}/email`, {
                 method: 'PUT',
                 headers: { 
                     'Content-Type': 'application/json',
@@ -159,7 +160,7 @@ export default function Perfil() {
         setExcluindo(true);
         setErroExclusao('');
         try {
-            const resposta = await fetch(`${API_URL}/usuarios/${user.id}`, { 
+            const resposta = await apiFetch(`/usuarios/${user.id}`, { 
                 method: 'DELETE',
                 headers: { 'Bypass-Tunnel-Reminder': 'true' }
             });
@@ -177,103 +178,102 @@ export default function Perfil() {
     };
 
     return (
-        <View style={s.container}>
-            <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+        <View style={globalStyles.container}>
+            <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scrollContent}>
-                <View style={[s.headerBanner, { paddingTop: insets.top + 60 }]} />
-
-                <View style={s.profileHeader}>
-                    <View style={s.avatarContainer}>
-                        <Text style={s.avatarText}>{inicial}</Text>
+            <ScrollView 
+                showsVerticalScrollIndicator={false} 
+                contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + theme.spacing.md }]}
+            >
+                <View style={styles.profileHeader}>
+                    <View style={styles.avatarContainer}>
+                        <Text style={styles.avatarText}>{inicial}</Text>
                     </View>
-                    <Text style={s.nome} numberOfLines={1}>{nome}</Text>
+                    <Text style={styles.nome} numberOfLines={1}>{nome}</Text>
                     {user?.tipo ? (
-                        <View style={s.badge}>
-                            <Ionicons name="shield-checkmark" size={12} color={colors.primary} />
-                            <Text style={s.badgeText}>{user.tipo}</Text>
+                        <View style={styles.badge}>
+                            <Ionicons name="shield-checkmark" size={12} color={theme.colors.primary} />
+                            <Text style={styles.badgeText}>{user.tipo}</Text>
                         </View>
                     ) : null}
                 </View>
 
-                {/* Exibe Gerenciar Endereços APENAS se for passageiro */}
                 {ehPassageiro && (
-                    <View style={s.section}>
-                        <Text style={s.sectionTitle}>ENDEREÇOS</Text>
-                        <View style={s.card}>
-                            <Pressable style={s.menuItem} onPress={() => router.push('/gerenciar-enderecos' as any)}>
-                                <View style={s.menuIconWrapper}>
-                                    <Ionicons name="location-outline" size={20} color={colors.textMain} />
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>ENDEREÇOS</Text>
+                        <View style={globalStyles.card}>
+                            <Pressable style={styles.menuItem} onPress={() => router.push('/gerenciar-enderecos' as any)}>
+                                <View style={styles.menuIconWrapper}>
+                                    <Ionicons name="location-outline" size={20} color={theme.colors.text} />
                                 </View>
-                                <Text style={s.menuText}>Gerenciar Endereços</Text>
-                                <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                                <Text style={styles.menuText}>Gerenciar Endereços</Text>
+                                <Ionicons name="chevron-forward" size={16} color={theme.colors.textLight} />
                             </Pressable>
                         </View>
                     </View>
                 )}
 
-                <View style={s.section}>
-                    <Text style={s.sectionTitle}>SEGURANÇA</Text>
-                    <View style={s.card}>
-                        <Pressable style={s.menuItem} onPress={() => setModalEmailVisivel(true)}>
-                            <View style={s.menuIconWrapper}>
-                                <Ionicons name="mail-outline" size={20} color={colors.textMain} />
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>SEGURANÇA</Text>
+                    <View style={globalStyles.card}>
+                        <Pressable style={styles.menuItem} onPress={() => setModalEmailVisivel(true)}>
+                            <View style={styles.menuIconWrapper}>
+                                <Ionicons name="mail-outline" size={20} color={theme.colors.text} />
                             </View>
-                            <Text style={s.menuText}>Alterar E-mail</Text>
-                            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                            <Text style={styles.menuText}>Alterar E-mail</Text>
+                            <Ionicons name="chevron-forward" size={16} color={theme.colors.textLight} />
                         </Pressable>
 
-                        <View style={s.divider} />
+                        <View style={styles.divider} />
 
-                        <Pressable style={s.menuItem} onPress={() => setModalSenhaVisivel(true)}>
-                            <View style={s.menuIconWrapper}>
-                                <Ionicons name="lock-closed-outline" size={20} color={colors.textMain} />
+                        <Pressable style={styles.menuItem} onPress={() => setModalSenhaVisivel(true)}>
+                            <View style={styles.menuIconWrapper}>
+                                <Ionicons name="lock-closed-outline" size={20} color={theme.colors.text} />
                             </View>
-                            <Text style={s.menuText}>Alterar Senha</Text>
-                            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-                        </Pressable>
-                    </View>
-                </View>
-
-                <View style={s.section}>
-                    <Text style={s.sectionTitle}>SUPORTE</Text>
-                    <View style={s.card}>
-                        <Pressable style={s.menuItem} onPress={abrirWhatsApp}>
-                            <View style={s.menuIconWrapper}>
-                                <Ionicons name="headset-outline" size={20} color={colors.textMain} />
-                            </View>
-                            <Text style={s.menuText}>Central de Ajuda</Text>
-                            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                            <Text style={styles.menuText}>Alterar Senha</Text>
+                            <Ionicons name="chevron-forward" size={16} color={theme.colors.textLight} />
                         </Pressable>
                     </View>
                 </View>
 
-                <View style={s.actionContainer}>
-                    <Pressable style={s.botaoSair} onPress={sair}>
-                        <Ionicons name="log-out-outline" size={20} color={colors.danger} />
-                        <Text style={s.textoBotaoSair}>Encerrar Sessão</Text>
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>SUPORTE</Text>
+                    <View style={globalStyles.card}>
+                        <Pressable style={styles.menuItem} onPress={abrirWhatsApp}>
+                            <View style={styles.menuIconWrapper}>
+                                <Ionicons name="headset-outline" size={20} color={theme.colors.text} />
+                            </View>
+                            <Text style={styles.menuText}>Central de Ajuda</Text>
+                            <Ionicons name="chevron-forward" size={16} color={theme.colors.textLight} />
+                        </Pressable>
+                    </View>
+                </View>
+
+                <View style={styles.actionContainer}>
+                    <Pressable style={styles.botaoSair} onPress={sair}>
+                        <Ionicons name="log-out-outline" size={20} color={theme.colors.danger} />
+                        <Text style={styles.textoBotaoSair}>Encerrar Sessão</Text>
                     </Pressable>
 
-                    <Pressable style={s.botaoDeletar} onPress={() => setModalDeletarVisivel(true)}>
-                        <Ionicons name="trash-outline" size={20} color={colors.white} />
-                        <Text style={s.textoBotaoDeletar}>Excluir Minha Conta</Text>
+                    <Pressable style={styles.botaoDeletar} onPress={() => setModalDeletarVisivel(true)}>
+                        <Ionicons name="trash-outline" size={20} color={theme.colors.surface} />
+                        <Text style={styles.textoBotaoDeletar}>Excluir Minha Conta</Text>
                     </Pressable>
                 </View>
             </ScrollView>
 
-            {/* MODAL: ALTERAR E-MAIL */}
             <Modal animationType="fade" transparent visible={modalEmailVisivel} onRequestClose={fecharModais}>
-                <KeyboardAvoidingView style={s.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-                    <View style={s.modalContent}>
-                        <Text style={s.modalTitulo}>Alterar E-mail</Text>
-                        <Text style={s.modalTexto}>
+                <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+                    <View style={globalStyles.card}>
+                        <Text style={globalStyles.title}>Alterar E-mail</Text>
+                        <Text style={styles.modalTexto}>
                             Por segurança, informe sua senha atual e o novo endereço de e-mail.
                         </Text>
 
                         <TextInput
-                            style={s.inputForm}
+                            style={globalStyles.input}
                             placeholder="Senha atual"
-                            placeholderTextColor={colors.textMuted}
+                            placeholderTextColor={theme.colors.textLight}
                             secureTextEntry
                             value={senhaAtual}
                             onChangeText={setSenhaAtual}
@@ -281,9 +281,9 @@ export default function Perfil() {
                         />
 
                         <TextInput
-                            style={s.inputForm}
+                            style={globalStyles.input}
                             placeholder="Novo e-mail"
-                            placeholderTextColor={colors.textMuted}
+                            placeholderTextColor={theme.colors.textLight}
                             keyboardType="email-address"
                             autoCapitalize="none"
                             value={novoEmail}
@@ -291,55 +291,53 @@ export default function Perfil() {
                             editable={!carregandoEmail}
                         />
 
-                        <View style={s.modalBotoes}>
-                            <Pressable style={[s.botaoModal, s.botaoCancelar]} onPress={fecharModais} disabled={carregandoEmail}>
-                                <Text style={s.textoBotaoCancelar}>Cancelar</Text>
+                        <View style={styles.modalBotoes}>
+                            <Pressable style={[styles.botaoModal, styles.botaoCancelar]} onPress={fecharModais} disabled={carregandoEmail}>
+                                <Text style={styles.textoBotaoCancelar}>Cancelar</Text>
                             </Pressable>
-                            <Pressable style={[s.botaoModal, s.botaoConfirmarPadrao]} onPress={handleAlterarEmail} disabled={carregandoEmail}>
-                                {carregandoEmail ? <ActivityIndicator color={colors.white} /> : <Text style={s.textoBotaoConfirmarPadrao}>Atualizar</Text>}
+                            <Pressable style={[styles.botaoModal, styles.botaoConfirmarPadrao]} onPress={handleAlterarEmail} disabled={carregandoEmail}>
+                                {carregandoEmail ? <ActivityIndicator color={theme.colors.surface} /> : <Text style={styles.textoBotaoConfirmarPadrao}>Atualizar</Text>}
                             </Pressable>
                         </View>
                     </View>
                 </KeyboardAvoidingView>
             </Modal>
 
-            {/* MODAL: REDEFINIR SENHA */}
             <Modal animationType="fade" transparent visible={modalSenhaVisivel} onRequestClose={fecharModais}>
-                <KeyboardAvoidingView style={s.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-                    <View style={s.modalContent}>
-                        <Text style={s.modalTitulo}>Redefinir Senha</Text>
-                        <Text style={s.modalTexto}>
+                <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+                    <View style={globalStyles.card}>
+                        <Text style={globalStyles.title}>Redefinir Senha</Text>
+                        <Text style={styles.modalTexto}>
                             Deseja receber um link de redefinição de senha no e-mail associado à sua conta atual?
                         </Text>
 
-                        <View style={s.modalBotoes}>
-                            <Pressable style={[s.botaoModal, s.botaoCancelar]} onPress={fecharModais} disabled={carregandoSenha}>
-                                <Text style={s.textoBotaoCancelar}>Cancelar</Text>
+                        <View style={styles.modalBotoes}>
+                            <Pressable style={[styles.botaoModal, styles.botaoCancelar]} onPress={fecharModais} disabled={carregandoSenha}>
+                                <Text style={styles.textoBotaoCancelar}>Cancelar</Text>
                             </Pressable>
-                            <Pressable style={[s.botaoModal, s.botaoConfirmarPadrao]} onPress={handleRecuperarSenha} disabled={carregandoSenha}>
-                                {carregandoSenha ? <ActivityIndicator color={colors.white} /> : <Text style={s.textoBotaoConfirmarPadrao}>Enviar Link</Text>}
+                            <Pressable style={[styles.botaoModal, styles.botaoConfirmarPadrao]} onPress={handleRecuperarSenha} disabled={carregandoSenha}>
+                                {carregandoSenha ? <ActivityIndicator color={theme.colors.surface} /> : <Text style={styles.textoBotaoConfirmarPadrao}>Enviar Link</Text>}
                             </Pressable>
                         </View>
                     </View>
                 </KeyboardAvoidingView>
             </Modal>
 
-            {/* MODAL: EXCLUIR CONTA */}
             <Modal animationType="fade" transparent visible={modalDeletarVisivel} onRequestClose={fecharModais}>
-                <KeyboardAvoidingView style={s.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-                    <View style={s.modalContent}>
-                        <View style={s.modalIcon}>
-                            <Ionicons name="alert-circle" size={40} color={colors.danger} />
+                <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+                    <View style={globalStyles.card}>
+                        <View style={styles.modalIcon}>
+                            <Ionicons name="alert-circle" size={40} color={theme.colors.danger} />
                         </View>
-                        <Text style={s.modalTitulo}>Aviso de Exclusão</Text>
-                        <Text style={s.modalTexto}>
-                            Esta operação não pode ser desfeita. Digite <Text style={{ fontWeight: 'bold', color: colors.textMain }}>{PALAVRA_CONFIRMACAO}</Text> para prosseguir.
+                        <Text style={globalStyles.title}>Aviso de Exclusão</Text>
+                        <Text style={styles.modalTexto}>
+                            Esta operação não pode ser desfeita. Digite <Text style={{ fontWeight: theme.typography.weight.bold, color: theme.colors.text }}>{PALAVRA_CONFIRMACAO}</Text> para prosseguir.
                         </Text>
 
                         <TextInput
-                            style={s.inputCodigo}
+                            style={[globalStyles.input, { textAlign: 'center', textTransform: 'uppercase' }]}
                             placeholder={PALAVRA_CONFIRMACAO}
-                            placeholderTextColor={colors.textMuted}
+                            placeholderTextColor={theme.colors.textLight}
                             value={textoDigitado}
                             onChangeText={(t) => {
                                 setTextoDigitado(t);
@@ -349,13 +347,14 @@ export default function Perfil() {
                             autoCorrect={false}
                             editable={!excluindo}
                         />
-                        {erroExclusao ? <Text style={s.errorText}>{erroExclusao}</Text> : null}
-                        <View style={s.modalBotoes}>
-                            <Pressable style={[s.botaoModal, s.botaoCancelar]} onPress={fecharModais} disabled={excluindo}>
-                                <Text style={s.textoBotaoCancelar}>Cancelar</Text>
+                        {erroExclusao ? <Text style={globalStyles.errorText}>{erroExclusao}</Text> : null}
+                        
+                        <View style={styles.modalBotoes}>
+                            <Pressable style={[styles.botaoModal, styles.botaoCancelar]} onPress={fecharModais} disabled={excluindo}>
+                                <Text style={styles.textoBotaoCancelar}>Cancelar</Text>
                             </Pressable>
-                            <Pressable style={[s.botaoModal, s.botaoConfirmarExclusao, (!confirmacaoOk || excluindo) && { opacity: 0.4 }]} onPress={excluirConta} disabled={!confirmacaoOk || excluindo}>
-                                {excluindo ? <ActivityIndicator color={colors.white} /> : <Text style={s.textoBotaoConfirmarExclusao}>Excluir</Text>}
+                            <Pressable style={[styles.botaoModal, styles.botaoConfirmarExclusao, (!confirmacaoOk || excluindo) && { opacity: 0.4 }]} onPress={excluirConta} disabled={!confirmacaoOk || excluindo}>
+                                {excluindo ? <ActivityIndicator color={theme.colors.surface} /> : <Text style={styles.textoBotaoConfirmarExclusao}>Excluir</Text>}
                             </Pressable>
                         </View>
                     </View>
@@ -364,3 +363,176 @@ export default function Perfil() {
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    scrollContent: {
+        paddingBottom: theme.spacing.xxl,
+    },
+    profileHeader: {
+        alignItems: 'center',
+        marginBottom: theme.spacing.xl,
+    },
+    avatarContainer: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: theme.colors.surface,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 3,
+        borderColor: theme.colors.primary,
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+    },
+    avatarText: {
+        fontSize: 40,
+        fontWeight: theme.typography.weight.bold,
+        color: theme.colors.primary,
+    },
+    nome: {
+        fontSize: theme.typography.size.large,
+        fontWeight: theme.typography.weight.bold,
+        color: theme.colors.text,
+        marginTop: theme.spacing.md,
+    },
+    badge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: `${theme.colors.primary}15`,
+        paddingHorizontal: theme.spacing.sm,
+        paddingVertical: theme.spacing.xs,
+        borderRadius: theme.borderRadius.pill,
+        marginTop: theme.spacing.xs,
+    },
+    badgeText: {
+        marginLeft: theme.spacing.xs,
+        fontSize: theme.typography.size.small,
+        fontWeight: theme.typography.weight.bold,
+        color: theme.colors.primary,
+    },
+    section: {
+        marginBottom: theme.spacing.lg,
+    },
+    sectionTitle: {
+        fontSize: theme.typography.size.small,
+        fontWeight: theme.typography.weight.bold,
+        color: theme.colors.textLight,
+        marginBottom: theme.spacing.sm,
+        marginLeft: theme.spacing.xs,
+    },
+    menuItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: theme.spacing.sm,
+    },
+    menuIconWrapper: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: `${theme.colors.primary}10`,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: theme.spacing.md,
+    },
+    menuText: {
+        flex: 1,
+        fontSize: theme.typography.size.regular,
+        color: theme.colors.text,
+    },
+    divider: {
+        height: 1,
+        backgroundColor: theme.colors.border,
+        marginVertical: theme.spacing.sm,
+        marginLeft: 52,
+    },
+    actionContainer: {
+        marginTop: theme.spacing.lg,
+        gap: theme.spacing.md,
+    },
+    botaoSair: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: `${theme.colors.danger}10`,
+        padding: theme.spacing.md,
+        borderRadius: theme.borderRadius.md,
+    },
+    textoBotaoSair: {
+        marginLeft: theme.spacing.sm,
+        color: theme.colors.danger,
+        fontSize: theme.typography.size.regular,
+        fontWeight: theme.typography.weight.bold,
+    },
+    botaoDeletar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: theme.colors.danger,
+        padding: theme.spacing.md,
+        borderRadius: theme.borderRadius.md,
+    },
+    textoBotaoDeletar: {
+        marginLeft: theme.spacing.sm,
+        color: theme.colors.surface,
+        fontSize: theme.typography.size.regular,
+        fontWeight: theme.typography.weight.bold,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        padding: theme.spacing.lg,
+    },
+    modalTexto: {
+        fontSize: theme.typography.size.regular,
+        color: theme.colors.textLight,
+        textAlign: 'center',
+        marginBottom: theme.spacing.lg,
+    },
+    modalIcon: {
+        alignItems: 'center',
+        marginBottom: theme.spacing.md,
+    },
+    modalBotoes: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: theme.spacing.md,
+        gap: theme.spacing.md,
+    },
+    botaoModal: {
+        flex: 1,
+        height: 48,
+        borderRadius: theme.borderRadius.md,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    botaoCancelar: {
+        backgroundColor: theme.colors.background,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+    },
+    textoBotaoCancelar: {
+        color: theme.colors.text,
+        fontSize: theme.typography.size.regular,
+        fontWeight: theme.typography.weight.bold,
+    },
+    botaoConfirmarPadrao: {
+        backgroundColor: theme.colors.primary,
+    },
+    textoBotaoConfirmarPadrao: {
+        color: theme.colors.surface,
+        fontSize: theme.typography.size.regular,
+        fontWeight: theme.typography.weight.bold,
+    },
+    botaoConfirmarExclusao: {
+        backgroundColor: theme.colors.danger,
+    },
+    textoBotaoConfirmarExclusao: {
+        color: theme.colors.surface,
+        fontSize: theme.typography.size.regular,
+        fontWeight: theme.typography.weight.bold,
+    },
+});

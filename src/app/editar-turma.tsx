@@ -2,10 +2,22 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+    ActivityIndicator,
+    Alert,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { API_URL } from '../config/config';
-import { colors } from '../constants/colors';
+
+import { apiFetch } from '../config/api';
+import { globalStyles } from '../styles/globalStyles';
+import { theme } from '../styles/theme';
 
 export default function EditarTurma() {
     const { id, nomeAtual, turnoAtual, origemAtual, destinoAtual } = useLocalSearchParams<{ 
@@ -37,7 +49,7 @@ export default function EditarTurma() {
         setLoadingDados(true);
         try {
             const motoristaId = await AsyncStorage.getItem('userId') || '1';
-            const response = await fetch(`${API_URL}/turmas/motorista/${motoristaId}`, {
+            const response = await apiFetch(`/turmas/motorista/${motoristaId}`, {
                 headers: { 'Accept': 'application/json', 'Bypass-Tunnel-Reminder': 'true' }
             });
             if (response.ok) {
@@ -70,7 +82,7 @@ export default function EditarTurma() {
 
         setSalvando(true);
         try {
-            const response = await fetch(`${API_URL}/turmas/${id}`, {
+            const response = await apiFetch(`/turmas/${id}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -119,7 +131,7 @@ export default function EditarTurma() {
 
         setExcluindo(true);
         try {
-            const response = await fetch(`${API_URL}/turmas/${id}`, {
+            const response = await apiFetch(`/turmas/${id}`, {
                 method: 'DELETE',
                 headers: { 'Bypass-Tunnel-Reminder': 'true' }
             });
@@ -140,111 +152,214 @@ export default function EditarTurma() {
     }
 
     return (
-        <View style={{ flex: 1, backgroundColor: colors.background }}>
-            <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+        <View style={globalStyles.container}>
+            <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
             
-            <View style={{ paddingTop: insets.top + 15, paddingHorizontal: 20, paddingBottom: 15, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.backgroundAlt, borderBottomWidth: 1, borderBottomColor: colors.border }}>
-                <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 15, padding: 4 }}>
-                    <Ionicons name="arrow-back" size={24} color={colors.textMain} />
+            <View style={[styles.header, { paddingTop: insets.top + theme.spacing.xs }]}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}>
+                    <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
                 </TouchableOpacity>
-                <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.textMain }}>Editar Turma e Percurso</Text>
+                <Text style={styles.headerTitle}>Editar Turma e Percurso</Text>
             </View>
 
-            <ScrollView contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false}>
-                {loadingDados ? (
-                    <ActivityIndicator size="small" color={colors.primary} style={{ marginBottom: 20 }} />
-                ) : null}
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                {loadingDados && (
+                    <ActivityIndicator size="small" color={theme.colors.primary} style={styles.loadingIndicator} />
+                )}
 
-                <View style={{ marginBottom: 20 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textMain, marginBottom: 8 }}>Nome da Turma / Rota</Text>
+                <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Nome da Turma / Rota</Text>
                     <TextInput
-                        style={{ backgroundColor: colors.backgroundAlt, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, color: colors.textMain, fontSize: 15 }}
+                        style={styles.input}
                         placeholder="Ex: Escola Dom Bosco - Manhã"
-                        placeholderTextColor={colors.textMuted}
+                        placeholderTextColor={theme.colors.textLight}
                         value={nome}
                         onChangeText={setNome}
                     />
                 </View>
 
-                <View style={{ marginBottom: 20 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textMain, marginBottom: 8 }}>Turno</Text>
+                <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Turno</Text>
                     <TextInput
-                        style={{ backgroundColor: colors.backgroundAlt, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, color: colors.textMain, fontSize: 15 }}
+                        style={styles.input}
                         placeholder="Ex: Manhã, Tarde ou Noite"
-                        placeholderTextColor={colors.textMuted}
+                        placeholderTextColor={theme.colors.textLight}
                         value={turno}
                         onChangeText={setTurno}
                     />
                 </View>
 
-                <View style={{ marginBottom: 20 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textMain, marginBottom: 8 }}>Endereço de Saída (Origem)</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Endereço de Saída (Origem)</Text>
+                    <View style={styles.mapInputContainer}>
                         <TextInput
-                            style={{ flex: 1, backgroundColor: colors.backgroundAlt, borderWidth: 1, borderColor: colors.border, borderTopLeftRadius: 12, borderBottomLeftRadius: 12, paddingHorizontal: 16, paddingVertical: 14, color: colors.textMain, fontSize: 14 }}
+                            style={[styles.input, styles.mapInput]}
                             placeholder="Defina a saída no mapa"
-                            placeholderTextColor={colors.textMuted}
+                            placeholderTextColor={theme.colors.textLight}
                             value={origemNome}
                             editable={false}
                         />
                         <TouchableOpacity 
-                            style={{ backgroundColor: colors.primary, paddingHorizontal: 16, paddingVertical: 14, borderTopRightRadius: 12, borderBottomRightRadius: 12, justifyContent: 'center', alignItems: 'center' }}
+                            style={styles.mapButton}
                             onPress={() => router.push({ pathname: '/selecionar-rota-mapa', params: { turmaId: id, tipo: 'ORIGEM' } } as any)}
+                            activeOpacity={0.8}
                         >
-                            <Ionicons name="map" size={20} color="#FFF" />
+                            <Ionicons name="map" size={20} color={theme.colors.surface} />
                         </TouchableOpacity>
                     </View>
                 </View>
 
-                <View style={{ marginBottom: 30 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textMain, marginBottom: 8 }}>Ponto Final (Destino)</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={[styles.inputGroup, { marginBottom: theme.spacing.xl }]}>
+                    <Text style={styles.label}>Ponto Final (Destino)</Text>
+                    <View style={styles.mapInputContainer}>
                         <TextInput
-                            style={{ flex: 1, backgroundColor: colors.backgroundAlt, borderWidth: 1, borderColor: colors.border, borderTopLeftRadius: 12, borderBottomLeftRadius: 12, paddingHorizontal: 16, paddingVertical: 14, color: colors.textMain, fontSize: 14 }}
+                            style={[styles.input, styles.mapInput]}
                             placeholder="Defina o destino no mapa"
-                            placeholderTextColor={colors.textMuted}
+                            placeholderTextColor={theme.colors.textLight}
                             value={destinoNome}
                             editable={false}
                         />
                         <TouchableOpacity 
-                            style={{ backgroundColor: colors.primary, paddingHorizontal: 16, paddingVertical: 14, borderTopRightRadius: 12, borderBottomRightRadius: 12, justifyContent: 'center', alignItems: 'center' }}
+                            style={styles.mapButton}
                             onPress={() => router.push({ pathname: '/selecionar-rota-mapa', params: { turmaId: id, tipo: 'DESTINO' } } as any)}
+                            activeOpacity={0.8}
                         >
-                            <Ionicons name="map" size={20} color="#FFF" />
+                            <Ionicons name="map" size={20} color={theme.colors.surface} />
                         </TouchableOpacity>
                     </View>
                 </View>
 
                 <TouchableOpacity 
-                    style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 16, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', marginBottom: 15 }}
+                    style={[styles.buttonSubmit, (salvando || excluindo) && styles.buttonDisabled]}
                     onPress={handleSalvarEdicao}
                     disabled={salvando || excluindo}
+                    activeOpacity={0.85}
                 >
                     {salvando ? (
-                        <ActivityIndicator color="#FFF" />
+                        <ActivityIndicator color={theme.colors.surface} />
                     ) : (
-                        <>
-                            <Ionicons name="checkmark-circle-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
-                            <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 16 }}>Salvar Alterações</Text>
-                        </>
+                        <View style={styles.buttonContent}>
+                            <Ionicons name="checkmark-circle-outline" size={20} color={theme.colors.surface} />
+                            <Text style={styles.buttonText}>Salvar Alterações</Text>
+                        </View>
                     )}
                 </TouchableOpacity>
 
                 <TouchableOpacity 
-                    style={{ backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.danger, borderRadius: 12, paddingVertical: 15, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' }}
+                    style={[styles.buttonDelete, (salvando || excluindo) && styles.buttonDisabled]}
                     onPress={confirmarExclusao}
                     disabled={salvando || excluindo}
+                    activeOpacity={0.8}
                 >
                     {excluindo ? (
-                        <ActivityIndicator color={colors.danger} />
+                        <ActivityIndicator color={theme.colors.danger} />
                     ) : (
-                        <>
-                            <Ionicons name="trash-outline" size={20} color={colors.danger} style={{ marginRight: 8 }} />
-                            <Text style={{ color: colors.danger, fontWeight: 'bold', fontSize: 15 }}>Excluir Turma</Text>
-                        </>
+                        <View style={styles.buttonContent}>
+                            <Ionicons name="trash-outline" size={20} color={theme.colors.danger} />
+                            <Text style={styles.buttonDeleteText}>Excluir Turma</Text>
+                        </View>
                     )}
                 </TouchableOpacity>
             </ScrollView>
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    header: {
+        paddingHorizontal: theme.spacing.md,
+        paddingBottom: theme.spacing.md,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.surface,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.border,
+    },
+    backButton: {
+        marginRight: theme.spacing.sm,
+        padding: 4,
+    },
+    headerTitle: {
+        fontSize: theme.typography.size.large,
+        fontWeight: theme.typography.weight.bold,
+        color: theme.colors.text,
+    },
+    content: {
+        padding: theme.spacing.lg,
+    },
+    loadingIndicator: {
+        marginBottom: theme.spacing.md,
+    },
+    inputGroup: {
+        marginBottom: theme.spacing.lg,
+    },
+    label: {
+        fontSize: theme.typography.size.small,
+        fontWeight: theme.typography.weight.bold,
+        color: theme.colors.text,
+        marginBottom: theme.spacing.xs,
+    },
+    input: {
+        height: 54,
+        backgroundColor: theme.colors.surface,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        borderRadius: theme.borderRadius.lg,
+        paddingHorizontal: theme.spacing.md + 2,
+        fontSize: 16,
+        color: theme.colors.text,
+    },
+    mapInputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    mapInput: {
+        flex: 1,
+        borderTopRightRadius: 0,
+        borderBottomRightRadius: 0,
+    },
+    mapButton: {
+        backgroundColor: theme.colors.primary,
+        paddingHorizontal: theme.spacing.md + 2,
+        height: 54,
+        borderTopRightRadius: theme.borderRadius.lg,
+        borderBottomRightRadius: theme.borderRadius.lg,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    buttonSubmit: {
+        height: 54,
+        backgroundColor: theme.colors.primary,
+        borderRadius: theme.borderRadius.lg,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: theme.spacing.md,
+    },
+    buttonDelete: {
+        height: 54,
+        backgroundColor: 'transparent',
+        borderWidth: 1,
+        borderColor: theme.colors.danger,
+        borderRadius: theme.borderRadius.lg,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    buttonContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: theme.spacing.xs,
+    },
+    buttonText: {
+        color: theme.colors.surface,
+        fontSize: 16,
+        fontWeight: theme.typography.weight.bold,
+    },
+    buttonDeleteText: {
+        color: theme.colors.danger,
+        fontSize: 16,
+        fontWeight: theme.typography.weight.bold,
+    },
+    buttonDisabled: {
+        opacity: 0.6,
+    },
+});

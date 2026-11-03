@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { colors } from '../../constants/colors';
+import { theme } from '../../styles/theme';
 
 interface Passageiro {
   nome: string;
@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: theme.spacing.sm,
   },
   avatarGroup: {
     flexDirection: 'row',
@@ -57,30 +57,30 @@ const styles = StyleSheet.create({
     width: 32,
     borderRadius: 16,
     borderWidth: 2,
-    borderColor: colors.backgroundAlt,
-    backgroundColor: colors.dark,
+    borderColor: theme.colors.surface,
+    backgroundColor: theme.colors.primaryDark,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
-    color: colors.white,
+    color: theme.colors.surface,
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: theme.typography.weight.bold,
     textTransform: 'uppercase',
   },
   textContainer: {
     flex: 1,
   },
   infoText: {
-    fontSize: 12,
-    color: colors.textMuted,
+    fontSize: theme.typography.size.small,
+    color: theme.colors.textLight,
   },
   boldText: {
-    fontWeight: '700',
-    color: colors.textMain,
+    fontWeight: theme.typography.weight.bold,
+    color: theme.colors.text,
   },
   emptyText: {
-    fontSize: 12,
-    color: colors.textMuted,
+    fontSize: theme.typography.size.small,
+    color: theme.colors.textLight,
   },
 });

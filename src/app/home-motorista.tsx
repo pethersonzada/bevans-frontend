@@ -1,10 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import {
+    ActivityIndicator,
+    Alert,
+    Modal,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 
-import { API_URL } from '../config/config';
-import { colors } from '../constants/colors';
+import { apiFetch } from '../config/api';
+import { theme } from '../styles/theme';
 import { useAuth } from './context/AuthContext';
 
 import { BannerRotaAtiva } from '../components/banners/BannerRotaAtiva';
@@ -54,7 +65,9 @@ export default function HomeMotorista() {
 
     async function buscarTurmas(motoristaId: string | number) {
         try {
-            const res = await fetch(`${API_URL}/turmas/motorista/${motoristaId}`, { headers: { 'Accept': 'application/json', 'Bypass-Tunnel-Reminder': 'true' } });
+            const res = await apiFetch(`/turmas/motorista/${motoristaId}`, { 
+                headers: { 'Accept': 'application/json', 'Bypass-Tunnel-Reminder': 'true' } 
+            });
             if (!res.ok) throw new Error();
             const data = await res.json();
             setTurmas(data);
@@ -86,27 +99,35 @@ export default function HomeMotorista() {
 
     async function buscarPassageirosPorTurma(turmaId: number) {
         try {
-            const res = await fetch(`${API_URL}/turmas/${turmaId}/passageiros`, { headers: { 'Accept': 'application/json', 'Bypass-Tunnel-Reminder': 'true' } });
+            const res = await apiFetch(`/turmas/${turmaId}/passageiros`, { 
+                headers: { 'Accept': 'application/json', 'Bypass-Tunnel-Reminder': 'true' } 
+            });
             if (res.ok) {
                 const dados = await res.json();
                 setPassageiros(dados);
             }
-        } catch (e) { console.log("Falha ao buscar passageiros."); }
+        } catch (e) { 
+            console.log("Falha ao buscar passageiros."); 
+        }
     }
 
     async function buscarAlunosPendentes(turmaId: number) {
         try {
-            const res = await fetch(`${API_URL}/turmas/${turmaId}/pendentes`, { headers: { 'Accept': 'application/json', 'Bypass-Tunnel-Reminder': 'true' } });
+            const res = await apiFetch(`/turmas/${turmaId}/pendentes`, { 
+                headers: { 'Accept': 'application/json', 'Bypass-Tunnel-Reminder': 'true' } 
+            });
             if (res.ok) {
                 const dados = await res.json();
                 setAlunosPendentes(dados);
             }
-        } catch (e) { console.log("Falha ao buscar pendentes."); }
+        } catch (e) { 
+            console.log("Falha ao buscar pendentes."); 
+        }
     }
 
     async function analisarSolicitacao(vinculoId: number, status: 'APROVADO' | 'REJEITADO') {
         try {
-            const res = await fetch(`${API_URL}/turmas/analisar/${vinculoId}?status=${status}`, {
+            const res = await apiFetch(`/turmas/analisar/${vinculoId}?status=${status}`, {
                 method: 'PUT',
                 headers: { 'Bypass-Tunnel-Reminder': 'true' }
             });
@@ -115,48 +136,36 @@ export default function HomeMotorista() {
             } else {
                 Alert.alert("Erro", "Não foi possível atualizar a solicitação.");
             }
-        } catch (e) { Alert.alert("Erro", "Falha de conexão com o servidor."); }
-    }
-
-    async function excluirTurmaAtual() {
-        if (!turmaSelecionada) return;
-
-        Alert.alert(
-            "Excluir Turma",
-            `Deseja realmente excluir a turma "${turmaSelecionada.nome}"?`,
-            [
-                { text: "Cancelar", style: "cancel" },
-                {
-                    text: "Excluir",
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            const res = await fetch(`${API_URL}/turmas/${turmaSelecionada.id}`, {
-                                method: 'DELETE',
-                                headers: { 'Bypass-Tunnel-Reminder': 'true' }
-                            });
-
-                            if (res.ok) {
-                                setTurmaSelecionada(null);
-                                if (user?.id) await buscarTurmas(String(user.id));
-                            } else {
-                                Alert.alert("Erro", "Não foi possível excluir a turma.");
-                            }
-                        } catch (e) { Alert.alert("Erro", "Falha de conexão com o servidor."); }
-                    }
-                }
-            ]
-        );
+        } catch (e) { 
+            Alert.alert("Erro", "Falha de conexão com o servidor."); 
+        }
     }
 
     async function checarAmnesia() {
         try {
-            const res = await fetch(`${API_URL}/rota/status-atual`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } });
+            // 1. Verifica flag local de segurança (Garante o banner se o server falhar)
+            const flagLocal = await AsyncStorage.getItem('@vanbora:viagem_ativa');
+            if (flagLocal === 'true') {
+                setViagemAtiva(true);
+                return;
+            }
+
+            // 2. Consulta o servidor
+            const res = await apiFetch(`/rota/status-atual`, { 
+                headers: { 'Bypass-Tunnel-Reminder': 'true' } 
+            });
             if (res.ok) {
                 const data = await res.json();
-                setViagemAtiva(data.status === 'ATIVA');
+                const statusStr = (data.status || data.situacao || '').toUpperCase();
+                const ativo = statusStr === 'ATIVA' || statusStr === 'EM_CURSO' || data.ativa === true;
+                setViagemAtiva(ativo);
+                if (ativo) await AsyncStorage.setItem('@vanbora:viagem_ativa', 'true');
+            } else {
+                setViagemAtiva(false);
             }
-        } catch (e) { }
+        } catch (e: any) { 
+            setViagemAtiva(false);
+        }
     }
 
     async function abrirModalAdicionarAluno() {
@@ -164,7 +173,9 @@ export default function HomeMotorista() {
         setModalVisible(true);
         setCarregandoAlunos(true);
         try {
-            const res = await fetch(`${API_URL}/usuarios/passageiros`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } });
+            const res = await apiFetch(`/usuarios/passageiros`, { 
+                headers: { 'Bypass-Tunnel-Reminder': 'true' } 
+            });
             if (res.ok) {
                 const todosOsPassageiros = await res.json();
                 const idsNaTurma = new Set(passageiros.map(p => p.id));
@@ -173,13 +184,15 @@ export default function HomeMotorista() {
             }
         } catch (e) {
             Alert.alert("Erro", "Não foi possível carregar alunos livres.");
-        } finally { setCarregandoAlunos(false); }
+        } finally { 
+            setCarregandoAlunos(false); 
+        }
     }
 
     async function vincularAluno(alunoId: number) {
         if (!turmaSelecionada) return;
         try {
-            const res = await fetch(`${API_URL}/turmas/${turmaSelecionada.id}/alunos/${alunoId}`, {
+            const res = await apiFetch(`/turmas/${turmaSelecionada.id}/alunos/${alunoId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' }
             });
@@ -191,7 +204,9 @@ export default function HomeMotorista() {
                 const erroTexto = await res.text();
                 Alert.alert("Erro", erroTexto || "Não foi possível vincular o aluno.");
             }
-        } catch (e) { Alert.alert("Erro", "Falha de conexão com o servidor."); }
+        } catch (e) { 
+            Alert.alert("Erro", "Falha de conexão com o servidor."); 
+        }
     }
 
     async function removerAluno(alunoId: number, nomeAluno: string) {
@@ -207,14 +222,16 @@ export default function HomeMotorista() {
                     style: "destructive",
                     onPress: async () => {
                         try {
-                            const res = await fetch(`${API_URL}/turmas/${turmaSelecionada.id}/alunos/${alunoId}`, {
+                            const res = await apiFetch(`/turmas/${turmaSelecionada.id}/alunos/${alunoId}`, {
                                 method: 'DELETE',
                                 headers: { 'Bypass-Tunnel-Reminder': 'true' }
                             });
 
                             if (res.ok) await buscarDadosDaTurma(turmaSelecionada.id);
                             else Alert.alert("Erro", "Não foi possível remover o aluno.");
-                        } catch (e) { Alert.alert("Erro", "Falha de conexão com o servidor."); }
+                        } catch (e) { 
+                            Alert.alert("Erro", "Falha de conexão com o servidor."); 
+                        }
                     }
                 }
             ]
@@ -226,41 +243,95 @@ export default function HomeMotorista() {
     const todosResponderam = totalPassageiros > 0 && totalRespostas === totalPassageiros;
 
     const iniciarRota = (sentido: string) => {
-        if (!turmaSelecionada) { Alert.alert("Atenção", "Selecione uma turma."); return; }
-        if (viagemAtiva) return;
+        if (!turmaSelecionada) { 
+            Alert.alert("Atenção", "Selecione uma turma."); 
+            return; 
+        }
 
-        const executarInicioNoServidor = async () => {
+        const executarInicioNoServidor = async (forcarEncerramento = false) => {
             try {
-                const res = await fetch(`${API_URL}/rota/iniciar`, {
+                if (forcarEncerramento) {
+                    await apiFetch(`/rota/encerrar?turmaId=${turmaSelecionada.id}&motoristaId=${user?.id}`, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Bypass-Tunnel-Reminder': 'true' 
+                        },
+                        body: JSON.stringify({ 
+                            turmaId: Number(turmaSelecionada.id),
+                            motoristaId: Number(user?.id) 
+                        })
+                    });
+
+                    setViagemAtiva(false);
+                    await AsyncStorage.removeItem('@vanbora:viagem_ativa');
+                    await new Promise((resolve) => setTimeout(resolve, 600));
+                }
+
+                const bodyIniciar = { 
+                    turmaId: Number(turmaSelecionada.id), 
+                    motoristaId: Number(user?.id),
+                    sentido: sentido.toUpperCase() 
+                };
+
+                const res = await apiFetch(`/rota/iniciar`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
-                    body: JSON.stringify({ turmaId: Number(turmaSelecionada.id), sentido: sentido })
+                    body: JSON.stringify(bodyIniciar)
                 });
 
                 if (!res.ok) {
-                    const err = await res.json();
-                    throw new Error(err.erro);
+                    let errText = await res.text().catch(() => '');
+
+                    if (!forcarEncerramento && (res.status === 400 || res.status === 409 || errText.toLowerCase().includes('em andamento') || errText.toLowerCase().includes('já existe'))) {
+                        Alert.alert(
+                            'Rota em Andamento',
+                            'Já existe uma rota ativa registrada no sistema para esta turma. Deseja encerrar a rota anterior e iniciar uma nova agora?',
+                            [
+                                { text: 'Cancelar', style: 'cancel' },
+                                {
+                                    text: 'Encerrar e Iniciar Nova',
+                                    style: 'destructive',
+                                    onPress: () => executarInicioNoServidor(true)
+                                }
+                            ]
+                        );
+                        return;
+                    }
+
+                    throw new Error(errText || "Não foi possível iniciar a rota.");
                 }
 
+                // Salva estado local para garantir o banner imediato
+                await AsyncStorage.setItem('@vanbora:viagem_ativa', 'true');
+                setViagemAtiva(true);
                 router.push(`/mapa?sentido=${sentido.toLowerCase()}`);
-            } catch (e: any) { Alert.alert("Erro", e.message || "Erro ao iniciar a rota."); }
+            } catch (e: any) { 
+                Alert.alert("Erro", e.message || "Erro ao iniciar a rota."); 
+            }
         };
 
         Alert.alert(
             !todosResponderam ? "Alunos Pendentes" : "Iniciar Rota",
-            !todosResponderam ? "Existem alunos sem confirmar presença. Deseja iniciar mesmo assim?" : "Deseja iniciar a rota de " + sentido + " agora?",
+            !todosResponderam ? "Existem alunos sem confirmar presença. Deseja iniciar mesmo assim?" : `Deseja iniciar a rota de ${sentido} agora?`,
             [
                 { text: "Cancelar", style: "cancel" },
-                { text: "Iniciar", style: "default", onPress: executarInicioNoServidor }
+                { text: "Iniciar", style: "default", onPress: () => executarInicioNoServidor(false) }
             ]
         );
     };
 
-    if (loading) return <ActivityIndicator size="large" color={colors.primary} style={{ flex: 1, backgroundColor: colors.background }} />;
+    if (loading) {
+        return (
+            <View style={styles.centerContainer}>
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+            </View>
+        );
+    }
 
     return (
-        <View style={{ flex: 1, backgroundColor: colors.background }}>
-            <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+        <View style={styles.container}>
+            <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
             <HeaderMotorista
                 nomeMotorista={user?.nome ? user.nome.split(' ')[0] : ''}
@@ -268,13 +339,16 @@ export default function HomeMotorista() {
                 onAbrirNotificacoes={() => setModalNotificacoesVisible(true)}
             />
 
-            <ScrollView contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                 {viagemAtiva && <BannerRotaAtiva onPress={() => router.push('/mapa')} />}
 
                 <CardsTurmasMotorista
                     turmas={turmas}
                     turmaSelecionada={turmaSelecionada}
-                    onSelecionarTurma={async (t) => { setTurmaSelecionada(t); await buscarDadosDaTurma(t.id); }}
+                    onSelecionarTurma={async (t) => { 
+                        setTurmaSelecionada(t); 
+                        await buscarDadosDaTurma(t.id); 
+                    }}
                     onEditarTurma={() => {
                         if (turmaSelecionada) {
                             router.push({
@@ -298,12 +372,23 @@ export default function HomeMotorista() {
 
                 {turmaSelecionada && (
                     <>
-                        <View style={{ backgroundColor: todosResponderam ? colors.success : colors.primary, padding: 15, borderRadius: 12, marginBottom: 15, alignItems: 'center' }}>
-                            <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 16 }}>{todosResponderam ? "PRONTO!" : "COLETANDO..."}</Text>
-                            <Text style={{ color: '#FFF', fontSize: 13, marginTop: 2 }}>{turmaSelecionada.nome} ({totalRespostas}/{totalPassageiros} responderam)</Text>
+                        <View style={[
+                            styles.badgeStatus,
+                            { backgroundColor: todosResponderam ? theme.colors.success : theme.colors.primary }
+                        ]}>
+                            <Text style={styles.badgeTitle}>
+                                {todosResponderam ? "PRONTO!" : "COLETANDO..."}
+                            </Text>
+                            <Text style={styles.badgeSubtitle}>
+                                {turmaSelecionada.nome} ({totalRespostas}/{totalPassageiros} responderam)
+                            </Text>
                         </View>
 
-                        <BotoesAcaoMotorista viagemAtiva={viagemAtiva} todosResponderam={todosResponderam} onIniciarRota={iniciarRota} />
+                        <BotoesAcaoMotorista 
+                            viagemAtiva={viagemAtiva} 
+                            todosResponderam={todosResponderam} 
+                            onIniciarRota={iniciarRota} 
+                        />
                     </>
                 )}
 
@@ -316,27 +401,48 @@ export default function HomeMotorista() {
             </ScrollView>
 
             {/* Modal de Notificações / Pendentes */}
-            <Modal visible={modalNotificacoesVisible} animationType="fade" transparent={true} onRequestClose={() => setModalNotificacoesVisible(false)}>
-                <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-                    <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setModalNotificacoesVisible(false)} />
-                    <View style={{ backgroundColor: colors.backgroundAlt, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, maxHeight: '75%' }}>
-                        <Text style={{ fontSize: 20, fontWeight: 'bold', color: colors.textMain, marginBottom: 15 }}>Solicitações de Entrada</Text>
+            <Modal 
+                visible={modalNotificacoesVisible} 
+                animationType="fade" 
+                transparent={true} 
+                onRequestClose={() => setModalNotificacoesVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <TouchableOpacity 
+                        style={styles.modalBackdrop} 
+                        activeOpacity={1} 
+                        onPress={() => setModalNotificacoesVisible(false)} 
+                    />
+                    <View style={styles.modalCard}>
+                        <Text style={styles.modalTitle}>Solicitações de Entrada</Text>
                         {alunosPendentes.length === 0 ? (
-                            <Text style={{ color: colors.textMuted, textAlign: 'center', marginVertical: 30 }}>Nenhuma solicitação pendente.</Text>
+                            <Text style={styles.emptyTextModal}>
+                                Nenhuma solicitação pendente.
+                            </Text>
                         ) : (
                             <ScrollView showsVerticalScrollIndicator={false}>
                                 {alunosPendentes.map(item => (
-                                    <View key={item.id} style={{ backgroundColor: colors.background, padding: 14, borderRadius: 12, marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: colors.border }}>
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.textMain }}>{item.aluno?.nome}</Text>
-                                            <Text style={{ fontSize: 12, color: colors.textMuted }}>{item.aluno?.telefone || 'Sem telefone'}</Text>
+                                    <View key={item.id} style={styles.itemPendenteRow}>
+                                        <View style={styles.flexOne}>
+                                            <Text style={styles.nomeAluno}>{item.aluno?.nome}</Text>
+                                            <Text style={styles.telAluno}>
+                                                {item.aluno?.telefone || 'Sem telefone'}
+                                            </Text>
                                         </View>
-                                        <View style={{ flexDirection: 'row', gap: 8 }}>
-                                            <TouchableOpacity onPress={() => analisarSolicitacao(item.id, 'APROVADO')} style={{ backgroundColor: colors.success, padding: 8, borderRadius: 8 }}>
-                                                <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 12 }}>Aprovar</Text>
+                                        <View style={styles.actionsPendenteRow}>
+                                            <TouchableOpacity 
+                                                onPress={() => analisarSolicitacao(item.id, 'APROVADO')} 
+                                                style={styles.btnAprovar}
+                                                activeOpacity={0.8}
+                                            >
+                                                <Text style={styles.btnActionText}>Aprovar</Text>
                                             </TouchableOpacity>
-                                            <TouchableOpacity onPress={() => analisarSolicitacao(item.id, 'REJEITADO')} style={{ backgroundColor: colors.danger, padding: 8, borderRadius: 8 }}>
-                                                <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 12 }}>Recusar</Text>
+                                            <TouchableOpacity 
+                                                onPress={() => analisarSolicitacao(item.id, 'REJEITADO')} 
+                                                style={styles.btnRecusar}
+                                                activeOpacity={0.8}
+                                            >
+                                                <Text style={styles.btnActionText}>Recusar</Text>
                                             </TouchableOpacity>
                                         </View>
                                     </View>
@@ -348,21 +454,35 @@ export default function HomeMotorista() {
             </Modal>
 
             {/* Modal de Adicionar Passageiro Manual */}
-            <Modal visible={modalVisible} animationType="fade" transparent={true} onRequestClose={() => setModalVisible(false)}>
-                <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-                    <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setModalVisible(false)} />
-                    <View style={{ backgroundColor: colors.backgroundAlt, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, maxHeight: '75%' }}>
-                        <Text style={{ fontSize: 20, fontWeight: 'bold', color: colors.textMain, marginBottom: 15 }}>Adicionar Passageiro</Text>
+            <Modal 
+                visible={modalVisible} 
+                animationType="fade" 
+                transparent={true} 
+                onRequestClose={() => setModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <TouchableOpacity 
+                        style={styles.modalBackdrop} 
+                        activeOpacity={1} 
+                        onPress={() => setModalVisible(false)} 
+                    />
+                    <View style={styles.modalCard}>
+                        <Text style={styles.modalTitle}>Adicionar Passageiro</Text>
                         {carregandoAlunos ? (
-                            <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: 30 }} />
+                            <ActivityIndicator size="large" color={theme.colors.primary} style={styles.spinnerModal} />
                         ) : todosAlunos.length === 0 ? (
-                            <Text style={{ color: colors.textMuted, textAlign: 'center', marginVertical: 30 }}>Nenhum aluno disponível.</Text>
+                            <Text style={styles.emptyTextModal}>Nenhum aluno disponível.</Text>
                         ) : (
                             <ScrollView showsVerticalScrollIndicator={false}>
                                 {todosAlunos.map(aluno => (
-                                    <TouchableOpacity key={aluno.id} style={{ backgroundColor: colors.background, padding: 12, borderRadius: 8, marginBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: colors.border }} onPress={() => vincularAluno(aluno.id)}>
-                                        <Text style={{ fontSize: 16, fontWeight: '600', color: colors.textMain }}>{aluno.nome}</Text>
-                                        <Ionicons name="add" size={18} color={colors.primary} />
+                                    <TouchableOpacity 
+                                        key={aluno.id} 
+                                        style={styles.itemAlunoLivre} 
+                                        onPress={() => vincularAluno(aluno.id)}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text style={styles.nomeAlunoLivre}>{aluno.nome}</Text>
+                                        <Ionicons name="add" size={18} color={theme.colors.primary} />
                                     </TouchableOpacity>
                                 ))}
                             </ScrollView>
@@ -373,3 +493,124 @@ export default function HomeMotorista() {
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: theme.colors.background,
+    },
+    centerContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: theme.colors.background,
+    },
+    flexOne: {
+        flex: 1,
+    },
+    scrollContent: {
+        padding: theme.spacing.md,
+        gap: theme.spacing.sm,
+    },
+    badgeStatus: {
+        padding: theme.spacing.md,
+        borderRadius: theme.borderRadius.md,
+        alignItems: 'center',
+    },
+    badgeTitle: {
+        color: theme.colors.surface,
+        fontWeight: theme.typography.weight.bold,
+        fontSize: theme.typography.size.regular,
+    },
+    badgeSubtitle: {
+        color: theme.colors.surface,
+        fontSize: theme.typography.size.small,
+        marginTop: 2,
+    },
+    modalOverlay: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    },
+    modalBackdrop: {
+        flex: 1,
+    },
+    modalCard: {
+        backgroundColor: theme.colors.surface,
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
+        padding: theme.spacing.lg,
+        maxHeight: '75%',
+    },
+    modalTitle: {
+        fontSize: theme.typography.size.large,
+        fontWeight: theme.typography.weight.bold,
+        color: theme.colors.text,
+        marginBottom: theme.spacing.md,
+    },
+    emptyTextModal: {
+        color: theme.colors.textLight,
+        textAlign: 'center',
+        marginVertical: theme.spacing.xl,
+    },
+    spinnerModal: {
+        marginVertical: theme.spacing.xl,
+    },
+    itemPendenteRow: {
+        backgroundColor: theme.colors.background,
+        padding: theme.spacing.md,
+        borderRadius: theme.borderRadius.md,
+        marginBottom: theme.spacing.sm,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+    },
+    nomeAluno: {
+        fontSize: theme.typography.size.regular,
+        fontWeight: theme.typography.weight.bold,
+        color: theme.colors.text,
+    },
+    telAluno: {
+        fontSize: theme.typography.size.small,
+        color: theme.colors.textLight,
+    },
+    actionsPendenteRow: {
+        flexDirection: 'row',
+        gap: theme.spacing.xs,
+    },
+    btnAprovar: {
+        backgroundColor: theme.colors.success,
+        paddingHorizontal: theme.spacing.sm + 2,
+        paddingVertical: theme.spacing.xs,
+        borderRadius: theme.borderRadius.sm,
+    },
+    btnRecusar: {
+        backgroundColor: theme.colors.danger,
+        paddingHorizontal: theme.spacing.sm + 2,
+        paddingVertical: theme.spacing.xs,
+        borderRadius: theme.borderRadius.sm,
+    },
+    btnActionText: {
+        color: theme.colors.surface,
+        fontWeight: theme.typography.weight.bold,
+        fontSize: theme.typography.size.small,
+    },
+    itemAlunoLivre: {
+        backgroundColor: theme.colors.background,
+        padding: theme.spacing.md,
+        borderRadius: theme.borderRadius.md,
+        marginBottom: theme.spacing.xs,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+    },
+    nomeAlunoLivre: {
+        fontSize: theme.typography.size.regular,
+        fontWeight: '600',
+        color: theme.colors.text,
+    },
+});

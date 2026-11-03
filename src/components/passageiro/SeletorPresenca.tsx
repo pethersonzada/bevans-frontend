@@ -1,8 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
-import { colors } from '../../constants/colors';
-import { homeMotoristaStyles as styles } from '../../constants/homeMotoristaStyles';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { theme } from '../../styles/theme';
 
 type Endereco = {
     id: number;
@@ -18,18 +17,42 @@ type Props = {
     onRegistrar: (status: string, enderecoId?: number) => void;
 };
 
+const OPCOES_PRESENCA = [
+    { key: 'IDA', label: 'Ida' },
+    { key: 'VOLTA', label: 'Volta' },
+    { key: 'AMBOS', label: 'Ambos' },
+    { key: 'NAO_VOU', label: 'Não Vou' },
+];
+
 export function SeletorPresenca({ statusConfirmado, enderecos, onRegistrar }: Props) {
     const [statusSelecionado, setStatusSelecionado] = useState<string | null>(null);
     const [enderecoSelecionadoId, setEnderecoSelecionadoId] = useState<number | null>(null);
 
+    const handleConfirmar = () => {
+        if (!enderecoSelecionadoId) {
+            Alert.alert('Atenção', 'Selecione um endereço de embarque para continuar.');
+            return;
+        }
+        if (statusSelecionado) {
+            onRegistrar(statusSelecionado, enderecoSelecionadoId);
+        }
+    };
+
     if (statusConfirmado) {
         return (
-            <View style={[styles.cardList, { alignItems: 'center', padding: 30 }]}>
-                <Ionicons name="checkmark-circle" size={48} color={colors.primary} />
-                <Text style={[styles.nameText, { fontSize: 20, marginVertical: 10 }]}>Confirmado!</Text>
-                <Text style={styles.subText}>Opção: {statusConfirmado}</Text>
-                <TouchableOpacity onPress={() => onRegistrar('LIMPAR')} style={{ marginTop: 15, paddingHorizontal: 15, paddingVertical: 8, borderRadius: 15, backgroundColor: colors.backgroundAlt, borderWidth: 1, borderColor: colors.border }}>
-                    <Text style={{ color: colors.danger, fontSize: 12, fontWeight: 'bold' }}>Alterar decisão</Text>
+            <View style={styles.cardConfirmado}>
+                <View style={styles.iconCircle}>
+                    <Ionicons name="checkmark-circle" size={48} color={theme.colors.success} />
+                </View>
+                <Text style={styles.tituloConfirmado}>Confirmado!</Text>
+                <Text style={styles.subtextConfirmado}>Opção: {statusConfirmado}</Text>
+                
+                <TouchableOpacity 
+                    onPress={() => onRegistrar('LIMPAR')} 
+                    style={styles.btnAlterar}
+                    activeOpacity={0.7}
+                >
+                    <Text style={styles.btnAlterarText}>Alterar decisão</Text>
                 </TouchableOpacity>
             </View>
         );
@@ -37,18 +60,26 @@ export function SeletorPresenca({ statusConfirmado, enderecos, onRegistrar }: Pr
 
     if (!statusSelecionado) {
         return (
-            <View>
-                <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textMain, marginBottom: 10 }}>O que você vai fazer hoje?</Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-                    {['IDA', 'VOLTA', 'AMBOS', 'NAO_VOU'].map((s) => (
-                        <TouchableOpacity key={s} style={[styles.btnMotorista, { backgroundColor: colors.primary, width: '48%', marginBottom: 10 }]} onPress={() => {
-                            if (s === 'NAO_VOU') {
-                                onRegistrar(s);
-                            } else {
-                                setStatusSelecionado(s);
-                            }
-                        }}>
-                            <Text style={styles.btnText}>{s.replace('_', ' ')}</Text>
+            <View style={styles.container}>
+                <Text style={styles.sectionTitle}>O que você vai fazer hoje?</Text>
+                <View style={styles.gridOpcoes}>
+                    {OPCOES_PRESENCA.map((op) => (
+                        <TouchableOpacity
+                            key={op.key}
+                            style={[
+                                styles.btnOpcao,
+                                op.key === 'NAO_VOU' && styles.btnNaoVou
+                            ]}
+                            onPress={() => {
+                                if (op.key === 'NAO_VOU') {
+                                    onRegistrar(op.key);
+                                } else {
+                                    setStatusSelecionado(op.key);
+                                }
+                            }}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={styles.btnOpcaoText}>{op.label}</Text>
                         </TouchableOpacity>
                     ))}
                 </View>
@@ -57,47 +88,184 @@ export function SeletorPresenca({ statusConfirmado, enderecos, onRegistrar }: Pr
     }
 
     return (
-        <View style={{ backgroundColor: colors.backgroundAlt, padding: 15, borderRadius: 12, borderWidth: 1, borderColor: colors.border }}>
-            <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textMain, marginBottom: 10 }}>Escolha o local de embarque:</Text>
+        <View style={styles.cardEnderecos}>
+            <Text style={styles.sectionTitle}>Escolha o local de embarque:</Text>
+            
             {enderecos.length === 0 ? (
-                <Text style={{ color: colors.danger, marginBottom: 10 }}>Você não tem endereços cadastrados!</Text>
+                <Text style={styles.alertaSemEndereco}>
+                    Você não tem endereços cadastrados!
+                </Text>
             ) : (
-                enderecos.map((end) => (
-                    <TouchableOpacity 
-                        key={end.id} 
-                        style={{ 
-                            padding: 12, 
-                            borderRadius: 8, 
-                            marginBottom: 8, 
-                            backgroundColor: enderecoSelecionadoId === end.id ? colors.primary + '20' : colors.background,
-                            borderWidth: 1,
-                            borderColor: enderecoSelecionadoId === end.id ? colors.primary : colors.border
-                        }}
-                        onPress={() => setEnderecoSelecionadoId(end.id)}
-                    >
-                        <Text style={{ fontWeight: 'bold', color: colors.textMain }}>{end.apelido || 'Endereço'}</Text>
-                        <Text style={{ fontSize: 12, color: colors.textMuted }}>{end.rua}, {end.numero} - {end.bairro}</Text>
-                    </TouchableOpacity>
-                ))
+                enderecos.map((end) => {
+                    const selecionado = enderecoSelecionadoId === end.id;
+                    return (
+                        <TouchableOpacity 
+                            key={end.id} 
+                            style={[
+                                styles.cardEnderecoItem,
+                                selecionado && styles.cardEnderecoItemSelecionado
+                            ]}
+                            onPress={() => setEnderecoSelecionadoId(end.id)}
+                            activeOpacity={0.7}
+                        >
+                            <Text style={styles.apelidoEndereco}>{end.apelido || 'Endereço'}</Text>
+                            <Text style={styles.detalhesEndereco}>
+                                {end.rua}, {end.numero} - {end.bairro}
+                            </Text>
+                        </TouchableOpacity>
+                    );
+                })
             )}
 
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
-                <TouchableOpacity style={{ padding: 10 }} onPress={() => setStatusSelecionado(null)}>
-                    <Text style={{ color: colors.textMuted }}>Voltar</Text>
-                </TouchableOpacity>
+            <View style={styles.acoesRow}>
                 <TouchableOpacity 
-                    style={[styles.btnMotorista, { backgroundColor: colors.primary, paddingHorizontal: 20 }]} 
-                    onPress={() => {
-                        if (enderecoSelecionadoId) {
-                            onRegistrar(statusSelecionado, enderecoSelecionadoId);
-                        } else {
-                            alert("Selecione um endereço para continuar.");
-                        }
-                    }}
+                    style={styles.btnVoltar} 
+                    onPress={() => setStatusSelecionado(null)}
+                    activeOpacity={0.7}
                 >
-                    <Text style={styles.btnText}>Confirmar {statusSelecionado}</Text>
+                    <Text style={styles.btnVoltarText}>Voltar</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                    style={styles.btnConfirmar} 
+                    onPress={handleConfirmar}
+                    activeOpacity={0.85}
+                >
+                    <Text style={styles.btnConfirmarText}>
+                        Confirmar {statusSelecionado}
+                    </Text>
                 </TouchableOpacity>
             </View>
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    container: {
+        gap: theme.spacing.xs,
+    },
+    cardConfirmado: {
+        backgroundColor: theme.colors.surface,
+        padding: theme.spacing.xl,
+        borderRadius: theme.borderRadius.lg,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        alignItems: 'center',
+    },
+    iconCircle: {
+        marginBottom: theme.spacing.xs,
+    },
+    tituloConfirmado: {
+        fontSize: theme.typography.size.large,
+        fontWeight: theme.typography.weight.bold,
+        color: theme.colors.text,
+        marginVertical: theme.spacing.xs,
+    },
+    subtextConfirmado: {
+        fontSize: theme.typography.size.regular,
+        color: theme.colors.textLight,
+        marginBottom: theme.spacing.md,
+    },
+    btnAlterar: {
+        paddingHorizontal: theme.spacing.md,
+        paddingVertical: theme.spacing.xs + 2,
+        borderRadius: theme.borderRadius.pill,
+        backgroundColor: theme.colors.background,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+    },
+    btnAlterarText: {
+        color: theme.colors.danger,
+        fontSize: theme.typography.size.small,
+        fontWeight: theme.typography.weight.bold,
+    },
+    sectionTitle: {
+        fontSize: theme.typography.size.regular,
+        fontWeight: theme.typography.weight.bold,
+        color: theme.colors.text,
+        marginBottom: theme.spacing.sm,
+    },
+    gridOpcoes: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+        gap: theme.spacing.sm,
+    },
+    btnOpcao: {
+        backgroundColor: theme.colors.primary,
+        width: '48%',
+        height: 48,
+        borderRadius: theme.borderRadius.md,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    btnNaoVou: {
+        backgroundColor: theme.colors.danger,
+    },
+    btnOpcaoText: {
+        color: theme.colors.surface,
+        fontWeight: theme.typography.weight.bold,
+        fontSize: theme.typography.size.regular,
+    },
+    cardEnderecos: {
+        backgroundColor: theme.colors.surface,
+        padding: theme.spacing.md,
+        borderRadius: theme.borderRadius.lg,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+    },
+    alertaSemEndereco: {
+        color: theme.colors.danger,
+        fontSize: theme.typography.size.small,
+        marginBottom: theme.spacing.md,
+    },
+    cardEnderecoItem: {
+        padding: theme.spacing.md,
+        borderRadius: theme.borderRadius.md,
+        marginBottom: theme.spacing.xs,
+        backgroundColor: theme.colors.background,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+    },
+    cardEnderecoItemSelecionado: {
+        backgroundColor: `${theme.colors.primary}15`,
+        borderColor: theme.colors.primary,
+    },
+    apelidoEndereco: {
+        fontWeight: theme.typography.weight.bold,
+        fontSize: theme.typography.size.regular,
+        color: theme.colors.text,
+        marginBottom: 2,
+    },
+    detalhesEndereco: {
+        fontSize: theme.typography.size.small,
+        color: theme.colors.textLight,
+    },
+    acoesRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: theme.spacing.md,
+    },
+    btnVoltar: {
+        paddingVertical: theme.spacing.xs + 2,
+        paddingHorizontal: theme.spacing.md,
+    },
+    btnVoltarText: {
+        color: theme.colors.textLight,
+        fontWeight: theme.typography.weight.bold,
+    },
+    btnConfirmar: {
+        backgroundColor: theme.colors.primary,
+        paddingHorizontal: theme.spacing.lg,
+        height: 44,
+        borderRadius: theme.borderRadius.md,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    btnConfirmarText: {
+        color: theme.colors.surface,
+        fontWeight: theme.typography.weight.bold,
+        fontSize: theme.typography.size.small,
+    },
+});

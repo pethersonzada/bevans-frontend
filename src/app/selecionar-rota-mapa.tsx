@@ -7,14 +7,16 @@ import {
     ActivityIndicator,
     Alert,
     StatusBar,
+    StyleSheet,
     Text,
     TouchableOpacity,
-    View
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { API_URL } from '../config/config';
-import { cadastroEnderecoStyles as styles } from '../constants/cadastroEnderecoStyles';
-import { colors } from '../constants/colors';
+
+import { apiFetch } from '../config/api';
+import { globalStyles } from '../styles/globalStyles';
+import { theme } from '../styles/theme';
 
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
 MapboxGL.setAccessToken(MAPBOX_TOKEN);
@@ -116,7 +118,7 @@ export default function SelecionarRotaMapa() {
                 destinoLongitude: currentCoords.current.longitude
             };
 
-            const response = await fetch(`${API_URL}/turmas/${turmaId}`, {
+            const response = await apiFetch(`/turmas/${turmaId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
                 body: JSON.stringify(bodyData)
@@ -136,15 +138,21 @@ export default function SelecionarRotaMapa() {
         }
     };
 
-    if (loading || !initialLocation) return <View style={styles.center}><ActivityIndicator size="large" color={colors.primary} /></View>;
+    if (loading || !initialLocation) {
+        return (
+            <View style={[globalStyles.container, styles.center]}>
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+            </View>
+        );
+    }
 
     return (
-        <View style={styles.container}>
+        <View style={globalStyles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
-            <View style={[styles.headerOverlay, { paddingTop: insets.top + 15 }]}>
-                <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-                    <Ionicons name="arrow-back" size={24} color={colors.textMain} />
+            <View style={[styles.headerOverlay, { paddingTop: insets.top + theme.spacing.xs }]}>
+                <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.7}>
+                    <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
                 </TouchableOpacity>
                 <Text style={styles.headerText}>
                     {tipo === 'ORIGEM' ? 'Selecione o local de Saída' : 'Selecione o Ponto Final'}
@@ -153,7 +161,7 @@ export default function SelecionarRotaMapa() {
 
             <View style={styles.mapContainer}>
                 <MapboxGL.MapView
-                    style={{ flex: 1 }}
+                    style={styles.flexOne}
                     styleURL={MapboxGL.StyleURL.Dark}
                     logoEnabled={false}
                     attributionEnabled={false}
@@ -167,24 +175,115 @@ export default function SelecionarRotaMapa() {
                     />
                 </MapboxGL.MapView>
 
-                <View style={{ position: 'absolute', top: '50%', left: '50%', marginLeft: -12, marginTop: -41, pointerEvents: 'none', zIndex: 10 }}>
-                    <Ionicons name={tipo === 'ORIGEM' ? 'navigate' : 'flag'} size={36} color={tipo === 'ORIGEM' ? colors.primary : '#E74C3C'} />
+                <View style={styles.centerPin}>
+                    <Ionicons 
+                        name={tipo === 'ORIGEM' ? 'navigate' : 'flag'} 
+                        size={36} 
+                        color={tipo === 'ORIGEM' ? theme.colors.primary : theme.colors.danger} 
+                    />
                 </View>
             </View>
 
-            <View style={[styles.footer, { paddingBottom: insets.bottom + 25 }]}>
+            <View style={[styles.footer, { paddingBottom: insets.bottom + theme.spacing.lg }]}>
                 <Text style={styles.enderecoLabel}>
                     {tipo === 'ORIGEM' ? 'Saída Selecionada:' : 'Destino Selecionado:'}
                 </Text>
                 <Text style={styles.enderecoText}>{enderecoAtual}</Text>
-                <TouchableOpacity style={styles.button} onPress={confirmarSelecao} disabled={salvando}>
+                
+                <TouchableOpacity 
+                    style={[styles.button, salvando && styles.buttonDisabled]} 
+                    onPress={confirmarSelecao} 
+                    disabled={salvando}
+                    activeOpacity={0.85}
+                >
                     {salvando ? (
-                        <ActivityIndicator color={colors.white} />
+                        <ActivityIndicator color={theme.colors.surface} />
                     ) : (
-                        <Text style={styles.buttonText}>Confirmar {tipo === 'ORIGEM' ? 'Saída' : 'Destino'}</Text>
+                        <Text style={styles.buttonText}>
+                            Confirmar {tipo === 'ORIGEM' ? 'Saída' : 'Destino'}
+                        </Text>
                     )}
                 </TouchableOpacity>
             </View>
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    center: {
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    flexOne: {
+        flex: 1,
+    },
+    headerOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.surface,
+        paddingHorizontal: theme.spacing.md,
+        paddingBottom: theme.spacing.md,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.border,
+    },
+    backButton: {
+        marginRight: theme.spacing.sm,
+        padding: 4,
+    },
+    headerText: {
+        fontSize: theme.typography.size.large,
+        fontWeight: theme.typography.weight.bold,
+        color: theme.colors.text,
+    },
+    mapContainer: {
+        flex: 1,
+    },
+    centerPin: {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        marginLeft: -18,
+        marginTop: -36,
+        pointerEvents: 'none',
+        zIndex: 10,
+    },
+    footer: {
+        backgroundColor: theme.colors.surface,
+        paddingHorizontal: theme.spacing.lg,
+        paddingTop: theme.spacing.md,
+        borderTopWidth: 1,
+        borderTopColor: theme.colors.border,
+    },
+    enderecoLabel: {
+        fontSize: theme.typography.size.small,
+        color: theme.colors.textLight,
+        fontWeight: '700',
+        marginBottom: 2,
+    },
+    enderecoText: {
+        fontSize: theme.typography.size.regular,
+        fontWeight: theme.typography.weight.bold,
+        color: theme.colors.text,
+        marginBottom: theme.spacing.md,
+    },
+    button: {
+        height: 54,
+        backgroundColor: theme.colors.primary,
+        borderRadius: theme.borderRadius.lg,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    buttonText: {
+        color: theme.colors.surface,
+        fontWeight: theme.typography.weight.bold,
+        fontSize: 16,
+    },
+    buttonDisabled: {
+        opacity: 0.6,
+    },
+});

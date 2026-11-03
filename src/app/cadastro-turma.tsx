@@ -1,10 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+    ActivityIndicator,
+    Alert,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { API_URL } from '../config/config';
-import { colors } from '../constants/colors';
+
+import { apiFetch } from '../config/api';
+import { globalStyles } from '../styles/globalStyles';
+import { theme } from '../styles/theme';
 import { useAuth } from './context/AuthContext';
 
 export default function CadastroTurma() {
@@ -33,7 +45,7 @@ export default function CadastroTurma() {
         }
 
         try {
-            const response = await fetch(`${API_URL}/turmas`, {
+            const response = await apiFetch(`/turmas`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -79,12 +91,10 @@ export default function CadastroTurma() {
         setLoading(true);
         try {
             if (turmaCriadaId) {
-                // Se já criou e só ajustou os pontos, apenas dá ok e volta
                 Alert.alert("Sucesso", "Turma cadastrada e percurso configurado!", [
                     { text: "OK", onPress: () => router.back() }
                 ]);
             } else {
-                // Se o cara digitou nome e turno mas não clicou nos mapas, cria direto sem pontos de mapa
                 await garantirTurmaCriada();
                 Alert.alert("Sucesso", "Turma cadastrada com sucesso!", [
                     { text: "OK", onPress: () => router.back() }
@@ -98,94 +108,155 @@ export default function CadastroTurma() {
     }
 
     return (
-        <View style={{ flex: 1, backgroundColor: colors.background }}>
-            <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+        <View style={globalStyles.container}>
+            <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
             
-            <View style={{ paddingTop: insets.top + 15, paddingHorizontal: 20, paddingBottom: 15, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.backgroundAlt, borderBottomWidth: 1, borderBottomColor: colors.border }}>
-                <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 15, padding: 4 }}>
-                    <Ionicons name="arrow-back" size={24} color={colors.textMain} />
+            <View style={[styles.header, { paddingTop: insets.top + theme.spacing.xs }]}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}>
+                    <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
                 </TouchableOpacity>
-                <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.textMain }}>Cadastrar Nova Turma</Text>
+                <Text style={styles.headerTitle}>Cadastrar Nova Turma</Text>
             </View>
 
-            <ScrollView contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false}>
-                <View style={{ marginBottom: 20 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textMain, marginBottom: 8 }}>Nome da Turma / Rota</Text>
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Nome da Turma / Rota</Text>
                     <TextInput
-                        style={{ backgroundColor: colors.backgroundAlt, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, color: colors.textMain, fontSize: 15 }}
+                        style={globalStyles.input}
                         placeholder="Ex: Escola Dom Bosco - Manhã"
-                        placeholderTextColor={colors.textMuted}
+                        placeholderTextColor={theme.colors.textLight}
                         value={nome}
                         onChangeText={setNome}
                     />
                 </View>
 
-                <View style={{ marginBottom: 20 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textMain, marginBottom: 8 }}>Turno</Text>
+                <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Turno</Text>
                     <TextInput
-                        style={{ backgroundColor: colors.backgroundAlt, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, color: colors.textMain, fontSize: 15 }}
+                        style={globalStyles.input}
                         placeholder="Ex: Manhã, Tarde ou Noite"
-                        placeholderTextColor={colors.textMuted}
+                        placeholderTextColor={theme.colors.textLight}
                         value={turno}
                         onChangeText={setTurno}
                     />
                 </View>
 
-                {/* Botão de Mapa separado para Origem */}
-                <View style={{ marginBottom: 20 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textMain, marginBottom: 8 }}>Endereço de Saída (Origem)</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Endereço de Saída (Origem)</Text>
+                    <View style={styles.mapInputContainer}>
                         <TextInput
-                            style={{ flex: 1, backgroundColor: colors.backgroundAlt, borderWidth: 1, borderColor: colors.border, borderTopLeftRadius: 12, borderBottomLeftRadius: 12, paddingHorizontal: 16, paddingVertical: 14, color: colors.textMain, fontSize: 14 }}
+                            style={[globalStyles.input, styles.mapInput]}
                             placeholder="Defina a saída no mapa"
-                            placeholderTextColor={colors.textMuted}
+                            placeholderTextColor={theme.colors.textLight}
                             value={origemNome}
                             editable={false}
                         />
                         <TouchableOpacity 
-                            style={{ backgroundColor: colors.primary, paddingHorizontal: 16, paddingVertical: 14, borderTopRightRadius: 12, borderBottomRightRadius: 12, justifyContent: 'center', alignItems: 'center' }}
+                            style={styles.mapButton}
                             onPress={() => abrirMapaPara('ORIGEM')}
+                            activeOpacity={0.8}
                         >
-                            <Ionicons name="map" size={20} color="#FFF" />
+                            <Ionicons name="map" size={20} color={theme.colors.surface} />
                         </TouchableOpacity>
                     </View>
                 </View>
 
-                {/* Botão de Mapa separado para Destino */}
-                <View style={{ marginBottom: 30 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textMain, marginBottom: 8 }}>Ponto Final (Destino)</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={[styles.inputGroup, { marginBottom: theme.spacing.xl }]}>
+                    <Text style={styles.label}>Ponto Final (Destino)</Text>
+                    <View style={styles.mapInputContainer}>
                         <TextInput
-                            style={{ flex: 1, backgroundColor: colors.backgroundAlt, borderWidth: 1, borderColor: colors.border, borderTopLeftRadius: 12, borderBottomLeftRadius: 12, paddingHorizontal: 16, paddingVertical: 14, color: colors.textMain, fontSize: 14 }}
+                            style={[globalStyles.input, styles.mapInput]}
                             placeholder="Defina o destino no mapa"
-                            placeholderTextColor={colors.textMuted}
+                            placeholderTextColor={theme.colors.textLight}
                             value={destinoNome}
                             editable={false}
                         />
                         <TouchableOpacity 
-                            style={{ backgroundColor: colors.primary, paddingHorizontal: 16, paddingVertical: 14, borderTopRightRadius: 12, borderBottomRightRadius: 12, justifyContent: 'center', alignItems: 'center' }}
+                            style={styles.mapButton}
                             onPress={() => abrirMapaPara('DESTINO')}
+                            activeOpacity={0.8}
                         >
-                            <Ionicons name="map" size={20} color="#FFF" />
+                            <Ionicons name="map" size={20} color={theme.colors.surface} />
                         </TouchableOpacity>
                     </View>
                 </View>
 
                 <TouchableOpacity 
-                    style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 16, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' }}
+                    style={[globalStyles.buttonPrimary, loading && styles.buttonDisabled]}
                     onPress={finalizarCadastro}
                     disabled={loading}
+                    activeOpacity={0.85}
                 >
                     {loading ? (
-                        <ActivityIndicator color="#FFF" />
+                        <ActivityIndicator color={theme.colors.surface} />
                     ) : (
-                        <>
-                            <Ionicons name="checkmark-circle-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
-                            <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 16 }}>Salvar e Finalizar</Text>
-                        </>
+                        <View style={styles.buttonContent}>
+                            <Ionicons name="checkmark-circle-outline" size={20} color={theme.colors.surface} />
+                            <Text style={globalStyles.buttonText}>Salvar e Finalizar</Text>
+                        </View>
                     )}
                 </TouchableOpacity>
             </ScrollView>
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    header: {
+        paddingHorizontal: theme.spacing.md,
+        paddingBottom: theme.spacing.md,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.surface,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.border,
+    },
+    backButton: {
+        marginRight: theme.spacing.sm,
+        padding: 4,
+    },
+    headerTitle: {
+        fontSize: theme.typography.size.large,
+        fontWeight: theme.typography.weight.bold,
+        color: theme.colors.text,
+    },
+    content: {
+        padding: theme.spacing.lg,
+    },
+    inputGroup: {
+        marginBottom: theme.spacing.lg,
+    },
+    label: {
+        fontSize: theme.typography.size.small,
+        fontWeight: theme.typography.weight.bold,
+        color: theme.colors.text,
+        marginBottom: theme.spacing.xs,
+    },
+    mapInputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    mapInput: {
+        flex: 1,
+        borderTopRightRadius: 0,
+        borderBottomRightRadius: 0,
+        backgroundColor: theme.colors.surface,
+    },
+    mapButton: {
+        backgroundColor: theme.colors.primary,
+        paddingHorizontal: theme.spacing.md,
+        height: 48,
+        borderTopRightRadius: theme.borderRadius.md,
+        borderBottomRightRadius: theme.borderRadius.md,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    buttonContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: theme.spacing.xs,
+    },
+    buttonDisabled: {
+        opacity: 0.6,
+    },
+});

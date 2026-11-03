@@ -2,11 +2,21 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+    ActivityIndicator,
+    Alert,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { API_URL } from '../config/config';
-import { colors } from '../constants/colors';
-import { homeMotoristaStyles as styles } from '../constants/homeMotoristaStyles';
+
+import { apiFetch } from '../config/api';
+import { globalStyles } from '../styles/globalStyles';
+import { theme } from '../styles/theme';
 
 export default function EntrarTurma() {
     const router = useRouter();
@@ -28,7 +38,7 @@ export default function EntrarTurma() {
                 return;
             }
 
-            const res = await fetch(`${API_URL}/turmas/entrar/${userId}?codigo=${codigo.toUpperCase().trim()}`, {
+            const res = await apiFetch(`/turmas/entrar/${userId}?codigo=${codigo.toUpperCase().trim()}`, {
                 method: 'POST',
                 headers: { 'Bypass-Tunnel-Reminder': 'true' }
             });
@@ -50,64 +60,133 @@ export default function EntrarTurma() {
     };
 
     return (
-        <View style={[styles.container, { flex: 1, backgroundColor: colors.background, paddingHorizontal: 20 }]}>
-            <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+        <View style={globalStyles.container}>
+            <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
             
-            <View style={{ flexDirection: 'row', alignItems: 'center', paddingTop: insets.top + 15, marginBottom: 30 }}>
-                <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 15 }}>
-                    <Ionicons name="arrow-back" size={24} color={colors.textMain} />
+            <View style={[styles.header, { paddingTop: insets.top + theme.spacing.xs }]}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}>
+                    <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
                 </TouchableOpacity>
-                <Text style={{ fontSize: 20, fontWeight: 'bold', color: colors.textMain }}>Entrar em uma Turma</Text>
+                <Text style={styles.headerTitle}>Entrar em uma Turma</Text>
             </View>
 
-            <View style={{ alignItems: 'center', marginBottom: 30 }}>
-                <Ionicons name="key-outline" size={64} color={colors.primary} />
-                <Text style={{ color: colors.textMuted, textAlign: 'center', marginTop: 15, fontSize: 15, paddingHorizontal: 10 }}>
-                    Digite o código de convite de 6 caracteres fornecido pelo motorista da sua van para solicitar sua entrada na rota.
-                </Text>
-            </View>
+            <View style={styles.content}>
+                <View style={styles.iconBox}>
+                    <View style={styles.iconCircle}>
+                        <Ionicons name="key-outline" size={32} color={theme.colors.primary} />
+                    </View>
+                    <Text style={styles.descriptionText}>
+                        Digite o código de convite de 6 caracteres fornecido pelo motorista da sua van para solicitar sua entrada na rota.
+                    </Text>
+                </View>
 
-            <View style={{ marginBottom: 20 }}>
-                <Text style={{ color: colors.textMain, marginBottom: 8, fontWeight: 'bold' }}>Código de Convite</Text>
-                <TextInput
-                    style={{ 
-                        backgroundColor: colors.backgroundAlt, 
-                        borderWidth: 1, 
-                        borderColor: colors.border, 
-                        borderRadius: 12, 
-                        padding: 15, 
-                        color: colors.textMain, 
-                        fontSize: 18,
-                        textAlign: 'center',
-                        letterSpacing: 3,
-                        fontWeight: 'bold'
-                    }}
-                    placeholder="EX: A1B2C3"
-                    placeholderTextColor={colors.textMuted}
-                    autoCapitalize="characters"
-                    maxLength={6}
-                    value={codigo}
-                    onChangeText={setCodigo}
-                />
-            </View>
+                <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Código de Convite</Text>
+                    <TextInput
+                        style={styles.codeInput}
+                        placeholder="EX: A1B2C3"
+                        placeholderTextColor={theme.colors.textLight}
+                        autoCapitalize="characters"
+                        maxLength={6}
+                        value={codigo}
+                        onChangeText={setCodigo}
+                    />
+                </View>
 
-            <TouchableOpacity 
-                style={{ 
-                    backgroundColor: colors.primary, 
-                    padding: 16, 
-                    borderRadius: 12, 
-                    alignItems: 'center',
-                    marginTop: 10
-                }} 
-                onPress={handleSolicitarEntrada}
-                disabled={loading}
-            >
-                {loading ? (
-                    <ActivityIndicator color="#FFF" />
-                ) : (
-                    <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 16 }}>Enviar Solicitação</Text>
-                )}
-            </TouchableOpacity>
+                <TouchableOpacity 
+                    style={[styles.buttonSubmit, loading && styles.buttonDisabled]} 
+                    onPress={handleSolicitarEntrada}
+                    disabled={loading}
+                    activeOpacity={0.85}
+                >
+                    {loading ? (
+                        <ActivityIndicator color={theme.colors.surface} />
+                    ) : (
+                        <Text style={styles.buttonText}>Enviar Solicitação</Text>
+                    )}
+                </TouchableOpacity>
+            </View>
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    header: {
+        paddingHorizontal: theme.spacing.md,
+        paddingBottom: theme.spacing.md,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.surface,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.border,
+    },
+    backButton: {
+        marginRight: theme.spacing.sm,
+        padding: 4,
+    },
+    headerTitle: {
+        fontSize: theme.typography.size.large,
+        fontWeight: theme.typography.weight.bold,
+        color: theme.colors.text,
+    },
+    content: {
+        padding: theme.spacing.lg,
+    },
+    iconBox: {
+        alignItems: 'center',
+        marginBottom: theme.spacing.xl,
+    },
+    iconCircle: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        backgroundColor: `${theme.colors.primary}15`,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: theme.spacing.md,
+    },
+    descriptionText: {
+        color: theme.colors.textLight,
+        textAlign: 'center',
+        fontSize: theme.typography.size.regular,
+        lineHeight: 22,
+        paddingHorizontal: theme.spacing.xs,
+    },
+    inputGroup: {
+        marginBottom: theme.spacing.xl,
+    },
+    label: {
+        color: theme.colors.text,
+        marginBottom: theme.spacing.xs,
+        fontWeight: theme.typography.weight.bold,
+        fontSize: theme.typography.size.small,
+    },
+    codeInput: {
+        height: 54,
+        backgroundColor: theme.colors.surface,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        borderRadius: theme.borderRadius.lg,
+        paddingHorizontal: theme.spacing.md,
+        color: theme.colors.primary,
+        fontSize: 20,
+        textAlign: 'center',
+        letterSpacing: 4,
+        fontWeight: theme.typography.weight.bold,
+    },
+    buttonSubmit: {
+        height: 54,
+        backgroundColor: theme.colors.primary,
+        borderRadius: theme.borderRadius.lg,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    buttonText: {
+        color: theme.colors.surface,
+        fontWeight: theme.typography.weight.bold,
+        fontSize: 16,
+    },
+    buttonDisabled: {
+        opacity: 0.6,
+    },
+});
