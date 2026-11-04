@@ -18,10 +18,10 @@ import {
 import { TextInputMask } from 'react-native-masked-text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { apiFetch } from '../config/api';
-import { auth } from '../config/firebase';
-import { globalStyles } from '../styles/globalStyles';
-import { theme } from '../styles/theme';
+import { apiFetch } from '../../config/api';
+import { auth } from '../../config/firebase';
+import { globalStyles } from '../../styles/globalStyles';
+import { theme } from '../../styles/theme';
 
 export default function Signup() {
     const { tipo } = useLocalSearchParams();
@@ -87,7 +87,7 @@ export default function Signup() {
                     "Conta Criada!", 
                     "Enviamos um e-mail de confirmação para a sua caixa de entrada. Por favor, verifique o seu e-mail antes de fazer o login."
                 );
-                router.replace('/login');
+                router.replace('/(auth)/login');
             } else {
                 let mensagemErro = "Não foi possível salvar o usuário no servidor.";
                 try {

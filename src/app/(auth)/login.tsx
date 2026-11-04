@@ -15,12 +15,12 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { FormLogin } from '../components/FormLogin';
-import { apiFetch } from '../config/api';
-import { auth } from '../config/firebase';
-import { globalStyles } from '../styles/globalStyles';
-import { theme } from '../styles/theme';
-import { useAuth } from './context/AuthContext';
+import { FormLogin } from '../../components/FormLogin';
+import { apiFetch } from '../../config/api';
+import { auth } from '../../config/firebase';
+import { globalStyles } from '../../styles/globalStyles';
+import { theme } from '../../styles/theme';
+import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
     const router = useRouter();
@@ -120,7 +120,7 @@ export default function Login() {
             >
                 <View style={styles.headerArea}>
                     <View style={styles.logoContainer}>
-                        <Image source={require('../../assets/images/logo-app-sem-fundo-sem-titulo.png')} style={styles.logoImage}/>
+                        <Image source={require('../../../assets/images/logo-app-sem-fundo-sem-titulo.png')} style={styles.logoImage}/>
                     </View>
 
                     <Text style={styles.title}>Bem-vindo de volta!</Text>
@@ -145,14 +145,14 @@ export default function Login() {
                     <View style={styles.row}>
                         <Text style={styles.text}>Cadastre-se como</Text>
                         <TouchableOpacity 
-                            onPress={() => router.push({ pathname: '/cadastro', params: { tipo: 'PASSAGEIRO' } })}
+                            onPress={() => router.push({ pathname: '/(auth)/cadastro', params: { tipo: 'PASSAGEIRO' } })}
                             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                         >
                             <Text style={styles.linkText}>Passageiro</Text>
                         </TouchableOpacity>
                         <Text style={styles.text}>ou</Text>
                         <TouchableOpacity 
-                            onPress={() => router.push({ pathname: '/cadastro', params: { tipo: 'MOTORISTA' } })}
+                            onPress={() => router.push({ pathname: '/(auth)/cadastro', params: { tipo: 'MOTORISTA' } })}
                             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                         >
                             <Text style={styles.linkText}>Motorista</Text>

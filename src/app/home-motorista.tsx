@@ -70,10 +70,7 @@ export default function HomeMotorista() {
         if (primeiraCarga.current) setLoading(true);
 
         if (user?.id) {
-            await Promise.all([
-                buscarTurmas(String(user.id)),
-                checarAmnesia()
-            ]);
+            await buscarTurmas(String(user.id));
         }
 
         setLoading(false);
@@ -99,10 +96,12 @@ export default function HomeMotorista() {
                 }
 
                 await buscarDadosDaTurma(atual.id);
+                await checarAmnesia(atual.id);
             } else {
                 setTurmaSelecionada(null);
                 setPassageiros([]);
                 setAlunosPendentes([]);
+                setViagemAtiva(false);
             }
         } catch (e) {
             console.log("Falha ao carregar as turmas.");
@@ -162,25 +161,32 @@ export default function HomeMotorista() {
         }
     }
 
-    async function checarAmnesia() {
-        try {
-            const flagLocal = await AsyncStorage.getItem('@vanbora:viagem_ativa');
-            if (flagLocal === 'true') {
-                setViagemAtiva(true);
-                return;
-            }
+    async function checarAmnesia(turmaId: number) {
+        if (!user?.id || !turmaId) return;
 
-            const res = await apiFetch(`/rota/status-atual`, { 
+        try {
+            const chaveStorage = `@vanbora:viagem_ativa_${user.id}`;
+            
+            const res = await apiFetch(`/rota/status-atual?turmaId=${turmaId}`, { 
                 headers: { 'Bypass-Tunnel-Reminder': 'true' } 
             });
+            
             if (res.ok) {
                 const data = await res.json();
                 const statusStr = (data.status || data.situacao || '').toUpperCase();
+                
                 const ativo = statusStr === 'ATIVA' || statusStr === 'EM_CURSO' || data.ativa === true;
+                
                 setViagemAtiva(ativo);
-                if (ativo) await AsyncStorage.setItem('@vanbora:viagem_ativa', 'true');
+                
+                if (ativo) {
+                    await AsyncStorage.setItem(chaveStorage, 'true');
+                } else {
+                    await AsyncStorage.removeItem(chaveStorage);
+                }
             } else {
                 setViagemAtiva(false);
+                await AsyncStorage.removeItem(chaveStorage);
             }
         } catch (e: any) { 
             setViagemAtiva(false);
@@ -269,6 +275,8 @@ export default function HomeMotorista() {
 
         const executarInicioNoServidor = async (forcarEncerramento = false) => {
             try {
+                const chaveStorage = `@vanbora:viagem_ativa_${user?.id}`;
+
                 if (forcarEncerramento) {
                     await apiFetch(`/rota/encerrar?turmaId=${turmaSelecionada.id}&motoristaId=${user?.id}`, {
                         method: 'POST',
@@ -283,7 +291,7 @@ export default function HomeMotorista() {
                     });
 
                     setViagemAtiva(false);
-                    await AsyncStorage.removeItem('@vanbora:viagem_ativa');
+                    await AsyncStorage.removeItem(chaveStorage);
                     await new Promise((resolve) => setTimeout(resolve, 600));
                 }
 
@@ -321,7 +329,7 @@ export default function HomeMotorista() {
                     throw new Error(errText || "Não foi possível iniciar a rota.");
                 }
 
-                await AsyncStorage.setItem('@vanbora:viagem_ativa', 'true');
+                await AsyncStorage.setItem(chaveStorage, 'true');
                 setViagemAtiva(true);
                 router.push(`/mapa?sentido=${sentido.toLowerCase()}`);
             } catch (e: any) { 
@@ -365,7 +373,8 @@ export default function HomeMotorista() {
                     turmaSelecionada={turmaSelecionada}
                     onSelecionarTurma={async (t) => { 
                         setTurmaSelecionada(t); 
-                        await buscarDadosDaTurma(t.id); 
+                        await buscarDadosDaTurma(t.id);
+                        await checarAmnesia(t.id);
                     }}
                     onEditarTurma={() => {
                         if (turmaSelecionada) {

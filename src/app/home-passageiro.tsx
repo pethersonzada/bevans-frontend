@@ -27,67 +27,181 @@ import { useAuth } from './context/AuthContext';
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
 MapboxGL.setAccessToken(MAPBOX_TOKEN);
 
+interface PassageiroConfirmado {
+    id: number | string;
+    nome: string;
+    iniciais: string;
+}
+
+interface Coordenadas {
+    latitude: number;
+    longitude: number;
+}
+
 export default function HomePassageiro() {
     const { user } = useAuth();
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const cameraRef = useRef<MapboxGL.Camera>(null);
+    const primeiraCarga = useRef(true);
 
     const [loading, setLoading] = useState(true);
     const [temEndereco, setTemEndereco] = useState(true);
     const [statusConfirmado, setStatusConfirmado] = useState('');
-    const [minhaLocalizacao, setMinhaLocalizacao] = useState<{ latitude: number; longitude: number } | null>(null);
-    const [posicaoVan, setPosicaoVan] = useState<{ latitude: number; longitude: number } | null>(null);
+    
+    const [minhaLocalizacao, setMinhaLocalizacao] = useState<Coordenadas | null>(null);
+    const [posicaoVan, setPosicaoVan] = useState<Coordenadas | null>(null);
     const [statusViagem, setStatusViagem] = useState('INATIVA');
     const [statusGps, setStatusGps] = useState('GARAGEM');
+    
     const [turma, setTurma] = useState<any>(null);
-    const [enderecos, setEnderecos] = useState<{ id: number; apelido: string; rua: string; numero: string; bairro: string; }[]>([]);
-    const [passageirosConfirmados, setPassageirosConfirmados] = useState<{ nome: string; iniciais: string }[]>([]);
+    const [enderecos, setEnderecos] = useState<any[]>([]);
+    const [passageirosConfirmados, setPassageirosConfirmados] = useState<PassageiroConfirmado[]>([]);
+
+    const buscarLocalizacaoPassageiro = useCallback(async () => {
+        try {
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status === 'granted') {
+                const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+                const coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+                setMinhaLocalizacao(coords);
+            }
+        } catch (e) {
+            console.log("Erro silencioso ao buscar GPS local.");
+        }
+    }, []);
+
+    const carregarDadosSilencioso = useCallback(async () => {
+        if (!user?.id) return;
+        
+        try {
+            const [resStatus, resTurma, resEnderecos] = await Promise.all([
+                apiFetch(`/usuarios/passageiros`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } }),
+                apiFetch(`/turmas/usuario/${user.id}`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } }),
+                apiFetch(`/enderecos/usuario/${user.id}`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } })
+            ]);
+
+            if (resEnderecos.ok) {
+                const listaEnderecos = await resEnderecos.json();
+                setEnderecos(listaEnderecos);
+                setTemEndereco(listaEnderecos.length > 0);
+            }
+
+            let turmaAtualId = null;
+            if (resTurma.ok) {
+                const dadosTurma = await resTurma.json();
+                setTurma(dadosTurma);
+                turmaAtualId = dadosTurma?.id;
+            } else {
+                setTurma(null);
+            }
+
+            if (resStatus.ok) {
+                const list = await resStatus.json();
+                const meuRegistro = list.find((p: any) => String(p.id || p.usuarioId || p.passageiroId) === String(user.id));
+                setStatusConfirmado(meuRegistro?.status || meuRegistro?.presenca || '');
+            }
+
+            // BUSCA A ORDEM DE ROTA OTIMIZADA PARA REFLETIR A SEQUÊNCIA REAL DO MOTORISTA
+            if (turmaAtualId) {
+                const resOtimizada = await apiFetch(`/rota/otimizar?sentido=ida&turmaId=${turmaAtualId}`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } });
+                if (resOtimizada.ok) {
+                    const listaOtimizada = await resOtimizada.json();
+                    const confirmados = listaOtimizada.map((p: any) => {
+                        const nomeCompleto = p.nome || p.usuarioNome || 'Passageiro';
+                        const partes = nomeCompleto.trim().split(' ');
+                        const iniciais = partes.length > 1
+                            ? `${partes[0][0]}${partes[partes.length - 1][0]}`
+                            : partes[0].substring(0, 2);
+
+                        return {
+                            id: p.id || p.usuarioId,
+                            nome: nomeCompleto,
+                            iniciais: iniciais.toUpperCase()
+                        };
+                    });
+                    setPassageirosConfirmados(confirmados);
+                }
+            }
+
+            return turmaAtualId;
+        } catch (e) {
+            console.log("Erro ao atualizar dados da API.", e);
+            return null;
+        }
+    }, [user?.id]);
 
     useFocusEffect(
         useCallback(() => {
-            if (user?.id) {
-                carregarDados();
-            }
-        }, [user?.id])
+            let ativo = true;
+
+            const inicializar = async () => {
+                if (primeiraCarga.current) setLoading(true);
+                
+                await buscarLocalizacaoPassageiro(); 
+                await carregarDadosSilencioso();
+                
+                if (ativo) {
+                    setLoading(false);
+                    primeiraCarga.current = false;
+                }
+            };
+
+            inicializar();
+
+            return () => { ativo = false; };
+        }, [buscarLocalizacaoPassageiro, carregarDadosSilencioso])
     );
 
     useEffect(() => {
         let intervalo: ReturnType<typeof setInterval> | null = null;
+        let buscando = false;
 
         const verificarRadar = async () => {
+            if (!user?.id || buscando) return;
+            buscando = true;
+
             try {
-                const res = await apiFetch(`/rota/status-atual`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } });
+                const turmaId = turma?.id;
+                if (!turmaId) {
+                    buscando = false;
+                    return;
+                }
+
+                const res = await apiFetch(`/rota/status-atual?turmaId=${turmaId}`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } });
+                
                 if (!res.ok) {
                     setStatusViagem('INATIVA');
                     setStatusGps('GARAGEM');
+                    buscando = false;
                     return;
                 }
+                
                 const data = await res.json();
-                const estadoAtual = data?.status || 'INATIVA';
-                setStatusViagem(estadoAtual);
+                const estadoAtual = data?.status || data?.situacao || 'INATIVA';
+                const ativoStr = estadoAtual === 'ATIVA' || estadoAtual === 'EM_CURSO' || data?.ativa === true ? 'ATIVA' : 'INATIVA';
+                setStatusViagem(ativoStr);
 
-                if (user?.id) {
-                    carregarDadosSilencioso();
-                }
+                carregarDadosSilencioso();
 
-                if (estadoAtual === 'ATIVA') {
-                    const resLoc = await apiFetch(`/rota/localizacao-van`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } });
+                if (ativoStr === 'ATIVA') {
+                    const resLoc = await apiFetch(`/rota/localizacao-van?turmaId=${turmaId}`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } });
+                    
                     if (resLoc.ok) {
                         setStatusGps('ONLINE');
                         const pos = await resLoc.json();
+                        
                         if (pos?.latitude && pos?.longitude) {
                             const novaPos = { latitude: Number(pos.latitude), longitude: Number(pos.longitude) };
                             setPosicaoVan(novaPos);
-                            if (cameraRef.current) {
-                                cameraRef.current.setCamera({
-                                    centerCoordinate: [novaPos.longitude, novaPos.latitude],
-                                    zoomLevel: 16,
-                                    animationDuration: 1000,
-                                });
-                            }
+                            
+                            cameraRef.current?.setCamera({
+                                centerCoordinate: [novaPos.longitude, novaPos.latitude],
+                                zoomLevel: 16,
+                                animationDuration: 1000,
+                            });
                         }
-                    } else if (resLoc.status === 404) {
+                    } else {
                         setStatusGps('AGUARDANDO');
                     }
                 } else {
@@ -95,113 +209,49 @@ export default function HomePassageiro() {
                     setPosicaoVan(null);
                 }
             } catch (e) {
-                setStatusViagem('INATIVA');
-                setStatusGps('GARAGEM');
+                setStatusGps('AGUARDANDO');
+            } finally {
+                buscando = false;
             }
         };
 
         verificarRadar();
-        intervalo = setInterval(verificarRadar, 15000);
+        intervalo = setInterval(verificarRadar, 10000);
 
         return () => {
             if (intervalo) clearInterval(intervalo);
         };
-    }, [user?.id]);
+    }, [user?.id, turma?.id, carregarDadosSilencioso]);
 
-    async function carregarDados() {
-        setLoading(true);
-        await carregarDadosSilencioso();
-        setLoading(false);
-    }
-
-    async function carregarDadosSilencioso() {
-        try {
-            if (user?.id) {
-                const [resStatus, resTurma, resEnderecos] = await Promise.all([
-                    apiFetch(`/usuarios/passageiros`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } }),
-                    apiFetch(`/turmas/usuario/${user.id}`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } }),
-                    apiFetch(`/enderecos/usuario/${user.id}`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } })
-                ]);
-
-                if (resEnderecos.ok) {
-                    const listaEnderecos = await resEnderecos.json();
-                    setEnderecos(listaEnderecos);
-                    setTemEndereco(listaEnderecos.length > 0);
-                }
-
-                if (resStatus.ok) {
-                    const list = await resStatus.json();
-                    const meuRegistro = list.find((p: any) => String(p.id || p.usuarioId || p.passageiroId) === String(user.id));
-                    setStatusConfirmado(meuRegistro?.status || meuRegistro?.presenca || '');
-
-                    const confirmados = list
-                        .filter((p: any) => {
-                            const st = (p.status || p.presenca || '').toUpperCase();
-                            return st === 'IDA' || st === 'VOLTA' || st === 'AMBOS' || st === 'CONFIRMADO';
-                        })
-                        .map((p: any) => {
-                            const nomeCompleto = p.nome || p.usuarioNome || 'Passageiro';
-                            const partes = nomeCompleto.trim().split(' ');
-                            const iniciais = partes.length > 1
-                                ? `${partes[0][0]}${partes[partes.length - 1][0]}`
-                                : partes[0].substring(0, 2);
-
-                            return {
-                                nome: nomeCompleto,
-                                iniciais: iniciais.toUpperCase()
-                            };
-                        });
-
-                    setPassageirosConfirmados(confirmados);
-                }
-
-                if (resTurma.ok) {
-                    const dadosTurma = await resTurma.json();
-                    setTurma(dadosTurma);
-                } else {
-                    setTurma(null);
-                }
-
-                const { status } = await Location.requestForegroundPermissionsAsync();
-                if (status === 'granted') {
-                    const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-                    setMinhaLocalizacao({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
-                }
-            }
-        } catch (e) {
-            console.log("Erro ao atualizar dados em segundo plano", e);
-        }
-    }
-
-    async function registrarPresenca(status: string, enderecoId?: number) {
+    const registrarPresenca = useCallback(async (status: string, enderecoId?: number) => {
         if (!user?.id) return;
+        
         const statusEnvio = status === 'LIMPAR' ? 'LIMPAR' : status;
         setStatusConfirmado(status === 'LIMPAR' ? '' : statusEnvio);
 
         try {
             let url = `/rota/confirmar?usuarioId=${Number(user.id)}&status=${statusEnvio}`;
-            if (enderecoId) {
-                url += `&enderecoId=${enderecoId}`;
-            }
+            if (enderecoId) url += `&enderecoId=${enderecoId}`;
 
             const res = await apiFetch(url, {
                 method: 'POST',
                 headers: { 'Bypass-Tunnel-Reminder': 'true' }
             });
 
-            if (res.ok) {
-                carregarDadosSilencioso();
-            }
+            if (res.ok) await carregarDadosSilencioso();
         } catch (e) {
-            Alert.alert("Erro", "Falha de conexão ao registrar presença.");
+            Alert.alert("Erro", "Falha ao registrar presença.");
         }
-    }
+    }, [user?.id, carregarDadosSilencioso]);
 
     const minhaPosicaoNaFila = useMemo(() => {
-        if (!user?.nome) return null;
-        const index = passageirosConfirmados.findIndex(p => p.nome.toLowerCase() === user.nome.toLowerCase());
+        if (!user?.id || passageirosConfirmados.length === 0) return null;
+        const index = passageirosConfirmados.findIndex(p => String(p.id) === String(user.id));
         return index !== -1 ? index + 1 : null;
-    }, [passageirosConfirmados, user?.nome]);
+    }, [passageirosConfirmados, user?.id]);
+
+    const centroMapa = useMemo(() => minhaLocalizacao || posicaoVan, [minhaLocalizacao, posicaoVan]);
+    const dataFormatada = useMemo(() => new Date().toLocaleDateString('pt-BR', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase(), []);
 
     if (loading) {
         return (
@@ -211,19 +261,13 @@ export default function HomePassageiro() {
         );
     }
 
-    const centroMapa = posicaoVan || minhaLocalizacao;
-
     return (
         <View style={globalStyles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
             <View style={[styles.header, { paddingTop: insets.top + theme.spacing.sm }]}>
-                <View>
-                    <Text style={styles.dateText}>
-                        {new Date().toLocaleDateString('pt-BR', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()}
-                    </Text>
-                    <Text style={styles.welcome}>Olá, {user?.nome ? user.nome.split(' ')[0] : ''}</Text>
-                </View>
+                <Text style={styles.dateText}>{dataFormatada}</Text>
+                <Text style={styles.welcome}>Olá, <Text style={styles.nomeBold}>{user?.nome ? user.nome.split(' ')[0] : ''}</Text></Text>
             </View>
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -289,6 +333,13 @@ export default function HomePassageiro() {
                                         zoomLevel={16}
                                         centerCoordinate={[centroMapa.longitude, centroMapa.latitude]}
                                     />
+                                    {minhaLocalizacao && (
+                                        <MapboxGL.PointAnnotation id="passageiro-local" coordinate={[minhaLocalizacao.longitude, minhaLocalizacao.latitude]}>
+                                            <View style={styles.passageiroMarker}>
+                                                <Ionicons name="person" size={14} color="#FFFFFF" />
+                                            </View>
+                                        </MapboxGL.PointAnnotation>
+                                    )}
                                     {posicaoVan && (
                                         <MapboxGL.PointAnnotation id="van-passageiro" coordinate={[posicaoVan.longitude, posicaoVan.latitude]}>
                                             <View style={styles.vanMarker}>
@@ -299,7 +350,7 @@ export default function HomePassageiro() {
                                 </MapboxGL.MapView>
                             ) : (
                                 <View style={styles.center}>
-                                    <ActivityIndicator size="large" color={theme.colors.primary} />
+                                    <ActivityIndicator size="small" color={theme.colors.primary} />
                                 </View>
                             )}
                         </View>
@@ -335,7 +386,7 @@ export default function HomePassageiro() {
                         )}
 
                         <View style={styles.colegasCard}>
-                            <Text style={styles.colegasTitle}>Colegas Confirmados</Text>
+                            <Text style={styles.colegasTitle}>Colegas Confirmados na Rota</Text>
                             <ConfirmadosAvatares passageiros={passageirosConfirmados} />
                         </View>
 
@@ -376,10 +427,16 @@ const styles = StyleSheet.create({
     },
     header: {
         paddingHorizontal: theme.spacing.lg,
-        paddingBottom: theme.spacing.sm,
+        paddingBottom: theme.spacing.md,
         backgroundColor: theme.colors.surface,
         borderBottomWidth: 1,
         borderBottomColor: theme.colors.border,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
+        zIndex: 10,
     },
     dateText: {
         fontSize: theme.typography.size.small,
@@ -388,46 +445,57 @@ const styles = StyleSheet.create({
         letterSpacing: 0.5,
     },
     welcome: {
-        fontSize: theme.typography.size.title,
-        fontWeight: theme.typography.weight.bold,
+        fontSize: 24,
         color: theme.colors.text,
     },
+    nomeBold: {
+        fontWeight: theme.typography.weight.bold,
+    },
     scrollContent: {
-        padding: theme.spacing.lg,
+        padding: theme.spacing.md,
         gap: theme.spacing.md,
     },
     bannerAlerta: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: `${theme.colors.danger}10`,
+        backgroundColor: theme.colors.surface,
         borderWidth: 1,
-        borderColor: `${theme.colors.danger}30`,
+        borderColor: `${theme.colors.danger}40`,
         borderRadius: theme.borderRadius.lg,
         padding: theme.spacing.md,
+        shadowColor: theme.colors.danger,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 1,
     },
     alertaIconCircle: {
-        backgroundColor: `${theme.colors.danger}20`,
-        padding: theme.spacing.xs + 2,
-        borderRadius: theme.borderRadius.md,
+        backgroundColor: `${theme.colors.danger}15`,
+        padding: theme.spacing.sm,
+        borderRadius: 20,
+        marginRight: theme.spacing.sm,
     },
     alertaTitulo: {
         fontSize: theme.typography.size.regular,
         fontWeight: theme.typography.weight.bold,
         color: theme.colors.danger,
+        marginBottom: 2,
     },
     alertaTexto: {
         fontSize: theme.typography.size.small,
-        color: theme.colors.textLight,
+        color: theme.colors.text,
     },
     radarHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
+        marginTop: theme.spacing.sm,
     },
     sectionTitle: {
         fontSize: theme.typography.size.large,
         fontWeight: theme.typography.weight.bold,
         color: theme.colors.text,
+        letterSpacing: -0.3,
     },
     statusBadge: {
         flexDirection: 'row',
@@ -438,54 +506,63 @@ const styles = StyleSheet.create({
         borderWidth: 1,
     },
     badgeOnline: {
-        backgroundColor: `${theme.colors.success}15`,
+        backgroundColor: `${theme.colors.success}10`,
         borderColor: `${theme.colors.success}30`,
     },
     badgeOffline: {
-        backgroundColor: `${theme.colors.primary}15`,
-        borderColor: `${theme.colors.primary}30`,
+        backgroundColor: `${theme.colors.textLight}10`,
+        borderColor: `${theme.colors.textLight}30`,
     },
     statusDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
+        width: 6,
+        height: 6,
+        borderRadius: 3,
         marginRight: 6,
     },
     dotOnline: {
         backgroundColor: theme.colors.success,
     },
     dotOffline: {
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.textLight,
     },
     statusBadgeText: {
-        fontSize: theme.typography.size.small,
-        fontWeight: '700',
+        fontSize: 11,
+        fontWeight: '800',
+        letterSpacing: 0.5,
     },
     textOnline: {
         color: theme.colors.success,
     },
     textOffline: {
-        color: theme.colors.primary,
+        color: theme.colors.textLight,
     },
     radarCard: {
-        height: 220,
+        height: 240,
         backgroundColor: theme.colors.surface,
         borderRadius: theme.borderRadius.lg,
         overflow: 'hidden',
         borderWidth: 1,
         borderColor: theme.colors.border,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        elevation: 2,
     },
     cadeadoBox: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
         padding: theme.spacing.lg,
+        backgroundColor: theme.colors.background,
     },
     busIconContainer: {
-        backgroundColor: theme.colors.background,
+        backgroundColor: theme.colors.surface,
         padding: theme.spacing.md,
-        borderRadius: theme.borderRadius.pill,
-        marginBottom: theme.spacing.xs,
+        borderRadius: 30,
+        marginBottom: theme.spacing.sm,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
     },
     cadeadoTitulo: {
         fontSize: theme.typography.size.regular,
@@ -495,20 +572,36 @@ const styles = StyleSheet.create({
     cadeadoSubtitulo: {
         fontSize: theme.typography.size.small,
         color: theme.colors.textLight,
-        marginTop: 2,
+        marginTop: 4,
+        textAlign: 'center',
     },
     vanMarker: {
         backgroundColor: '#1E1E1E',
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         borderWidth: 3,
         borderColor: theme.colors.primary,
         justifyContent: 'center',
         alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.4,
+        shadowRadius: 5,
+        elevation: 5,
     },
     vanMarkerIcon: {
-        fontSize: 18,
+        fontSize: 20,
+    },
+    passageiroMarker: {
+        backgroundColor: theme.colors.primary,
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        borderWidth: 2,
+        borderColor: '#FFFFFF',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     statusViagemCard: {
         backgroundColor: theme.colors.surface,
@@ -517,6 +610,11 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: theme.colors.border,
         gap: theme.spacing.md,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
     },
     statusViagemHeader: {
         flexDirection: 'row',
@@ -540,14 +638,15 @@ const styles = StyleSheet.create({
     },
     emCursoBadge: {
         backgroundColor: `${theme.colors.success}15`,
-        paddingHorizontal: theme.spacing.xs + 2,
-        paddingVertical: 2,
-        borderRadius: theme.borderRadius.sm,
+        paddingHorizontal: theme.spacing.sm,
+        paddingVertical: 4,
+        borderRadius: theme.borderRadius.pill,
     },
     emCursoText: {
-        fontSize: theme.typography.size.small,
-        fontWeight: '700',
+        fontSize: 11,
+        fontWeight: '800',
         color: theme.colors.success,
+        letterSpacing: 0.5,
     },
     filaBox: {
         backgroundColor: theme.colors.background,
@@ -559,12 +658,16 @@ const styles = StyleSheet.create({
     filaLabel: {
         fontSize: theme.typography.size.small,
         color: theme.colors.textLight,
-        marginBottom: 2,
+        marginBottom: 4,
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     filaValue: {
-        fontSize: theme.typography.size.large,
+        fontSize: 20,
         fontWeight: theme.typography.weight.bold,
         color: theme.colors.primary,
+        letterSpacing: -0.5,
     },
     avisoBox: {
         flexDirection: 'row',
@@ -590,6 +693,11 @@ const styles = StyleSheet.create({
         borderRadius: theme.borderRadius.lg,
         borderWidth: 1,
         borderColor: theme.colors.border,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
     },
     colegasTitle: {
         fontSize: theme.typography.size.regular,
@@ -598,49 +706,61 @@ const styles = StyleSheet.create({
         marginBottom: theme.spacing.md,
     },
     emptyStateCard: {
-        marginTop: theme.spacing.md,
+        marginTop: theme.spacing.xl,
         backgroundColor: theme.colors.surface,
         padding: theme.spacing.xl,
-        borderRadius: theme.borderRadius.lg,
+        borderRadius: 24,
         borderWidth: 1,
         borderColor: theme.colors.border,
         alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.05,
+        shadowRadius: 20,
+        elevation: 3,
     },
     emptyIconCircle: {
         backgroundColor: `${theme.colors.primary}15`,
-        padding: theme.spacing.md,
-        borderRadius: theme.borderRadius.pill,
-        marginBottom: theme.spacing.md,
+        padding: theme.spacing.lg,
+        borderRadius: 40,
+        marginBottom: theme.spacing.lg,
     },
     emptyTitle: {
-        fontSize: theme.typography.size.large,
-        fontWeight: theme.typography.weight.bold,
+        fontSize: 22,
+        fontWeight: '800',
         color: theme.colors.text,
         textAlign: 'center',
-        marginBottom: theme.spacing.xs,
+        marginBottom: 8,
+        letterSpacing: -0.5,
     },
     emptyText: {
         fontSize: theme.typography.size.regular,
         color: theme.colors.textLight,
         textAlign: 'center',
-        lineHeight: 20,
+        lineHeight: 22,
         marginBottom: theme.spacing.xl,
     },
     emptyButton: {
-        height: 50,
+        height: 54,
         backgroundColor: theme.colors.primary,
         borderRadius: theme.borderRadius.md,
         width: '100%',
         alignItems: 'center',
         justifyContent: 'center',
         flexDirection: 'row',
+        shadowColor: theme.colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 4,
     },
     emptyButtonIcon: {
         marginRight: theme.spacing.xs,
     },
     emptyButtonText: {
         color: theme.colors.surface,
-        fontWeight: theme.typography.weight.bold,
-        fontSize: theme.typography.size.regular,
+        fontWeight: '700',
+        fontSize: 16,
+        letterSpacing: 0.5,
     },
 });

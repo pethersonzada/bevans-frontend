@@ -193,12 +193,14 @@ export default function Mapa() {
     const primeiroTickForaRotaRef = useRef<number | null>(null);
     const recalculandoRef = useRef(false);
     const ultimaRecalculacaoRef = useRef<number | null>(null);
+    const turmaIdRef = useRef<number | null>(null);
 
     useEffect(() => { coordenadasRotaRef.current = coordenadasRota; }, [coordenadasRota]);
     useEffect(() => { manobrasRef.current = manobras; }, [manobras]);
     useEffect(() => { direcaoAtualRef.current = direcaoAtual; }, [direcaoAtual]);
     useEffect(() => { rotaRef.current = rota; }, [rota]);
     useEffect(() => { garagemRef.current = garagem; }, [garagem]);
+    useEffect(() => { turmaIdRef.current = turmaIdAtual; }, [turmaIdAtual]);
 
     async function fetchComTimeout(url: string, options: RequestInit = {}, timeoutMs = 20000) {
         const controller = new AbortController();
@@ -307,12 +309,19 @@ export default function Mapa() {
     }
 
     async function enviarLocalizacao(ponto: LatLng) {
-        const res = await fetchComTimeout(
-            `${API_URL}/rota/localizacao-van?latitude=${ponto.latitude}&longitude=${ponto.longitude}`,
-            { method: 'POST', headers: { Accept: 'application/json', ...HEADERS_PADRAO } },
-            5000
-        );
-        if (!res.ok) throw new Error('Falha ao enviar localização');
+        const turmaId = turmaIdRef.current;
+        const queryTurma = turmaId ? `?turmaId=${turmaId}&latitude=${ponto.latitude}&longitude=${ponto.longitude}` : `?latitude=${ponto.latitude}&longitude=${ponto.longitude}`;
+        
+        try {
+            const res = await fetchComTimeout(
+                `${API_URL}/rota/localizacao-van${queryTurma}`,
+                { method: 'POST', headers: { Accept: 'application/json', ...HEADERS_PADRAO } },
+                10000 
+            );
+            if (!res.ok) throw new Error('Falha ao enviar localização');
+        } catch (error) {
+            enfileirarLocalizacao(ponto);
+        }
     }
 
     function animarParaNovaPosicao(novaPos: LatLng) {
@@ -409,14 +418,26 @@ export default function Mapa() {
 
             let posicaoInicial: LatLng = { latitude: -8.303, longitude: -35.992 };
             try {
-                const locAtual = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+                const locAtual = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
                 if (locAtual) {
                     posicaoInicial = { latitude: locAtual.coords.latitude, longitude: locAtual.coords.longitude };
+                    setLocalizacao(posicaoInicial);
+                    posicaoApresentadaRef.current = posicaoInicial;
+                    setPosicaoSuave(posicaoInicial);
                 }
             } catch { }
             
             await carregarGaragemERota(direcaoDefinitiva, posicaoInicial);
             if (!montadoRef.current) return;
+
+            if (cameraRef.current) {
+                cameraRef.current.setCamera({
+                    centerCoordinate: [posicaoInicial.longitude, posicaoInicial.latitude],
+                    zoomLevel: 18,
+                    pitch: 65,
+                    animationDuration: 1000,
+                });
+            }
             
             locationSubscription = await Location.watchPositionAsync(
                 { accuracy: Location.Accuracy.BestForNavigation, timeInterval: 2000, distanceInterval: 1 },
@@ -559,21 +580,52 @@ export default function Mapa() {
 
             garagemCarregada = { latitude: lat, longitude: lng };
 
-            const resPassageiros = await fetchComTimeout(`${API_URL}/turmas/${turmaAtual.id}/passageiros`, { headers: HEADERS_PADRAO });
+            // 1. TENTA BUSCAR PRIMEIRO PELO OTIMIZAR
+            const urlOtimizar = `${API_URL}/rota/otimizar?sentido=${direcaoUsada}&turmaId=${turmaAtual.id}`;
+            console.log("Buscando rota otimizada em:", urlOtimizar);
+            
+            const resPassageiros = await fetchComTimeout(urlOtimizar, { headers: HEADERS_PADRAO });
+
             if (resPassageiros.ok) {
                 const lista = await resPassageiros.json();
-                rotaCarregada = lista.map((p: any) => ({
-                    id: p.id || p.usuarioId,
-                    nome: p.nome || 'Passageiro',
-                    latitude: Number(p.latitude || p.enderecoLatitude || -8.303),
-                    longitude: Number(p.longitude || p.enderecoLongitude || -35.992),
-                    embarcado: false
-                }));
+                console.log("Passageiros retornados pelo otimizar:", lista);
+                
+                rotaCarregada = lista
+                    .map((p: any) => ({
+                        id: p.id || p.usuarioId,
+                        nome: p.nome || 'Passageiro',
+                        latitude: Number(p.latitude ?? p.lat ?? 0),
+                        longitude: Number(p.longitude ?? p.lng ?? 0),
+                        embarcado: false
+                    }))
+                    .filter((p: PassageiroRota) => p.latitude !== 0 && p.longitude !== 0 && !isNaN(p.latitude) && !isNaN(p.longitude));
+            } else {
+                console.log("Otimizar falhou, status:", resPassageiros.status);
+            }
+
+            // 2. FALLBACK DIRETO NA LISTA DE PASSAGEIROS DA TURMA SE O OTIMIZAR ESTIVER VAZIO
+            if (rotaCarregada.length === 0) {
+                console.log("Fallback: Buscando passageiros diretos da turma...");
+                const resFallback = await fetchComTimeout(`${API_URL}/turmas/${turmaAtual.id}/passageiros`, { headers: HEADERS_PADRAO });
+                if (resFallback.ok) {
+                    const listaFb = await resFallback.json();
+                    console.log("Passageiros do fallback:", listaFb);
+                    rotaCarregada = listaFb
+                        .map((p: any) => ({
+                            id: p.id || p.usuarioId || p.aluno?.id,
+                            nome: p.nome || p.aluno?.nome || 'Passageiro',
+                            latitude: Number(p.latitude ?? p.enderecoLatitude ?? p.aluno?.latitude ?? p.aluno?.endereco?.latitude ?? 0),
+                            longitude: Number(p.longitude ?? p.enderecoLongitude ?? p.aluno?.longitude ?? p.aluno?.endereco?.longitude ?? 0),
+                            embarcado: false
+                        }))
+                        .filter((p: PassageiroRota) => p.latitude !== 0 && p.longitude !== 0 && !isNaN(p.latitude) && !isNaN(p.longitude));
+                }
             }
             
             await salvarCache(CACHE_KEYS.garagem, garagemCarregada);
             await salvarCache(CACHE_KEYS.rota(direcaoUsada), rotaCarregada);
-        } catch {
+        } catch (e) {
+            console.log("Erro em carregarGaragemERota:", e);
             garagemCarregada = await lerCache<LatLng>(CACHE_KEYS.garagem);
             rotaCarregada = (await lerCache<PassageiroRota[]>(CACHE_KEYS.rota(direcaoUsada))) || [];
             if (montadoRef.current) setErroRede('Sem conexão ou dados incompletos. Usando cache.');
@@ -633,7 +685,7 @@ export default function Mapa() {
             if (pontosOrdenados.length > LIMITE_WAYPOINTS_MAPBOX) {
                 Alert.alert(
                     'Rota muito extensa',
-                    `Esta rota tem ${pontosOrdenados.length} pontos, acima do limite de ${LIMITE_WAYPOINTS_MAPBOX} da API de direções. Divida a rota ou fale com o suporte técnico.`
+                    `Esta rota tem ${pontosOrdenados.length} pontos, acima do limite de ${LIMITE_WAYPOINTS_MAPBOX} da API de direções.`
                 );
             }
             const geometriaCache = await lerCache<any>(CACHE_KEYS.geometria(direcaoUsada));
@@ -663,7 +715,6 @@ export default function Mapa() {
                     style: 'destructive',
                     onPress: async () => {
                         try {
-                            // Passa os parâmetros corretos exigidos pelo backend
                             const turmaIdParam = turmaIdAtual || 1;
                             const motoristaIdParam = user?.id || 1;
 
@@ -688,7 +739,7 @@ export default function Mapa() {
                             } else {
                                 Alert.alert('Erro', 'O servidor não conseguiu encerrar a viagem.');
                             }
-                        } catch (e: any) {
+                        } catch {
                             if (montadoRef.current) setErroRede('Não foi possível encerrar a viagem. Tente novamente.');
                         }
                     }
@@ -711,15 +762,17 @@ export default function Mapa() {
 
     const passageirosGeoJSON = useMemo(() => ({
         type: 'FeatureCollection' as const,
-        features: rota.map((p, index) => ({
-            type: 'Feature' as const,
-            properties: {
-                id: p.id,
-                label: p.embarcado ? '✓' : String(index + 1),
-                cor: p.embarcado ? '#10B981' : '#3B82F6',
-            },
-            geometry: { type: 'Point' as const, coordinates: [Number(p.longitude), Number(p.latitude)] },
-        })),
+        features: rota
+            .filter((p) => p.latitude && p.longitude && p.latitude !== 0 && p.longitude !== 0)
+            .map((p, index) => ({
+                type: 'Feature' as const,
+                properties: {
+                    id: p.id,
+                    label: p.embarcado ? '✓' : String(index + 1),
+                    cor: p.embarcado ? '#10B981' : '#3B82F6',
+                },
+                geometry: { type: 'Point' as const, coordinates: [Number(p.longitude), Number(p.latitude)] },
+            })),
     }), [rota]);
 
     let geometriaPercorrida: any = null;
@@ -766,7 +819,6 @@ export default function Mapa() {
                 velocidadeAtual={velocidadeAtual} 
             />
             
-            {/* Banner reposicionado perfeitamente abaixo do Painel de Manobra (top: insets.top + 215) */}
             {recalculandoRota ? (
                 <View style={[styles.bannerNotificacao, { top: insets.top + 215, backgroundColor: '#0D2B3A', borderColor: '#29B6F6' }]}>
                     <ActivityIndicator size="small" color="#29B6F6" style={styles.bannerIcon} />
