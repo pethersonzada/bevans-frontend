@@ -6,13 +6,16 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "name": "BeVans Dev"
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "name": "BeVans Alpha"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "name": "BeVans Produção"
     }
   },
   "submit": {
