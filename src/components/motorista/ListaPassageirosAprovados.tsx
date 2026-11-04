@@ -9,26 +9,27 @@ type Props = {
     onRemoverAluno: (id: number, nome: string) => void;
 };
 
+// Funções puras movidas para fora para não realocar memória a cada render
+const formatarNomeResumido = (nomeCompleto: string) => {
+    if (!nomeCompleto) return 'Passageiro';
+    const partes = nomeCompleto.trim().split(' ');
+    if (partes.length === 1) return partes[0];
+    return `${partes[0]} ${partes[1]}`;
+};
+
+const obterIniciais = (nomeCompleto: string) => {
+    if (!nomeCompleto) return 'P';
+    const partes = nomeCompleto.trim().split(' ');
+    if (partes.length === 1) return partes[0].substring(0, 2).toUpperCase();
+    return `${partes[0][0]}${partes[1][0]}`.toUpperCase();
+};
+
 export function ListaPassageirosAprovados({ passageiros, turmaSelecionada, onAdicionarAluno, onRemoverAluno }: Props) {
-    const formatarNomeResumido = (nomeCompleto: string) => {
-        if (!nomeCompleto) return 'Passageiro';
-        const partes = nomeCompleto.trim().split(' ');
-        if (partes.length === 1) return partes[0];
-        return `${partes[0]} ${partes[1]}`;
-    };
-
-    const obterIniciais = (nomeCompleto: string) => {
-        if (!nomeCompleto) return 'P';
-        const partes = nomeCompleto.trim().split(' ');
-        if (partes.length === 1) return partes[0].substring(0, 2).toUpperCase();
-        return `${partes[0][0]}${partes[1][0]}`.toUpperCase();
-    };
-
     return (
         <View style={styles.container}>
             <View style={styles.headerRow}>
                 <View style={styles.titleContainer}>
-                    <Text style={styles.sectionTitle}>Passageiros Aprovados</Text>
+                    <Text style={styles.sectionTitle}>Passageiros</Text>
                     <View style={styles.countBadge}>
                         <Text style={styles.countText}>{passageiros.length}</Text>
                     </View>
@@ -45,7 +46,7 @@ export function ListaPassageirosAprovados({ passageiros, turmaSelecionada, onAdi
             <View style={styles.cardList}>
                 {passageiros.length === 0 ? (
                     <View style={styles.emptyContainer}>
-                        <Ionicons name="people-outline" size={36} color={theme.colors.textLight} />
+                        <Ionicons name="people-outline" size={36} color={theme.colors.border} />
                         <Text style={styles.emptyText}>Nenhum aluno vinculado a esta turma no momento.</Text>
                     </View>
                 ) : (
@@ -69,15 +70,14 @@ export function ListaPassageirosAprovados({ passageiros, turmaSelecionada, onAdi
                                     </View>
                                 </View>
                                 
-                                <View style={styles.actionsGroup}>
-                                    <TouchableOpacity 
-                                        onPress={() => onRemoverAluno(p.id, p.nome)} 
-                                        style={styles.deleteBtn}
-                                        activeOpacity={0.7}
-                                    >
-                                        <Ionicons name="trash-outline" size={18} color={theme.colors.danger} />
-                                    </TouchableOpacity>
-                                </View>
+                                <TouchableOpacity 
+                                    onPress={() => onRemoverAluno(p.id, p.nome)} 
+                                    style={styles.deleteBtn}
+                                    activeOpacity={0.7}
+                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                >
+                                    <Ionicons name="trash-outline" size={20} color={theme.colors.danger} />
+                                </TouchableOpacity>
                             </View>
                         );
                     })
@@ -89,7 +89,7 @@ export function ListaPassageirosAprovados({ passageiros, turmaSelecionada, onAdi
 
 const styles = StyleSheet.create({
     container: {
-        marginTop: theme.spacing.lg,
+        marginTop: theme.spacing.sm,
         marginBottom: theme.spacing.xl,
     },
     headerRow: {
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     },
     countBadge: {
         backgroundColor: `${theme.colors.primary}15`,
-        paddingHorizontal: theme.spacing.sm,
+        paddingHorizontal: 8,
         paddingVertical: 2,
         borderRadius: theme.borderRadius.pill,
     },
@@ -123,13 +123,11 @@ const styles = StyleSheet.create({
     addBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: theme.spacing.xs,
+        gap: 6,
         backgroundColor: `${theme.colors.primary}10`,
         paddingHorizontal: theme.spacing.md,
-        paddingVertical: theme.spacing.xs,
+        paddingVertical: 6,
         borderRadius: theme.borderRadius.pill,
-        borderWidth: 1,
-        borderColor: `${theme.colors.primary}30`,
     },
     addBtnText: {
         color: theme.colors.primary,
@@ -142,9 +140,10 @@ const styles = StyleSheet.create({
     emptyContainer: {
         backgroundColor: theme.colors.surface,
         padding: theme.spacing.xl,
-        borderRadius: theme.borderRadius.lg,
+        borderRadius: theme.borderRadius.md,
         borderWidth: 1,
         borderColor: theme.colors.border,
+        borderStyle: 'dashed',
         alignItems: 'center',
         gap: theme.spacing.sm,
     },
@@ -157,16 +156,19 @@ const styles = StyleSheet.create({
         backgroundColor: theme.colors.surface,
         padding: theme.spacing.md,
         borderRadius: theme.borderRadius.md,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
         flexDirection: 'row',
         alignItems: 'center',
         gap: theme.spacing.md,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 3,
+        elevation: 1,
     },
     avatar: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
+        width: 46,
+        height: 46,
+        borderRadius: 23,
         backgroundColor: `${theme.colors.primary}15`,
         justifyContent: 'center',
         alignItems: 'center',
@@ -182,7 +184,7 @@ const styles = StyleSheet.create({
     },
     nameText: {
         fontSize: theme.typography.size.regular,
-        fontWeight: theme.typography.weight.bold,
+        fontWeight: '600',
         color: theme.colors.text,
     },
     statusIndicatorRow: {
@@ -199,16 +201,8 @@ const styles = StyleSheet.create({
         fontSize: theme.typography.size.small,
         color: theme.colors.textLight,
     },
-    actionsGroup: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
     deleteBtn: {
-        width: 36,
-        height: 36,
+        padding: theme.spacing.xs,
         borderRadius: theme.borderRadius.sm,
-        backgroundColor: `${theme.colors.danger}12`,
-        justifyContent: 'center',
-        alignItems: 'center',
     },
 });

@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/auth';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
     Alert,
     Image,
@@ -32,7 +32,7 @@ export default function Login() {
     const [loading, setLoading] = useState(false);
     const [carregandoSenha, setCarregandoSenha] = useState(false);
 
-    async function handleLogin() {
+    const handleLogin = useCallback(async () => {
         if (!email || !senha) {
             Alert.alert("Atenção", "Preencha o e-mail e a senha.");
             return;
@@ -78,9 +78,9 @@ export default function Login() {
         } finally {
             setLoading(false);
         }
-    }
+    }, [email, senha, signIn, router]);
 
-    async function handleEsqueciSenha() {
+    const handleEsqueciSenha = useCallback(async () => {
         if (!email.trim()) {
             Alert.alert("Atenção", "Informe seu e-mail no campo acima para recuperar a senha.");
             return;
@@ -103,7 +103,7 @@ export default function Login() {
         } finally {
             setCarregandoSenha(false);
         }
-    }
+    }, [email]);
 
     return (
         <KeyboardAvoidingView 
@@ -113,37 +113,48 @@ export default function Login() {
             <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
             
             <ScrollView 
-                contentContainerStyle={[styles.content, { paddingTop: insets.top + 30, paddingBottom: insets.bottom + 30 }]} 
+                contentContainerStyle={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]} 
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
+                bounces={false}
             >
-                <View style={styles.logoContainer}>
-                    <Image source={require('../../assets/images/logo-app-sem-fundo-sem-titulo.png')} style={styles.logoImage}/>
+                <View style={styles.headerArea}>
+                    <View style={styles.logoContainer}>
+                        <Image source={require('../../assets/images/logo-app-sem-fundo-sem-titulo.png')} style={styles.logoImage}/>
+                    </View>
+
+                    <Text style={styles.title}>Bem-vindo de volta!</Text>
+                    <Text style={styles.subtitle}>Entre com seus dados para continuar.</Text>
                 </View>
 
-                <Text style={styles.title}>Bem-vindo de volta!</Text>
-                <Text style={styles.subtitle}>Entre com seus dados para continuar.</Text>
-
-                <FormLogin 
-                    email={email} 
-                    setEmail={setEmail} 
-                    senha={senha} 
-                    setSenha={setSenha} 
-                    loading={loading} 
-                    onLogin={handleLogin} 
-                    onEsqueciSenha={handleEsqueciSenha}
-                    carregandoSenha={carregandoSenha}
-                />
+                <View style={styles.formCard}>
+                    <FormLogin 
+                        email={email} 
+                        setEmail={setEmail} 
+                        senha={senha} 
+                        setSenha={setSenha} 
+                        loading={loading} 
+                        onLogin={handleLogin} 
+                        onEsqueciSenha={handleEsqueciSenha}
+                        carregandoSenha={carregandoSenha}
+                    />
+                </View>
 
                 <View style={styles.registerContainer}>
                     <Text style={styles.text}>Ainda não tem conta?</Text>
                     <View style={styles.row}>
                         <Text style={styles.text}>Cadastre-se como</Text>
-                        <TouchableOpacity onPress={() => router.push({ pathname: '/cadastro', params: { tipo: 'PASSAGEIRO' } })}>
+                        <TouchableOpacity 
+                            onPress={() => router.push({ pathname: '/cadastro', params: { tipo: 'PASSAGEIRO' } })}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
                             <Text style={styles.linkText}>Passageiro</Text>
                         </TouchableOpacity>
                         <Text style={styles.text}>ou</Text>
-                        <TouchableOpacity onPress={() => router.push({ pathname: '/cadastro', params: { tipo: 'MOTORISTA' } })}>
+                        <TouchableOpacity 
+                            onPress={() => router.push({ pathname: '/cadastro', params: { tipo: 'MOTORISTA' } })}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
                             <Text style={styles.linkText}>Motorista</Text>
                         </TouchableOpacity>
                     </View>
@@ -157,39 +168,60 @@ const styles = StyleSheet.create({
     content: {
         flexGrow: 1,
         justifyContent: 'center',
-        paddingHorizontal: theme.spacing.md,
+        paddingHorizontal: theme.spacing.lg,
+    },
+    headerArea: {
+        alignItems: 'center',
+        marginBottom: theme.spacing.xl,
     },
     logoContainer: {
         alignItems: 'center',
         marginBottom: theme.spacing.lg,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        elevation: 5,
     },
     logoImage: {
-        width: 120,
-        height: 120,
+        width: 140,
+        height: 140,
         resizeMode: 'contain',
     },
     title: {
-        fontSize: theme.typography.size.title,
-        fontWeight: theme.typography.weight.bold,
+        fontSize: 28,
+        fontWeight: '800',
         color: theme.colors.text,
         textAlign: 'center',
         marginBottom: theme.spacing.xs,
+        letterSpacing: -0.5,
     },
     subtitle: {
         fontSize: theme.typography.size.regular,
         color: theme.colors.textLight,
         textAlign: 'center',
-        marginBottom: theme.spacing.xl,
+    },
+    formCard: {
+        backgroundColor: theme.colors.surface,
+        padding: theme.spacing.xl,
+        borderRadius: 24,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.05,
+        shadowRadius: 20,
+        elevation: 3,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
     },
     registerContainer: {
         alignItems: 'center',
-        marginTop: theme.spacing.xl,
+        marginTop: theme.spacing.xl + theme.spacing.md,
         gap: theme.spacing.xs,
     },
     row: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: theme.spacing.xs,
+        gap: 6,
     },
     text: {
         fontSize: theme.typography.size.regular,
@@ -197,7 +229,7 @@ const styles = StyleSheet.create({
     },
     linkText: {
         fontSize: theme.typography.size.regular,
-        fontWeight: theme.typography.weight.bold,
+        fontWeight: '700',
         color: theme.colors.primary,
     },
 });

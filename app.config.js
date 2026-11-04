@@ -2,12 +2,12 @@ import 'dotenv/config';
 
 export default {
   expo: {
-    name: "VanBora",
-    slug: "van-app",
+    name: "BeVans",
+    slug: "bevans-app",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/logo-app.png",
-    scheme: "vanapp",
+    scheme: "bevans",
     userInterfaceStyle: "automatic",
     splash: {
       image: "./assets/images/splash-icon.png",
@@ -18,7 +18,7 @@ export default {
       supportsTablet: true
     },
     android: {
-      package: "com.vanbora.app",
+      package: "com.bevans.app",
       adaptiveIcon: {
         backgroundColor: "#E6F4FE",
         foregroundImage: "./assets/images/logo-app.png",

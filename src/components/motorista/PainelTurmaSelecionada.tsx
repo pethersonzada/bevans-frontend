@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { apiFetch } from '../../config/api';
 import { theme } from '../../styles/theme';
@@ -13,6 +13,14 @@ type Props = {
 export function PainelTurmaSelecionada({ turma, onAtualizarTurma }: Props) {
     const [carregandoCodigo, setCarregandoCodigo] = useState(false);
     const [copiado, setCopiado] = useState(false);
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Evita memory leak caso o componente desmonte durante os 2s do "Copiado!"
+    useEffect(() => {
+        return () => {
+            if (timerRef.current) clearTimeout(timerRef.current);
+        };
+    }, []);
 
     if (!turma) return null;
 
@@ -22,7 +30,9 @@ export function PainelTurmaSelecionada({ turma, onAtualizarTurma }: Props) {
         if (!turma.codigoConvite) return;
         await Clipboard.setStringAsync(turma.codigoConvite);
         setCopiado(true);
-        setTimeout(() => setCopiado(false), 2000);
+        
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => setCopiado(false), 2000);
     }
 
     async function handleRegenerarCodigo() {
@@ -51,7 +61,7 @@ export function PainelTurmaSelecionada({ turma, onAtualizarTurma }: Props) {
             <View style={styles.header}>
                 <View style={styles.headerTitleRow}>
                     <View style={styles.iconCircle}>
-                        <Ionicons name="key" size={15} color={theme.colors.primary} />
+                        <Ionicons name="key" size={14} color={theme.colors.primary} />
                     </View>
                     <Text style={styles.headerTitle}>CÓDIGO DE CONVITE</Text>
                 </View>
@@ -61,13 +71,14 @@ export function PainelTurmaSelecionada({ turma, onAtualizarTurma }: Props) {
                     disabled={carregandoCodigo}
                     style={styles.refreshBtn}
                     activeOpacity={0.6}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
                     {carregandoCodigo ? (
                         <ActivityIndicator size="small" color={theme.colors.primary} />
                     ) : (
                         <>
                             <Ionicons name="refresh-outline" size={14} color={theme.colors.textLight} />
-                            <Text style={styles.refreshText}>Gerar outro</Text>
+                            <Text style={styles.refreshText}>Gerar novo</Text>
                         </>
                     )}
                 </TouchableOpacity>
@@ -100,16 +111,18 @@ const styles = StyleSheet.create({
     card: {
         backgroundColor: theme.colors.surface,
         padding: theme.spacing.md,
-        borderRadius: theme.borderRadius.lg,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-        marginBottom: theme.spacing.md,
+        borderRadius: theme.borderRadius.md,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: theme.spacing.sm,
+        marginBottom: theme.spacing.md,
     },
     headerTitleRow: {
         flexDirection: 'row',
@@ -117,16 +130,16 @@ const styles = StyleSheet.create({
         gap: theme.spacing.xs,
     },
     iconCircle: {
-        width: 26,
-        height: 26,
-        borderRadius: 13,
+        width: 24,
+        height: 24,
+        borderRadius: 12,
         backgroundColor: `${theme.colors.primary}15`,
         justifyContent: 'center',
         alignItems: 'center',
     },
     headerTitle: {
-        fontSize: theme.typography.size.small,
-        fontWeight: theme.typography.weight.bold,
+        fontSize: 11,
+        fontWeight: '700',
         color: theme.colors.textLight,
         letterSpacing: 0.8,
     },
@@ -135,7 +148,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 4,
         paddingVertical: 4,
-        paddingHorizontal: 8,
     },
     refreshText: {
         fontSize: theme.typography.size.small,
@@ -147,18 +159,18 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         backgroundColor: theme.colors.background,
-        borderRadius: theme.borderRadius.md,
+        borderRadius: theme.borderRadius.sm,
         borderWidth: 1,
         borderColor: theme.colors.border,
-        paddingLeft: theme.spacing.md,
+        paddingLeft: theme.spacing.lg,
         paddingRight: theme.spacing.xs,
         paddingVertical: theme.spacing.xs,
     },
     codeText: {
-        fontSize: 22,
+        fontSize: 24,
         fontWeight: theme.typography.weight.bold,
         color: theme.colors.primary,
-        letterSpacing: 4,
+        letterSpacing: 6,
     },
     copyBtn: {
         flexDirection: 'row',
