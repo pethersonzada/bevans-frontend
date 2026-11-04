@@ -4,7 +4,6 @@ export default {
   expo: {
     name: "BeVans",
     slug: "bevans-app",
-    owner: "pethersonzada",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/logo-app.png",
@@ -55,7 +54,7 @@ export default {
     },
     extra: {
       eas: {
-        projectId: "e061c32b-a917-428b-b75e-fdc0c0cf6bee"
+        projectId: "11c8b986-a17f-4f77-880f-b8770bd55722"
       }
     }
   }
