@@ -8,8 +8,8 @@ Aplicativo mobile (**React Native + Expo**) para gestão de transporte escolar e
 [![Firebase](https://img.shields.io/badge/Firebase-039BE5?style=for-the-badge&logo=Firebase&logoColor=white)](https://firebase.google.com/)
 [![Mapbox](https://img.shields.io/badge/Mapbox-000000?style=for-the-badge&logo=Mapbox&logoColor=white)](https://www.mapbox.com/)
 
----
-
+> ⚠️ **Aviso de Propriedade Intelectual:** Este repositório é de uso estritamente pessoal e acadêmico, mantido no GitHub apenas para controle de versão do projeto **BeVans**. A cópia, distribuição, comercialização ou uso não autorizado do código-fonte por terceiros é expressamente proibida.
+> 
 ## Sumário
 1. Visão Geral
 2. Arquitetura e Fluxo
@@ -18,8 +18,6 @@ Aplicativo mobile (**React Native + Expo**) para gestão de transporte escolar e
 5. Exemplo de Uso Prático
 6. Casos de Borda e Possíveis Erros
 7. Pontos de Atenção e Melhorias Recomendadas
-
----
 
 ## 1. Visão Geral
 
@@ -45,8 +43,6 @@ O **BeVans** é um app mobile que organiza o transporte por van de alunos. Ele r
 | **Persistência local** | `@react-native-async-storage/async-storage` |
 | **Conectividade** | `@react-native-community/netinfo` |
 | **Backend** | API REST própria (Bearer token Firebase) |
-
----
 
 ## 2. Pré-requisitos e Instalação
 
@@ -79,8 +75,6 @@ EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=...
 EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
 EXPO_PUBLIC_FIREBASE_APP_ID=...
 ```
-
----
 
 ## 3. Exemplo de Uso Prático
 
