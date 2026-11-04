@@ -4,6 +4,7 @@ export default {
   expo: {
     name: "BeVans",
     slug: "bevans-app",
+    owner: "pethersonzada",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/logo-app.png",
