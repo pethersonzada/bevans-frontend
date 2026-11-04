@@ -22,6 +22,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
+        let isMounted = true;
+
         async function loadStorageData() {
             try {
                 const keys = ['userId', 'userName', 'userTipo', 'userEndereco'];
@@ -29,7 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 
                 const storageData = Object.fromEntries(result);
                 
-                if (storageData.userId) {
+                if (isMounted && storageData.userId) {
                     setUser({
                         id: storageData.userId,
                         nome: storageData.userName || 'Usuário',
@@ -40,10 +42,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             } catch (error) {
                 console.error("Erro ao carregar dados do usuário", error);
             } finally {
-                setIsLoading(false);
+                if (isMounted) {
+                    setIsLoading(false);
+                }
             }
         }
+
         loadStorageData();
+
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     const signIn = async (userData: User) => {

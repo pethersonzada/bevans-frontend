@@ -12,9 +12,12 @@ function RootLayoutNav() {
     useEffect(() => {
         if (isLoading) return;
 
-        const inAuthGroup = segments[0] === '(tabs)';
+        const firstSegment = segments[0] || '';
+        const inAuthGroup = firstSegment === '(tabs)';
         
         const publicasForaDasTabs = [
+            'login',
+            'cadastro',
             'gerenciar-enderecos', 
             'entrar-turma', 
             'cadastro-endereco', 
@@ -23,14 +26,21 @@ function RootLayoutNav() {
             'mapa',
             'selecionar-rota-mapa'
         ];
-        const estaEmTelaLivre = segments.length > 0 && publicasForaDasTabs.includes(segments[0]);
 
-        if (!user.id && inAuthGroup) {
-            router.replace('/login');
-        } else if (user.id && !inAuthGroup && !estaEmTelaLivre) {
-            router.replace('/(tabs)/home');
-        }
-    }, [user, isLoading, segments]);
+        const estaEmTelaLivre = publicasForaDasTabs.includes(firstSegment);
+
+        // O setTimeout coloca o redirecionamento na fila do próximo tick da call stack,
+        // dando tempo do <Stack /> e do Expo Router montarem sem dar erro de state update.
+        const timer = setTimeout(() => {
+            if (!user.id && inAuthGroup) {
+                router.replace('/login');
+            } else if (user.id && !inAuthGroup && !estaEmTelaLivre) {
+                router.replace('/(tabs)/home');
+            }
+        }, 0);
+
+        return () => clearTimeout(timer);
+    }, [user.id, isLoading, segments]);
 
     if (isLoading) {
         return (
