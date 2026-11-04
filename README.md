@@ -1,61 +1,106 @@
-# Documentação Técnica do Frontend da Solução VanBora
+# BeVans - Documentação Técnica do Frontend
 
-![React Native](https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
-![Expo](https://img.shields.io/badge/Expo-000020?style=for-the-badge&logo=expo&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
+Aplicativo mobile (**React Native + Expo**) para gestão de transporte escolar e universitário por van, conectando motoristas e passageiros em tempo real.
 
-## 1. Visão Geral da Arquitetura do Frontend, Design System e Experiência do Usuário
+[![React Native](https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactnative.dev/)
+[![Expo](https://img.shields.io/badge/Expo-000020?style=for-the-badge&logo=expo&logoColor=white)](https://expo.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Firebase](https://img.shields.io/badge/Firebase-039BE5?style=for-the-badge&logo=Firebase&logoColor=white)](https://firebase.google.com/)
+[![Mapbox](https://img.shields.io/badge/Mapbox-000000?style=for-the-badge&logo=Mapbox&logoColor=white)](https://www.mapbox.com/)
 
-O ecossistema frontend do projeto Rota Estudantil foi arquitetado e desenvolvido utilizando React Native em conjunto com o ecossistema Expo e TypeScript, assegurando uma aplicação multiplataforma nativa de alta fluidez, desempenho otimizado e design limpo. A interface foi projetada estruturalmente para atender simultaneamente a dois perfis cruciais de usuários durante o ciclo operacional diário: o **Estudante/Responsável** e o **Motorista da Van**.
+---
 
-A arquitetura de navegação emprega abordagens modernas baseadas em rotas por arquivos, gerenciamento de estado reativo de alta performance e estratégias robustas de sincronização assíncrona para contornar instabilidades e variações de conectividade de rede nas ruas e rodovias.
+## Sumário
+1. Visão Geral
+2. Arquitetura e Fluxo
+3. Pré-requisitos e Instalação
+4. Parâmetros, Entradas e Saídas
+5. Exemplo de Uso Prático
+6. Casos de Borda e Possíveis Erros
+7. Pontos de Atenção e Melhorias Recomendadas
 
-## 2. Stack Tecnológica, Dependências e Ecossistema de Bibliotecas
+---
 
-* **Framework Mobile Principal:** React Native integrado com o Expo, utilizando ferramentas modernas de compilação e build nativo.
-* **Linguagem de Programação:** TypeScript, garantindo tipagem estática rigorosa, contratos de dados seguros e prevenção de erros em tempo de compilação.
-* **Estilização e Camada Visual:** Estilização nativa otimizada por componentes modulares (StyleSheet do React Native), assegurando renderização acelerada e consistência de design em diferentes densidades de tela de dispositivos móveis.
-* **Gerenciamento de Estado e Persistência Local:** Utilização avançada de React Hooks nativos (`useState`, `useEffect`, `useContext`) combinados com o AsyncStorage para garantir a persistência segura de tokens de sessão, preferências de usuário e cache off-line temporário.
-* **Comunicação HTTP Assíncrona:** Cliente Axios configurado para requisições RESTful, gerenciamento de interceptadores e tratamento centralizado de falhas de comunicação com o backend Spring Boot.
+## 1. Visão Geral
 
-## 3. Estrutura de Componentes, Ciclo de Vida e Fluxos Operacionais (Destaque: Home.tsx)
+### 1.1 O que é
+O **BeVans** é um app mobile que organiza o transporte por van de alunos. Ele resolve três problemas principais:
 
-* **Estado de Presença Reativo e Persistido:** O estado de presença do aluno é gerenciado dinamicamente por meio de `useState` e persistido localmente via AsyncStorage, garantindo que a preferência de transporte selecionada permaneça intacta mesmo após reinicializações do aplicativo.
-* **Atualização Otimista da Interface (Optimistic UI):** A interface responde instantaneamente à interação de toque do usuário. O sistema emprega um atraso de segurança controlado (`setTimeout`) antes da sincronização total com o servidor backend, eliminando travamentos visuais e mitigando conflitos de concorrência em redes móveis lentas.
-* **Gestão de Decisão do Aluno e Feedback Visual para o Motorista:**
-  * **Estudantes:** Possuem um painel intuitivo com 4 opções flexíveis de status operacional (`IDA`, `VOLTA`, `AMBOS`, `NAO_VOU`).
-  * **Motoristas:** Recebem feedback visual imediato e em tempo real sobre a totalidade das respostas consolidadas da turma, permitindo avaliar a prontidão da van antes de iniciar o trajeto.
+* **Gestão de Presença:** Passageiros confirmam presença (*Ida / Volta / Ambos / Não Vou*) e escolhem o endereço de embarque.
+* **Otimização de Rotas:** O backend devolve a ordem otimizada (`/rota/otimizar`) e o app desenha a rota com navegação *turn-by-turn* via **Mapbox**.
+* **Radar da Van:** A posição do motorista é enviada a cada ~2 s e consultada pelos passageiros a cada 10 s.
 
-## 4. Mapeamento de Endpoints, Contratos de API e Fluxo de Comunicação
+### 1.2 Perfis de usuário
+* **PASSAGEIRO (ALUNO):** Entra em uma turma por código de convite, cadastra endereços, confirma presença e acompanha a van.
+* **MOTORISTA:** Cria turmas/rotas, define origem (garagem) e destino, aprova solicitações, gerencia passageiros e conduz a viagem no mapa.
 
-A aplicação consome diretamente os serviços expostos pela API REST do backend por meio de rotas estruturadas:
+### 1.3 Stack
+| Camada | Tecnologia |
+| :--- | :--- |
+| **Framework** | React Native + Expo (SDK com Expo Router) |
+| **Linguagem** | TypeScript |
+| **Autenticação** | Firebase Authentication (e-mail/senha) |
+| **Mapas e Rotas** | `@rnmapbox/maps` + Mapbox Directions API |
+| **Localização** | `expo-location` |
+| **Persistência local** | `@react-native-async-storage/async-storage` |
+| **Conectividade** | `@react-native-community/netinfo` |
+| **Backend** | API REST própria (Bearer token Firebase) |
 
-* **Gerenciamento e Confirmação de Presença (`POST /rota/confirmar`):** Envia e atualiza o status de presença do estudante. Suporta o envio do parâmetro especial `LIMPAR` para apagar registros e reiniciar o fluxo de "Aguardando Resposta" na tela do motorista.
-* **Listagem Consolidada de Passageiros (`GET /usuarios/passageiros`):** Retorna a listagem de todos os usuários cadastrados com o perfil `PASSAGEIRO`, juntamente com seus respectivos estados de embarque para o dia operacional vigente.
-* **Cadastro de Novos Usuários (`POST /usuarios/cadastrar`):** Endpoint responsável pelo registro seguro de novos perfis institucionais na base de dados relacional.
-* **Autenticação e Sessão (`POST /usuarios/login`):** Executa o fluxo de autenticação baseado em credenciais de acesso para liberação de rotas protegidas no aplicativo.
+---
 
-## 5. Regras de Negócio, Validações no Cliente e Tratamento de Exceções
+## 2. Pré-requisitos e Instalação
 
-* **Bloqueio de Partida da Rota:** O motorista possui restrição lógica rigorosa que impede a liberação do início da rota caso o total de passageiros confirmados não atinja os parâmetros de validação exigidos pelo sistema.
-* **Mitigação de Concorrência e Latência:** Mecanismos internos de atraso controlado ajustam a sincronização para lidar com oscilações de rede sem corromper o estado visual do usuário.
+### 2.1 Requisitos
+* Node.js 18+ e npm/yarn
+* Expo CLI / EAS CLI
+* Conta Firebase (Authentication habilitado)
+* Conta Mapbox (Token público)
+* **Atenção:** O `@rnmapbox/maps` é um módulo nativo e **não funciona no Expo Go**. Utilize *development builds* (`expo run:android` / `expo run:ios` ou EAS Build).
 
-## 6. Pré-requisitos, Dependências de Sistema e Configuração de Ambiente
+### 2.2 Dependências Principais
+```bash
+npx expo install expo-router expo-location expo-clipboard \
+  react-native-safe-area-context @expo/vector-icons \
+  @react-native-async-storage/async-storage \
+  @react-native-community/netinfo
 
-* **Pré-requisitos de Ambiente:** Node.js versão 18 ou superior instalado, em conjunto com a Expo CLI configurada no sistema operacional.
-* **Configuração de Rede e Servidor:** Defina o endereço IP ativo do servidor backend no arquivo de configuração de rede (ex: `config.js`). Para testes externos em dispositivos físicos, utilize ferramentas de túnel local como `npx localtunnel --port 8080`.
-* **Procedimento de Instalação e Execução:** 
-  1. Execute `npm install` na raiz do projeto para baixar todas as dependências do `package.json`.
-  2. Execute `npx expo start` para inicializar o empacotador Metro e abrir o ambiente de desenvolvimento.
+npm install firebase @rnmapbox/maps react-native-masked-text
+```
 
-### Visualizar o Repositório do Backend
+### 2.3 Variáveis de Ambiente (`.env`)
+```env
+EXPO_PUBLIC_API_URL=https://sua-api.exemplo.com
+EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN=pk.xxxxxxxxxxxx
 
-https://github.com/pethersonzada/rota-estudantil-backend
+EXPO_PUBLIC_FIREBASE_API_KEY=...
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=...
+EXPO_PUBLIC_FIREBASE_PROJECT_ID=...
+EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=...
+EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
+EXPO_PUBLIC_FIREBASE_APP_ID=...
+```
 
-## 🔒 Licença e Direitos Autorais
+---
 
-Copyright© 2026 Miguel Petherson Silva. Todos os direitos reservados.
+## 3. Exemplo de Uso Prático
 
-Este software e sua documentação associada (o "Projeto Rota Estudantil") são de propriedade exclusiva do autor. 
+### Consumindo a API com autenticação injetada
+```typescript
+import { apiFetch } from '../config/api';
 
-É expressamente proibida a cópia, modificação, distribuição, comercialização ou utilização total ou parcial deste código-fonte sem a autorização prévia e expressa por escrito do autor.
+type Turma = {
+  id: string;
+  nome: string;
+  turno: string;
+};
+
+async function buscarTurmas(motoristaId: string): Promise<Turma[]> {
+  const res = await apiFetch(`/turmas/motorista/${motoristaId}`, {
+    headers: { Accept: 'application/json' },
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return (await res.json()) as Turma[];
+}
+```
+
+---
