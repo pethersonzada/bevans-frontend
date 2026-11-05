@@ -10,14 +10,6 @@ Aplicativo mobile (**React Native + Expo**) para gestão de transporte escolar e
 
 > ⚠️ **Aviso de Propriedade Intelectual:** Este repositório é de uso estritamente pessoal e acadêmico, mantido no GitHub apenas para controle de versão do projeto **BeVans**. A cópia, distribuição, comercialização ou uso não autorizado do código-fonte por terceiros é expressamente proibida.
 > 
-## Sumário
-1. Visão Geral
-2. Arquitetura e Fluxo
-3. Pré-requisitos e Instalação
-4. Parâmetros, Entradas e Saídas
-5. Exemplo de Uso Prático
-6. Casos de Borda e Possíveis Erros
-7. Pontos de Atenção e Melhorias Recomendadas
 
 ## 1. Visão Geral
 
