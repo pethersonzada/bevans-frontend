@@ -58,18 +58,43 @@ type Projecao = {
     distancia: number;
     bearing: number;
     indice: number;
+    t: number;
+};
+
+type ParadaNavegacao = {
+    passageiroId: number | null;
+    nome: string;
+    ponto: LatLng;
+    indiceRota: number;
+};
+
+type GeometriaSalva = {
+    geoJson: any;
+    coordenadas: [number, number][];
+    manobras: Manobra[];
+    paradas: ParadaNavegacao[];
+    passageirosIds: number[];
 };
 
 const CACHE_KEYS = {
-    garagem: '@rota_estudantil:garagem',
-    destino: '@rota_estudantil:destino',
-    rota: (sentido: string) => `@rota_estudantil:rota:${sentido}`,
-    geometria: (sentido: string) => `@rota_estudantil:geometria:${sentido}`,
-    filaLocalizacoes: '@rota_estudantil:fila_localizacoes',
+    garagem: (turmaId: number) => `@bevans:garagem:${turmaId}`,
+    destino: (turmaId: number) => `@bevans:destino:${turmaId}`,
+    rota: (turmaId: number, sentido: string) => `@bevans:rota:${turmaId}:${sentido}`,
+    geometria: (turmaId: number, sentido: string) => `@bevans:geometria:v2:${turmaId}:${sentido}`,
+    visitadas: (turmaId: number, sentido: string) => {
+        const hoje = new Date();
+        const diaLocal = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
+        return `@bevans:visitadas:${turmaId}:${sentido}:${diaLocal}`;
+    },
+    filaLocalizacoes: '@bevans:fila_localizacoes',
 };
 
 const RAIO_DESVIO_ROTA_METROS = 80;
-const DURACAO_ANIMACAO_MS = 1900;
+const RAIO_CHEGADA_PARADA_METROS = 30;
+const VELOCIDADE_MAXIMA_CHEGADA_KMH = 18;
+const PRECISAO_MAXIMA_CHEGADA_METROS = 45;
+const LEITURAS_PARA_CHEGADA = 2;
+const DURACAO_ANIMACAO_MS = 1600;
 const JANELA_BUSCA_PROJECAO = 40;
 const LIMITE_WAYPOINTS_MAPBOX = 25;
 const LIMIAR_TEMPO_FORA_ROTA_MS = 6000;
@@ -109,8 +134,8 @@ function distanciaMetros(a: LatLng, b: LatLng): number {
     const h =
         Math.sin(dLat / 2) ** 2 +
         Math.cos(lat1) *
-            Math.cos(lat2) *
-            Math.sin(dLng / 2) ** 2;
+        Math.cos(lat2) *
+        Math.sin(dLng / 2) ** 2;
 
     return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
 }
@@ -176,71 +201,48 @@ function projetarNoSegmento(
 function encontrarProjecaoNaRota(
     coordenadas: [number, number][],
     ponto: LatLng,
-    indiceAnterior: number | null
+    indiceAnterior: number | null,
+    indiceMinimo: number,
+    indiceMaximo: number
 ): Projecao | null {
     if (coordenadas.length < 2) return null;
 
-    const avaliarFaixa = (
-        inicio: number,
-        fim: number
-    ): Projecao | null => {
-        let melhor: Projecao | null = null;
+    // Nunca procura segmentos depois da próxima parada obrigatória.
+    const minimo = Math.max(0, Math.min(coordenadas.length - 2, indiceMinimo));
+    const maximo = Math.min(coordenadas.length - 2, Math.max(minimo, indiceMaximo));
+    const inicio = indiceAnterior === null
+        ? minimo
+        : Math.max(minimo, indiceAnterior - 5);
+    const fim = indiceAnterior === null
+        ? maximo
+        : Math.min(maximo, indiceAnterior + JANELA_BUSCA_PROJECAO);
+    let melhor: Projecao | null = null;
 
-        for (let i = inicio; i <= fim; i++) {
-            const a = {
-                longitude: coordenadas[i][0],
-                latitude: coordenadas[i][1],
-            };
-
-            const b = {
-                longitude: coordenadas[i + 1][0],
-                latitude: coordenadas[i + 1][1],
-            };
-
-            const proj = projetarNoSegmento(ponto, a, b);
-
-            if (!melhor || proj.distancia < melhor.distancia) {
-                melhor = {
-                    ponto: proj.ponto,
-                    distancia: proj.distancia,
-                    bearing: proj.bearing,
-                    indice: i,
-                };
-            }
-        }
-
-        return melhor;
-    };
-
-    let melhor: Projecao | null;
-
-    if (indiceAnterior !== null) {
-        const inicio = Math.max(0, indiceAnterior - 5);
-
-        const fim = Math.min(
-            coordenadas.length - 2,
-            indiceAnterior + JANELA_BUSCA_PROJECAO
-        );
-
-        melhor = avaliarFaixa(inicio, fim);
-    } else {
-        melhor = avaliarFaixa(0, coordenadas.length - 2);
-    }
-
-    if (!melhor || melhor.distancia > RAIO_DESVIO_ROTA_METROS * 3) {
-        const completa = avaliarFaixa(
-            0,
-            coordenadas.length - 2
-        );
-
-        if (
-            completa &&
-            (!melhor || completa.distancia < melhor.distancia)
-        ) {
-            melhor = completa;
+    for (let i = inicio; i <= fim; i++) {
+        const a = { longitude: coordenadas[i][0], latitude: coordenadas[i][1] };
+        const b = { longitude: coordenadas[i + 1][0], latitude: coordenadas[i + 1][1] };
+        const proj = projetarNoSegmento(ponto, a, b);
+        if (!melhor || proj.distancia < melhor.distancia) {
+            melhor = { ...proj, indice: i };
         }
     }
+    // Sem fallback global: uma rua próxima não pode adiantar a viagem.
+    return melhor;
+}
 
+function indiceMaisProximoSequencial(
+    coordenadas: [number, number][],
+    alvo: LatLng,
+    inicio: number
+): number {
+    let melhor = Math.min(inicio, coordenadas.length - 1);
+    let distancia = Infinity;
+    for (let i = melhor; i < coordenadas.length; i++) {
+        const d = distanciaMetros(alvo, {
+            latitude: coordenadas[i][1], longitude: coordenadas[i][0],
+        });
+        if (d < distancia) { distancia = d; melhor = i; }
+    }
     return melhor;
 }
 
@@ -253,7 +255,7 @@ function distanciaRestanteDesde(
 
     const [lngB, latB] =
         coordenadas[
-            Math.min(indiceSegmento + 1, coordenadas.length - 1)
+        Math.min(indiceSegmento + 1, coordenadas.length - 1)
         ];
 
     const segmentoTotal = distanciaMetros(
@@ -296,8 +298,9 @@ export default function Mapa() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
 
-    const { sentido } = useLocalSearchParams<{
-        sentido: string;
+    const { sentido, turmaId } = useLocalSearchParams<{
+        sentido?: string;
+        turmaId?: string;
     }>();
 
     const { user } = useAuth();
@@ -372,6 +375,13 @@ export default function Mapa() {
     const ultimaRecalculacaoRef = useRef<number | null>(null);
 
     const turmaIdRef = useRef<number | null>(null);
+    const paradasRef = useRef<ParadaNavegacao[]>([]);
+    const visitadosRef = useRef<Set<number>>(new Set());
+    const leiturasChegadaRef = useRef(0);
+    const indiceMinimoRef = useRef(0);
+    const [proximaParada, setProximaParada] = useState<string | null>(null);
+    const [paradasRestantes, setParadasRestantes] = useState(0);
+
 
     useEffect(() => {
         coordenadasRotaRef.current = coordenadasRota;
@@ -445,6 +455,8 @@ export default function Mapa() {
         routeGeoJSON: any;
         coordenadas: [number, number][];
         manobras: Manobra[];
+        pontosAjustados: LatLng[];
+        indicesWaypoints: number[];
     }> {
         if (pontos.length > LIMITE_WAYPOINTS_MAPBOX) {
             throw new Error(
@@ -535,11 +547,19 @@ export default function Mapa() {
             (a, b) => a.indiceRota - b.indiceRota
         );
 
-        return {
-            routeGeoJSON,
-            coordenadas: geometryCoords,
-            manobras,
-        };
+        if (!Array.isArray(data.waypoints) || data.waypoints.length !== pontos.length) {
+            throw new Error('Mapbox não retornou todos os pontos obrigatórios');
+        }
+        const pontosAjustados: LatLng[] = data.waypoints.map((w: any) => ({
+            longitude: Number(w.location[0]), latitude: Number(w.location[1]),
+        }));
+        const indicesWaypoints: number[] = [];
+        let ultimo = 0;
+        for (const ponto of pontosAjustados) {
+            ultimo = indiceMaisProximoSequencial(geometryCoords, ponto, ultimo);
+            indicesWaypoints.push(ultimo);
+        }
+        return { routeGeoJSON, coordenadas: geometryCoords, manobras, pontosAjustados, indicesWaypoints };
     }
 
     useEffect(() => {
@@ -660,10 +680,12 @@ export default function Mapa() {
         const passo = () => {
             if (!montadoRef.current) return;
 
-            const t = Math.min(
+            const progresso = Math.min(
                 1,
                 (Date.now() - inicio) / DURACAO_ANIMACAO_MS
             );
+
+            const t = progresso * progresso * (3 - 2 * progresso);
 
             const lat =
                 origem.latitude +
@@ -691,6 +713,35 @@ export default function Mapa() {
         passo();
     }
 
+    function aplicarGeometria(
+        geoJson: any,
+        coordenadas: [number, number][],
+        manobrasCalculadas: Manobra[],
+        paradas: ParadaNavegacao[]
+    ) {
+        setGeometriaRota(geoJson);
+        setCoordenadasRota(coordenadas);
+        coordenadasRotaRef.current = coordenadas;
+        setManobras(manobrasCalculadas);
+        manobrasRef.current = manobrasCalculadas;
+        setManobraAtual(manobrasCalculadas[0] || null);
+        paradasRef.current = paradas;
+        indiceMinimoRef.current = 0;
+        ultimoIndiceProjecaoRef.current = null;
+        leiturasChegadaRef.current = 0;
+        setProximaParada(paradas[0]?.nome || null);
+        setParadasRestantes(paradas.length);
+    }
+
+    async function registrarParadaVisitada(parada: ParadaNavegacao) {
+        if (parada.passageiroId === null || !turmaIdRef.current) return;
+        visitadosRef.current.add(parada.passageiroId);
+        await salvarCache(
+            CACHE_KEYS.visitadas(turmaIdRef.current, direcaoAtualRef.current),
+            Array.from(visitadosRef.current)
+        );
+    }
+
     async function recalcularRotaAPartirDe(
         origemAtual: LatLng
     ) {
@@ -708,9 +759,12 @@ export default function Mapa() {
         }
 
         try {
-            const pendentes = rotaRef.current.filter(
-                (p) => !p.embarcado
+            const idsPendentes = new Set(
+                paradasRef.current
+                    .filter((p) => p.passageiroId !== null)
+                    .map((p) => p.passageiroId)
             );
+            const pendentes = rotaRef.current.filter(p => idsPendentes.has(p.id));
 
             const destinoFinal =
                 direcaoAtualRef.current === 'ida'
@@ -727,9 +781,13 @@ export default function Mapa() {
                 routeGeoJSON,
                 coordenadas,
                 manobras: manobrasCalculadas,
+                pontosAjustados,
+                indicesWaypoints,
             } = await buscarRotaMapbox(pontosOrdenados);
 
             if (!montadoRef.current) return;
+            const idsAindaPendentes = new Set(paradasRef.current.map(p => p.passageiroId));
+            if (pendentes.some(p => !idsAindaPendentes.has(p.id))) return;
 
             const geoJsonValido = {
                 type: 'FeatureCollection',
@@ -742,26 +800,28 @@ export default function Mapa() {
                 ],
             };
 
-            setGeometriaRota(geoJsonValido);
-
-            setCoordenadasRota(coordenadas);
-            coordenadasRotaRef.current = coordenadas;
-
-            ultimoIndiceProjecaoRef.current = null;
-
-            setManobras(manobrasCalculadas);
-            manobrasRef.current = manobrasCalculadas;
-
-            if (manobrasCalculadas[0]) {
-                setManobraAtual(manobrasCalculadas[0]);
+            const paradas: ParadaNavegacao[] = [
+                ...pendentes.map((p, i) => ({
+                    passageiroId: p.id,
+                    nome: p.nome,
+                    ponto: pontosAjustados[i + 1],
+                    indiceRota: indicesWaypoints[i + 1],
+                })),
+                {
+                    passageiroId: null,
+                    nome: 'Destino final',
+                    ponto: pontosAjustados[pontosAjustados.length - 1],
+                    indiceRota: indicesWaypoints[indicesWaypoints.length - 1],
+                },
+            ];
+            aplicarGeometria(geoJsonValido, coordenadas, manobrasCalculadas, paradas);
+            const turmaId = turmaIdRef.current;
+            if (turmaId !== null) {
+                await salvarCache(CACHE_KEYS.geometria(turmaId, direcaoAtualRef.current), {
+                    geoJson: geoJsonValido, coordenadas, manobras: manobrasCalculadas,
+                    paradas, passageirosIds: rotaRef.current.map(p => p.id),
+                } as GeometriaSalva);
             }
-
-            await salvarCache(
-                CACHE_KEYS.geometria(
-                    direcaoAtualRef.current
-                ),
-                geoJsonValido
-            );
 
             primeiroTickForaRotaRef.current = null;
 
@@ -793,32 +853,6 @@ export default function Mapa() {
             let direcaoDefinitiva: Sentido =
                 (sentido as Sentido) || 'ida';
 
-            try {
-                const resStatus = await fetchComTimeout(
-                    `${API_URL}/rota/status-atual`,
-                    {
-                        headers: HEADERS_PADRAO,
-                    },
-                    6000
-                );
-
-                if (!montadoRef.current) return;
-
-                if (resStatus.ok) {
-                    const dataStatus = await resStatus.json();
-
-                    if (
-                        dataStatus.status === 'ATIVA' &&
-                        dataStatus.sentido
-                    ) {
-                        direcaoDefinitiva =
-                            dataStatus.sentido.toLowerCase();
-                    }
-                }
-            } catch {
-                // O status será consultado novamente durante o carregamento.
-            }
-
             const { status } =
                 await Location.requestForegroundPermissionsAsync();
 
@@ -834,16 +868,19 @@ export default function Mapa() {
                 return;
             }
 
-            let posicaoInicial: LatLng = {
-                latitude: -8.303,
-                longitude: -35.992,
-            };
+            let posicaoInicial: LatLng | null = null;
 
             try {
                 const locAtual =
                     await Location.getCurrentPositionAsync({
                         accuracy: Location.Accuracy.High,
                     });
+
+                console.log('GPS INICIAL:', {
+                    latitude: locAtual.coords.latitude,
+                    longitude: locAtual.coords.longitude,
+                    precisao: locAtual.coords.accuracy,
+                });
 
                 if (locAtual) {
                     posicaoInicial = {
@@ -859,7 +896,22 @@ export default function Mapa() {
                     setPosicaoSuave(posicaoInicial);
                 }
             } catch {
-                // Usa a última posição padrão enquanto aguarda o GPS.
+                const ultima = await Location.getLastKnownPositionAsync().catch(() => null);
+                if (ultima) {
+                    posicaoInicial = {
+                        latitude: ultima.coords.latitude,
+                        longitude: ultima.coords.longitude,
+                    };
+                    setLocalizacao(posicaoInicial);
+                    posicaoApresentadaRef.current = posicaoInicial;
+                    setPosicaoSuave(posicaoInicial);
+                }
+            }
+
+            if (!posicaoInicial) {
+                Alert.alert('GPS indisponível', 'Não foi possível obter uma posição para iniciar a navegação.');
+                setLoading(false);
+                return;
             }
 
             await carregarGaragemERota(
@@ -899,12 +951,12 @@ export default function Mapa() {
 
                         const velocidadeKmh =
                             loc.coords.speed &&
-                            loc.coords.speed > 0
+                                loc.coords.speed > 0
                                 ? Number(
-                                      (
-                                          loc.coords.speed * 3.6
-                                      ).toFixed(0)
-                                  )
+                                    (
+                                        loc.coords.speed * 3.6
+                                    ).toFixed(0)
+                                )
                                 : 0;
 
                         setLocalizacao(pontoBruto);
@@ -917,95 +969,83 @@ export default function Mapa() {
                         const coords =
                             coordenadasRotaRef.current;
 
-                        if (coords.length > 1) {
+                        if (coords.length > 1 && paradasRef.current.length > 0) {
+                            let parada = paradasRef.current[0];
+                            const proximaDistancia = distanciaMetros(pontoBruto, parada.ponto);
+                            const precisao = loc.coords.accuracy ?? Infinity;
+                            const chegadaValida =
+                                parada.passageiroId !== null &&
+                                proximaDistancia <= RAIO_CHEGADA_PARADA_METROS &&
+                                precisao <= PRECISAO_MAXIMA_CHEGADA_METROS &&
+                                velocidadeKmh <= VELOCIDADE_MAXIMA_CHEGADA_KMH;
+
+                            leiturasChegadaRef.current = chegadaValida
+                                ? leiturasChegadaRef.current + 1 : 0;
+
+                            if (leiturasChegadaRef.current >= LEITURAS_PARA_CHEGADA) {
+                                const visitada = paradasRef.current.shift();
+                                if (visitada) {
+                                    void registrarParadaVisitada(visitada);
+                                    indiceMinimoRef.current = Math.min(
+                                        Math.max(0, coords.length - 2), visitada.indiceRota
+                                    );
+                                    ultimoIndiceProjecaoRef.current = indiceMinimoRef.current;
+                                }
+                                leiturasChegadaRef.current = 0;
+                                setProximaParada(paradasRef.current[0]?.nome || null);
+                                setParadasRestantes(paradasRef.current.length);
+                                parada = paradasRef.current[0];
+                            }
+
+                            const limite = parada
+                                ? Math.max(indiceMinimoRef.current, parada.indiceRota - 1)
+                                : coords.length - 2;
                             projecao = encontrarProjecaoNaRota(
-                                coords,
-                                pontoBruto,
-                                ultimoIndiceProjecaoRef.current
+                                coords, pontoBruto, ultimoIndiceProjecaoRef.current,
+                                indiceMinimoRef.current, limite
                             );
 
-                            if (projecao) {
-                                ultimoIndiceProjecaoRef.current =
-                                    projecao.indice;
-
-                                if (
-                                    projecao.distancia <=
-                                    RAIO_DESVIO_ROTA_METROS
-                                ) {
-                                    posicaoFinal = projecao.ponto;
-
-                                    primeiroTickForaRotaRef.current =
-                                        null;
-
-                                    setForaDaRota(false);
-
-                                    const restante =
-                                        distanciaRestanteDesde(
-                                            coords,
-                                            projecao.indice,
-                                            0
-                                        );
-
-                                    setDistanciaRestante(restante);
-
-                                    const velocidadeParaCalculo =
-                                        velocidadeKmh > 5
-                                            ? velocidadeKmh
-                                            : 25;
-
-                                    setEtaMinutos(
-                                        Math.max(
-                                            1,
-                                            Math.round(
-                                                (restante / 1000 /
-                                                    velocidadeParaCalculo) *
-                                                    60
-                                            )
-                                        )
-                                    );
-                                } else {
-                                    if (
-                                        primeiroTickForaRotaRef.current ===
-                                        null
-                                    ) {
-                                        primeiroTickForaRotaRef.current =
-                                            Date.now();
-                                    }
-
-                                    const tempoForaMs =
-                                        Date.now() -
-                                        primeiroTickForaRotaRef.current;
-
-                                    if (
-                                        tempoForaMs >=
-                                        LIMIAR_TEMPO_FORA_ROTA_MS
-                                    ) {
-                                        setForaDaRota(true);
-
-                                        const agora = Date.now();
-
-                                        const podeRecalcular =
-                                            !recalculandoRef.current &&
-                                            (ultimaRecalculacaoRef.current ===
-                                                null ||
-                                                agora -
-                                                    ultimaRecalculacaoRef.current >
-                                                    COOLDOWN_RECALCULO_MS);
-
-                                        if (podeRecalcular) {
-                                            ultimaRecalculacaoRef.current =
-                                                agora;
-
-                                            recalcularRotaAPartirDe(
-                                                pontoBruto
-                                            );
-                                        }
+                            if (projecao && projecao.distancia <= RAIO_DESVIO_ROTA_METROS) {
+                                ultimoIndiceProjecaoRef.current = projecao.indice;
+                                posicaoFinal = projecao.ponto;
+                                primeiroTickForaRotaRef.current = null;
+                                setForaDaRota(false);
+                                const restante = distanciaRestanteDesde(
+                                    coords, projecao.indice, projecao.t
+                                );
+                                setDistanciaRestante(restante);
+                                const velocidadeParaCalculo = velocidadeKmh > 5 ? velocidadeKmh : 25;
+                                setEtaMinutos(Math.max(0, Math.ceil(
+                                    (restante / 1000 / velocidadeParaCalculo) * 60
+                                )));
+                            } else {
+                                if (primeiroTickForaRotaRef.current === null) {
+                                    primeiroTickForaRotaRef.current = Date.now();
+                                }
+                                if (Date.now() - primeiroTickForaRotaRef.current >= LIMIAR_TEMPO_FORA_ROTA_MS) {
+                                    setForaDaRota(true);
+                                    const agora = Date.now();
+                                    if (!recalculandoRef.current &&
+                                        (ultimaRecalculacaoRef.current === null ||
+                                            agora - ultimaRecalculacaoRef.current > COOLDOWN_RECALCULO_MS)) {
+                                        ultimaRecalculacaoRef.current = agora;
+                                        void recalcularRotaAPartirDe(pontoBruto);
                                     }
                                 }
                             }
                         }
 
                         animarParaNovaPosicao(posicaoFinal);
+
+                        cameraRef.current?.setCamera({
+                            centerCoordinate: [
+                                posicaoFinal.longitude,
+                                posicaoFinal.latitude,
+                            ],
+                            zoomLevel: 18,
+                            pitch: 65,
+                            animationDuration: 1800,
+                        });
 
                         let headingAlvo: number | null = null;
 
@@ -1018,7 +1058,7 @@ export default function Mapa() {
                         } else if (
                             projecao &&
                             projecao.distancia <=
-                                RAIO_DESVIO_ROTA_METROS
+                            RAIO_DESVIO_ROTA_METROS
                         ) {
                             headingAlvo = projecao.bearing;
                         }
@@ -1056,7 +1096,7 @@ export default function Mapa() {
                                         projecao!.indice
                                 ) ||
                                 manobrasAtuais[
-                                    manobrasAtuais.length - 1
+                                manobrasAtuais.length - 1
                                 ];
 
                             setManobraAtual(proxima);
@@ -1117,40 +1157,6 @@ export default function Mapa() {
                 throw new Error('Usuário não autenticado');
             }
 
-            const resStatus = await fetchComTimeout(
-                `${API_URL}/rota/status-atual`,
-                {
-                    headers: HEADERS_PADRAO,
-                }
-            );
-
-            let turmaIdAtiva: number | null = null;
-
-            if (resStatus.ok) {
-                const dadosStatus = await resStatus.json();
-
-                if (dadosStatus.turmaId) {
-                    turmaIdAtiva = Number(
-                        dadosStatus.turmaId
-                    );
-                }
-
-                if (dadosStatus.sentido) {
-                    const sentidoServidor =
-                        dadosStatus.sentido.toLowerCase();
-
-                    if (
-                        sentidoServidor === 'ida' ||
-                        sentidoServidor === 'volta'
-                    ) {
-                        direcaoUsada = sentidoServidor;
-
-                        setDirecaoAtual(direcaoUsada);
-                        direcaoAtualRef.current = direcaoUsada;
-                    }
-                }
-            }
-
             const resTurmas = await fetchComTimeout(
                 `${API_URL}/turmas/motorista/${user.id}`,
                 {
@@ -1172,11 +1178,31 @@ export default function Mapa() {
                 );
             }
 
-            const turmaAtual = turmaIdAtiva
-                ? turmas.find(
-                      (t: any) => t.id === turmaIdAtiva
-                  )
-                : turmas[0];
+            // O contrato do backend exige turmaId. Consulta após localizar as turmas.
+            let turmaIdAtiva: number | null = null;
+            for (const turma of turmas) {
+                const resStatus = await fetchComTimeout(
+                    `${API_URL}/rota/status-atual?turmaId=${turma.id}`,
+                    { headers: HEADERS_PADRAO }, 6000
+                );
+                if (!resStatus.ok) continue;
+                const status = await resStatus.json();
+                if (status.status === 'ATIVA') {
+                    turmaIdAtiva = Number(turma.id);
+                    const sentidoServidor = String(status.sentido || '').toLowerCase();
+                    if (sentidoServidor === 'ida' || sentidoServidor === 'volta') {
+                        direcaoUsada = sentidoServidor;
+                    }
+                    break;
+                }
+            }
+            const idSolicitado = turmaId ? Number(turmaId) : null;
+
+            const idEscolhido = turmaIdAtiva ?? idSolicitado;
+
+            const turmaAtual = idEscolhido !== null
+                ? turmas.find((t: any) => Number(t.id) === idEscolhido)
+                : null;
 
             if (!turmaAtual) {
                 throw new Error(
@@ -1184,8 +1210,25 @@ export default function Mapa() {
                 );
             }
 
+            // DIAGNÓSTICO DAS COORDENADAS
+            console.log('DIAGNÓSTICO TURMA:', {
+                id: turmaAtual.id,
+                nome: turmaAtual.nome,
+                origemNome: turmaAtual.origemNome,
+                origemLatitude: turmaAtual.origemLatitude,
+                origemLongitude: turmaAtual.origemLongitude,
+                destinoNome: turmaAtual.destinoNome,
+                destinoLatitude: turmaAtual.destinoLatitude,
+                destinoLongitude: turmaAtual.destinoLongitude,
+            });
+
             setTurmaIdAtual(turmaAtual.id);
             turmaIdRef.current = turmaAtual.id;
+
+            const visitadasSalvas = await lerCache<number[]>(
+                CACHE_KEYS.visitadas(Number(turmaAtual.id), direcaoUsada)
+            );
+            visitadosRef.current = new Set(visitadasSalvas || []);
 
             const origemLat = Number(
                 turmaAtual.origemLatitude
@@ -1250,9 +1293,25 @@ export default function Mapa() {
             );
 
             if (!resPassageiros.ok) {
-                throw new Error(
-                    `Falha ao buscar rota otimizada: ${resPassageiros.status}`
-                );
+                const respostaErro = await resPassageiros.text();
+
+                let mensagem = respostaErro;
+
+                try {
+                    const dados = JSON.parse(respostaErro);
+                    mensagem = dados.erro || dados.message || respostaErro;
+                } catch {
+                    // Mantém a resposta original.
+                }
+
+                console.error('ERRO OTIMIZAÇÃO:', {
+                    turmaId: turmaAtual.id,
+                    sentido: direcaoUsada,
+                    status: resPassageiros.status,
+                    mensagem,
+                });
+
+                throw new Error(`Falha na otimização: ${mensagem}`);
             }
 
             const lista = await resPassageiros.json();
@@ -1290,18 +1349,15 @@ export default function Mapa() {
                 );
 
             await salvarCache(
-                CACHE_KEYS.garagem,
-                garagemCarregada
+                CACHE_KEYS.garagem(Number(turmaAtual.id)), garagemCarregada
             );
 
             await salvarCache(
-                CACHE_KEYS.destino,
-                destinoCarregado
+                CACHE_KEYS.destino(Number(turmaAtual.id)), destinoCarregado
             );
 
             await salvarCache(
-                CACHE_KEYS.rota(direcaoUsada),
-                rotaCarregada
+                CACHE_KEYS.rota(Number(turmaAtual.id), direcaoUsada), rotaCarregada
             );
         } catch (e) {
             console.log(
@@ -1309,24 +1365,18 @@ export default function Mapa() {
                 e
             );
 
-            garagemCarregada =
-                await lerCache<LatLng>(
-                    CACHE_KEYS.garagem
-                );
-
-            destinoCarregado =
-                await lerCache<LatLng>(
-                    CACHE_KEYS.destino
-                );
-
-            rotaCarregada =
-                (await lerCache<PassageiroRota[]>(
-                    CACHE_KEYS.rota(direcaoUsada)
+            const idCache = turmaIdRef.current;
+            if (idCache !== null) {
+                garagemCarregada = await lerCache<LatLng>(CACHE_KEYS.garagem(idCache));
+                destinoCarregado = await lerCache<LatLng>(CACHE_KEYS.destino(idCache));
+                rotaCarregada = (await lerCache<PassageiroRota[]>(
+                    CACHE_KEYS.rota(idCache, direcaoUsada)
                 )) || [];
+            }
 
             if (montadoRef.current) {
                 setErroRede(
-                    'Sem conexão ou dados incompletos. Usando cache.'
+                    idCache !== null ? 'Falha ao carregar dados. Tentando cache da turma.' : 'Não foi possível identificar a turma. Verifique a conexão.'
                 );
             }
         }
@@ -1359,7 +1409,7 @@ export default function Mapa() {
             direcaoUsada,
             garagemCarregada,
             destinoCarregado,
-            rotaCarregada,
+            rotaCarregada.filter(p => !visitadosRef.current.has(p.id)),
             posicaoInicial
         );
 
@@ -1393,6 +1443,8 @@ export default function Mapa() {
                 routeGeoJSON,
                 coordenadas,
                 manobras: manobrasCalculadas,
+                pontosAjustados,
+                indicesWaypoints,
             } = await buscarRotaMapbox(pontosOrdenados);
 
             if (!montadoRef.current) return;
@@ -1408,23 +1460,23 @@ export default function Mapa() {
                 ],
             };
 
-            setGeometriaRota(geoJsonValido);
-
-            setCoordenadasRota(coordenadas);
-            coordenadasRotaRef.current = coordenadas;
-
-            ultimoIndiceProjecaoRef.current = null;
-
-            await salvarCache(
-                CACHE_KEYS.geometria(direcaoUsada),
-                geoJsonValido
-            );
-
-            setManobras(manobrasCalculadas);
-            manobrasRef.current = manobrasCalculadas;
-
-            if (manobrasCalculadas[0]) {
-                setManobraAtual(manobrasCalculadas[0]);
+            const paradas: ParadaNavegacao[] = [
+                ...passageiros.map((p, i) => ({
+                    passageiroId: p.id, nome: p.nome,
+                    ponto: pontosAjustados[i + 1], indiceRota: indicesWaypoints[i + 1],
+                })),
+                {
+                    passageiroId: null, nome: 'Destino final',
+                    ponto: pontosAjustados[pontosAjustados.length - 1],
+                    indiceRota: indicesWaypoints[indicesWaypoints.length - 1],
+                },
+            ];
+            aplicarGeometria(geoJsonValido, coordenadas, manobrasCalculadas, paradas);
+            if (turmaIdRef.current !== null) {
+                await salvarCache(CACHE_KEYS.geometria(turmaIdRef.current, direcaoUsada), {
+                    geoJson: geoJsonValido, coordenadas, manobras: manobrasCalculadas,
+                    paradas, passageirosIds: rotaRef.current.map(p => p.id),
+                } as GeometriaSalva);
             }
         } catch {
             if (
@@ -1437,36 +1489,20 @@ export default function Mapa() {
                 );
             }
 
-            const geometriaCache =
-                await lerCache<any>(
-                    CACHE_KEYS.geometria(direcaoUsada)
-                );
-
+            const turmaId = turmaIdRef.current;
+            const cache = turmaId === null ? null : await lerCache<GeometriaSalva>(
+                CACHE_KEYS.geometria(turmaId, direcaoUsada)
+            );
             if (!montadoRef.current) return;
-
-            if (geometriaCache) {
-                setGeometriaRota(geometriaCache);
-
-                const coords =
-                    geometriaCache.geometry?.coordinates ||
-                    geometriaCache.features?.[0]?.geometry
-                        ?.coordinates ||
-                    [];
-
-                setCoordenadasRota(coords);
-                coordenadasRotaRef.current = coords;
-
-                setManobraAtual({
-                    instrucao:
-                        'Navegação em modo offline (rota salva)',
-                    tipo: 'straight',
-                    coordenada: [0, 0],
-                    indiceRota: 0,
-                });
+            const idsAtuais = rotaRef.current.map(p => p.id);
+            if (cache &&
+                JSON.stringify(cache.passageirosIds) === JSON.stringify(idsAtuais) &&
+                cache.paradas?.length === passageiros.length + 1 &&
+                cache.coordenadas?.length > 1) {
+                aplicarGeometria(cache.geoJson, cache.coordenadas, cache.manobras, cache.paradas);
+                setErroRede('Navegação offline com geometria salva.');
             } else {
-                setErroRede(
-                    'Não foi possível calcular a rota. Verifique o token do Mapbox e a conexão.'
-                );
+                setErroRede('Não foi possível montar a rota. Cache incompatível ou indisponível.');
             }
         }
     }
@@ -1493,11 +1529,12 @@ export default function Mapa() {
 
                     onPress: async () => {
                         try {
-                            const turmaIdParam =
-                                turmaIdAtual || 1;
-
-                            const motoristaIdParam =
-                                user?.id || 1;
+                            const turmaIdParam = turmaIdRef.current;
+                            const motoristaIdParam = user?.id;
+                            if (!turmaIdParam || !motoristaIdParam) {
+                                Alert.alert('Erro', 'Turma ou motorista não identificado.');
+                                return;
+                            }
 
                             const res = await fetchComTimeout(
                                 `${API_URL}/rota/encerrar?turmaId=${turmaIdParam}&motoristaId=${motoristaIdParam}`,
@@ -1756,11 +1793,31 @@ export default function Mapa() {
                 logoEnabled={false}
                 attributionEnabled={false}
                 compassEnabled={false}
+
+                onDidFinishLoadingMap={() => {
+                    const pos = posicaoApresentadaRef.current;
+
+                    if (pos) {
+                        cameraRef.current?.setCamera({
+                            centerCoordinate: [
+                                pos.longitude,
+                                pos.latitude,
+                            ],
+                            zoomLevel: 18,
+                            pitch: 65,
+                            animationDuration: 800,
+                        });
+                    }
+                }}
             >
                 <MapboxGL.Camera
                     ref={cameraRef}
                     zoomLevel={18}
                     pitch={65}
+                    centerCoordinate={[
+                        garagem.longitude,
+                        garagem.latitude,
+                    ]}
                 />
 
                 {geometriaPercorrida && (
@@ -1928,11 +1985,19 @@ export default function Mapa() {
                 />
             </TouchableOpacity>
 
+            {proximaParada && (
+                <View style={[styles.proximaParadaBox, { bottom: insets.bottom + 116 }]}>
+                    <Text style={styles.proximaParadaTexto} numberOfLines={1}>
+                        Próxima parada: {proximaParada} ({paradasRestantes} restantes)
+                    </Text>
+                </View>
+            )}
+
             <ControlesViagem
                 distanciaRestante={distanciaRestante}
                 etaMinutos={etaMinutos}
                 viagemAtiva={viagemAtiva}
-                onIniciarViagem={() => {}}
+                onIniciarViagem={() => { }}
                 onEncerrarViagem={handleEncerrarViagem}
             />
         </View>
@@ -2015,6 +2080,12 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
 
+    proximaParadaBox: {
+        position: 'absolute', left: theme.spacing.md, right: theme.spacing.md,
+        backgroundColor: '#0F172A', borderRadius: 10, padding: 10,
+        zIndex: 10, borderWidth: 1, borderColor: '#00D2FF',
+    },
+    proximaParadaTexto: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
     locateButton: {
         position: 'absolute',
         right: theme.spacing.md,

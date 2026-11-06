@@ -29,7 +29,7 @@ export function BannerRotaAtiva({ onPress }: Props) {
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.attention,
         padding: theme.spacing.md,
         borderRadius: theme.borderRadius.lg,
         flexDirection: 'row',

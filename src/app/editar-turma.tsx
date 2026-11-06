@@ -20,14 +20,14 @@ import { globalStyles } from '../styles/globalStyles';
 import { theme } from '../styles/theme';
 
 export default function EditarTurma() {
-    const { id, nomeAtual, turnoAtual, origemAtual, destinoAtual } = useLocalSearchParams<{ 
-        id: string; 
-        nomeAtual?: string; 
+    const { id, nomeAtual, turnoAtual, origemAtual, destinoAtual } = useLocalSearchParams<{
+        id: string;
+        nomeAtual?: string;
         turnoAtual?: string;
         origemAtual?: string;
         destinoAtual?: string;
     }>();
-    
+
     const router = useRouter();
     const insets = useSafeAreaInsets();
 
@@ -90,9 +90,7 @@ export default function EditarTurma() {
                 },
                 body: JSON.stringify({
                     nome: nome.trim(),
-                    turno: turno.trim(),
-                    origemNome: origemNome.trim(),
-                    destinoNome: destinoNome.trim()
+                    turno: turno.trim()
                 })
             });
 
@@ -117,10 +115,10 @@ export default function EditarTurma() {
             "Deseja realmente excluir esta turma? Todos os vínculos de alunos e histórico de viagens desta rota serão apagados.",
             [
                 { text: "Cancelar", style: "cancel" },
-                { 
-                    text: "Excluir", 
-                    style: "destructive", 
-                    onPress: handleExcluirTurma 
+                {
+                    text: "Excluir",
+                    style: "destructive",
+                    onPress: handleExcluirTurma
                 }
             ]
         );
@@ -154,7 +152,7 @@ export default function EditarTurma() {
     return (
         <View style={globalStyles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
-            
+
             <View style={[styles.header, { paddingTop: insets.top + theme.spacing.xs }]}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}>
                     <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
@@ -199,7 +197,7 @@ export default function EditarTurma() {
                             value={origemNome}
                             editable={false}
                         />
-                        <TouchableOpacity 
+                        <TouchableOpacity
                             style={styles.mapButton}
                             onPress={() => router.push({ pathname: '/selecionar-rota-mapa', params: { turmaId: id, tipo: 'ORIGEM' } } as any)}
                             activeOpacity={0.8}
@@ -219,7 +217,7 @@ export default function EditarTurma() {
                             value={destinoNome}
                             editable={false}
                         />
-                        <TouchableOpacity 
+                        <TouchableOpacity
                             style={styles.mapButton}
                             onPress={() => router.push({ pathname: '/selecionar-rota-mapa', params: { turmaId: id, tipo: 'DESTINO' } } as any)}
                             activeOpacity={0.8}
@@ -229,7 +227,7 @@ export default function EditarTurma() {
                     </View>
                 </View>
 
-                <TouchableOpacity 
+                <TouchableOpacity
                     style={[styles.buttonSubmit, (salvando || excluindo) && styles.buttonDisabled]}
                     onPress={handleSalvarEdicao}
                     disabled={salvando || excluindo}
@@ -245,7 +243,7 @@ export default function EditarTurma() {
                     )}
                 </TouchableOpacity>
 
-                <TouchableOpacity 
+                <TouchableOpacity
                     style={[styles.buttonDelete, (salvando || excluindo) && styles.buttonDisabled]}
                     onPress={confirmarExclusao}
                     disabled={salvando || excluindo}

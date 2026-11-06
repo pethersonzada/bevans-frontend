@@ -129,7 +129,23 @@ export default function SelecionarRotaMapa() {
                 router.back();
             } else {
                 const errorText = await response.text();
-                Alert.alert('Erro', `Falha ao salvar: ${errorText}`);
+
+                let mensagem = errorText;
+
+                try {
+                    const dados = JSON.parse(errorText);
+                    mensagem = dados.erro || dados.message || errorText;
+                } catch {
+                    
+                }
+
+                console.error('Erro ao atualizar turma:', {
+                    status: response.status,
+                    mensagem,
+                    resposta: errorText,
+                });
+
+                Alert.alert('Erro ao salvar endereço', mensagem);
             }
         } catch (e) {
             Alert.alert('Erro', 'Falha de conexão com o servidor.');
@@ -176,10 +192,10 @@ export default function SelecionarRotaMapa() {
                 </MapboxGL.MapView>
 
                 <View style={styles.centerPin}>
-                    <Ionicons 
-                        name={tipo === 'ORIGEM' ? 'navigate' : 'flag'} 
-                        size={36} 
-                        color={tipo === 'ORIGEM' ? theme.colors.primary : theme.colors.danger} 
+                    <Ionicons
+                        name={tipo === 'ORIGEM' ? 'navigate' : 'flag'}
+                        size={36}
+                        color={tipo === 'ORIGEM' ? theme.colors.primary : theme.colors.danger}
                     />
                 </View>
             </View>
@@ -189,10 +205,10 @@ export default function SelecionarRotaMapa() {
                     {tipo === 'ORIGEM' ? 'Saída Selecionada:' : 'Destino Selecionado:'}
                 </Text>
                 <Text style={styles.enderecoText}>{enderecoAtual}</Text>
-                
-                <TouchableOpacity 
-                    style={[styles.button, salvando && styles.buttonDisabled]} 
-                    onPress={confirmarSelecao} 
+
+                <TouchableOpacity
+                    style={[styles.button, salvando && styles.buttonDisabled]}
+                    onPress={confirmarSelecao}
                     disabled={salvando}
                     activeOpacity={0.85}
                 >
