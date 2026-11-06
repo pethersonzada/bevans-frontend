@@ -48,8 +48,8 @@ export default function Signup() {
             return;
         }
 
-        if (tipoUsuario === 'MOTORISTA' && codigoAcesso !== 'ROTA2026') {
-            Alert.alert("Acesso Restrito", "Código de motorista inválido.");
+        if (tipoUsuario === 'MOTORISTA' && !codigoAcesso.trim()) {
+            Alert.alert("Acesso Restrito", "Informe o código de motorista.");
             return;
         }
 
@@ -75,7 +75,8 @@ export default function Signup() {
                     email: emailFormatado, 
                     firebaseUid, 
                     telefone: telefone.replace(/\D/g, ''), 
-                    tipo: tipoUsuario, 
+                    tipo: tipoUsuario,
+                    codigoAcesso: tipoUsuario === 'MOTORISTA' ? codigoAcesso.trim() : undefined,
                     enderecoCompleto: 'Endereço Pendente', 
                     latitude: 0.0, 
                     longitude: 0.0 
