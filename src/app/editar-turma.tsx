@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -39,16 +39,15 @@ export default function EditarTurma() {
     const [salvando, setSalvando] = useState(false);
     const [excluindo, setExcluindo] = useState(false);
 
-    useEffect(() => {
-        if (id) {
-            buscarDetalhesTurma();
-        }
-    }, [id]);
+    useFocusEffect(useCallback(() => {
+        if (id) buscarDetalhesTurma();
+    }, [id]));
 
     async function buscarDetalhesTurma() {
         setLoadingDados(true);
         try {
-            const motoristaId = await AsyncStorage.getItem('userId') || '1';
+            const motoristaId = await AsyncStorage.getItem('userId');
+            if (!motoristaId) throw new Error('Usuário não identificado.');
             const response = await apiFetch(`/turmas/motorista/${motoristaId}`, {
                 headers: { 'Accept': 'application/json', 'Bypass-Tunnel-Reminder': 'true' }
             });
@@ -192,7 +191,7 @@ export default function EditarTurma() {
                     <View style={styles.mapInputContainer}>
                         <TextInput
                             style={[styles.input, styles.mapInput]}
-                            placeholder="Defina a saída no mapa"
+                            placeholder="Busque o endereço de saída"
                             placeholderTextColor={theme.colors.textLight}
                             value={origemNome}
                             editable={false}
@@ -212,7 +211,7 @@ export default function EditarTurma() {
                     <View style={styles.mapInputContainer}>
                         <TextInput
                             style={[styles.input, styles.mapInput]}
-                            placeholder="Defina o destino no mapa"
+                            placeholder="Busque o endereço de destino"
                             placeholderTextColor={theme.colors.textLight}
                             value={destinoNome}
                             editable={false}

@@ -5,7 +5,6 @@ import { theme } from '../../styles/theme';
 type Props = {
     passageiros: any[];
     turmaSelecionada: any;
-    onAdicionarAluno: () => void;
     onRemoverAluno: (id: number, nome: string) => void;
 };
 
@@ -24,7 +23,7 @@ const obterIniciais = (nomeCompleto: string) => {
     return `${partes[0][0]}${partes[1][0]}`.toUpperCase();
 };
 
-export function ListaPassageirosAprovados({ passageiros, turmaSelecionada, onAdicionarAluno, onRemoverAluno }: Props) {
+export function ListaPassageirosAprovados({ passageiros, onRemoverAluno }: Props) {
     return (
         <View style={styles.container}>
             <View style={styles.headerRow}>
@@ -34,13 +33,6 @@ export function ListaPassageirosAprovados({ passageiros, turmaSelecionada, onAdi
                         <Text style={styles.countText}>{passageiros.length}</Text>
                     </View>
                 </View>
-
-                {turmaSelecionada && (
-                    <TouchableOpacity onPress={onAdicionarAluno} style={styles.addBtn} activeOpacity={0.7}>
-                        <Ionicons name="person-add" size={15} color={theme.colors.primary} />
-                        <Text style={styles.addBtnText}>Adicionar</Text>
-                    </TouchableOpacity>
-                )}
             </View>
 
             <View style={styles.cardList}>
@@ -69,9 +61,9 @@ export function ListaPassageirosAprovados({ passageiros, turmaSelecionada, onAdi
                                         </Text>
                                     </View>
                                 </View>
-                                
-                                <TouchableOpacity 
-                                    onPress={() => onRemoverAluno(p.id, p.nome)} 
+
+                                <TouchableOpacity
+                                    onPress={() => onRemoverAluno(p.id, p.nome)}
                                     style={styles.deleteBtn}
                                     activeOpacity={0.7}
                                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -116,20 +108,6 @@ const styles = StyleSheet.create({
         borderRadius: theme.borderRadius.pill,
     },
     countText: {
-        color: theme.colors.primary,
-        fontSize: theme.typography.size.small,
-        fontWeight: theme.typography.weight.bold,
-    },
-    addBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        backgroundColor: `${theme.colors.primary}10`,
-        paddingHorizontal: theme.spacing.md,
-        paddingVertical: 6,
-        borderRadius: theme.borderRadius.pill,
-    },
-    addBtnText: {
         color: theme.colors.primary,
         fontSize: theme.typography.size.small,
         fontWeight: theme.typography.weight.bold,

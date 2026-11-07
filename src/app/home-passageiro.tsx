@@ -21,7 +21,10 @@ import { theme } from '../styles/theme';
 
 import { CardTurmaPassageiro } from '../components/cards/CardTurmaPassageiro';
 import ConfirmadosAvatares from '../components/motorista/ConfirmadosAvatares';
-import { SeletorPresenca } from '../components/passageiro/SeletorPresenca';
+import {
+    SeletorPresenca,
+    type ConfirmacaoPresenca,
+} from '../components/passageiro/SeletorPresenca';
 import { useAuth } from './context/AuthContext';
 
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
@@ -47,13 +50,25 @@ export default function HomePassageiro() {
 
     const [loading, setLoading] = useState(true);
     const [temEndereco, setTemEndereco] = useState(true);
-    const [statusConfirmado, setStatusConfirmado] = useState('');
-    
+    const [confirmacao, setConfirmacao] =
+        useState<ConfirmacaoPresenca | null>(null);
+
+    const [salvandoPresenca, setSalvandoPresenca] =
+        useState(false);
+
+    const [turmasPassageiro, setTurmasPassageiro] =
+        useState<any[]>([]);
+
+    const [turmaSelecionadaId, setTurmaSelecionadaId] =
+        useState<number | null>(null);
+
+    const turmaSelecionadaRef = useRef<number | null>(null);
+
     const [minhaLocalizacao, setMinhaLocalizacao] = useState<Coordenadas | null>(null);
     const [posicaoVan, setPosicaoVan] = useState<Coordenadas | null>(null);
     const [statusViagem, setStatusViagem] = useState('INATIVA');
     const [statusGps, setStatusGps] = useState('GARAGEM');
-    
+
     const [turma, setTurma] = useState<any>(null);
     const [enderecos, setEnderecos] = useState<any[]>([]);
     const [passageirosConfirmados, setPassageirosConfirmados] = useState<PassageiroConfirmado[]>([]);
@@ -71,65 +86,165 @@ export default function HomePassageiro() {
         }
     }, []);
 
-    const carregarDadosSilencioso = useCallback(async () => {
-        if (!user?.id) return;
-        
-        try {
-            const [resStatus, resTurma, resEnderecos] = await Promise.all([
-                apiFetch(`/usuarios/passageiros`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } }),
-                apiFetch(`/turmas/usuario/${user.id}`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } }),
-                apiFetch(`/enderecos/usuario/${user.id}`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } })
-            ]);
 
-            if (resEnderecos.ok) {
-                const listaEnderecos = await resEnderecos.json();
-                setEnderecos(listaEnderecos);
-                setTemEndereco(listaEnderecos.length > 0);
-            }
+    const carregarDadosSilencioso = useCallback(
+        async (turmaPreferidaId?: number) => {
+            if (!user?.id) return null;
 
-            let turmaAtualId = null;
-            if (resTurma.ok) {
-                const dadosTurma = await resTurma.json();
-                setTurma(dadosTurma);
-                turmaAtualId = dadosTurma?.id;
-            } else {
-                setTurma(null);
-            }
+            try {
+                const [resTurmas, resEnderecos] =
+                    await Promise.all([
+                        apiFetch(
+                            `/turmas/usuario/${user.id}/todas`,
+                            {
+                                headers: {
+                                    'Bypass-Tunnel-Reminder': 'true',
+                                },
+                            }
+                        ),
+                        apiFetch(
+                            `/enderecos/usuario/${user.id}`,
+                            {
+                                headers: {
+                                    'Bypass-Tunnel-Reminder': 'true',
+                                },
+                            }
+                        ),
+                    ]);
 
-            if (resStatus.ok) {
-                const list = await resStatus.json();
-                const meuRegistro = list.find((p: any) => String(p.id || p.usuarioId || p.passageiroId) === String(user.id));
-                setStatusConfirmado(meuRegistro?.status || meuRegistro?.presenca || '');
-            }
-
-            // BUSCA A ORDEM DE ROTA OTIMIZADA PARA REFLETIR A SEQUÊNCIA REAL DO MOTORISTA
-            if (turmaAtualId) {
-                const resOtimizada = await apiFetch(`/rota/otimizar?sentido=ida&turmaId=${turmaAtualId}`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } });
-                if (resOtimizada.ok) {
-                    const listaOtimizada = await resOtimizada.json();
-                    const confirmados = listaOtimizada.map((p: any) => {
-                        const nomeCompleto = p.nome || p.usuarioNome || 'Passageiro';
-                        const partes = nomeCompleto.trim().split(' ');
-                        const iniciais = partes.length > 1
-                            ? `${partes[0][0]}${partes[partes.length - 1][0]}`
-                            : partes[0].substring(0, 2);
-
-                        return {
-                            id: p.id || p.usuarioId,
-                            nome: nomeCompleto,
-                            iniciais: iniciais.toUpperCase()
-                        };
-                    });
-                    setPassageirosConfirmados(confirmados);
+                if (resEnderecos.ok) {
+                    const lista = await resEnderecos.json();
+                    setEnderecos(lista);
+                    setTemEndereco(lista.length > 0);
                 }
-            }
 
-            return turmaAtualId;
-        } catch (e) {
-            console.log("Erro ao atualizar dados da API.", e);
-            return null;
-        }
-    }, [user?.id]);
+                if (!resTurmas.ok) {
+                    throw new Error(
+                        'Falha ao consultar as turmas.'
+                    );
+                }
+
+                const turmasRecebidas: any[] =
+                    await resTurmas.json();
+
+                setTurmasPassageiro(turmasRecebidas);
+
+                const preferida =
+                    turmaPreferidaId ??
+                    turmaSelecionadaRef.current;
+
+                const turmaAtual =
+                    turmasRecebidas.find(
+                        t => t.id === preferida
+                    ) ?? turmasRecebidas[0] ?? null;
+
+                const turmaAtualId =
+                    turmaAtual?.id ?? null;
+
+                // Descarta dados de outra turma se a seleção
+                // mudou durante a requisição.
+                if (
+                    turmaPreferidaId === undefined &&
+                    turmaSelecionadaRef.current !== null &&
+                    turmaAtualId !==
+                    turmaSelecionadaRef.current
+                ) {
+                    return null;
+                }
+
+                turmaSelecionadaRef.current = turmaAtualId;
+                setTurmaSelecionadaId(turmaAtualId);
+                setTurma(turmaAtual);
+
+                if (!turmaAtualId) {
+                    setConfirmacao(null);
+                    setPassageirosConfirmados([]);
+                    setPosicaoVan(null);
+                    setStatusViagem('INATIVA');
+                    setStatusGps('GARAGEM');
+                    return null;
+                }
+
+                const [resConfirmacao, resOtimizada] =
+                    await Promise.all([
+                        apiFetch(
+                            `/rota/minha-confirmacao?usuarioId=${user.id}&turmaId=${turmaAtualId}`,
+                            {
+                                headers: {
+                                    'Bypass-Tunnel-Reminder': 'true',
+                                },
+                            }
+                        ),
+                        apiFetch(
+                            `/rota/otimizar?sentido=ida&turmaId=${turmaAtualId}`,
+                            {
+                                headers: {
+                                    'Bypass-Tunnel-Reminder': 'true',
+                                },
+                            }
+                        ),
+                    ]);
+
+                // Não aplicar resultados de turma anterior.
+                if (
+                    turmaSelecionadaRef.current !==
+                    turmaAtualId
+                ) {
+                    return null;
+                }
+
+                if (resConfirmacao.ok) {
+                    const dados = await resConfirmacao.json();
+
+                    setConfirmacao(
+                        dados?.status ? dados : null
+                    );
+                } else {
+                    setConfirmacao(null);
+                }
+
+                if (resOtimizada.ok) {
+                    const lista = await resOtimizada.json();
+
+                    const confirmados = lista.map(
+                        (p: any) => {
+                            const nomeCompleto =
+                                p.nome ||
+                                p.usuarioNome ||
+                                'Passageiro';
+
+                            const partes =
+                                nomeCompleto.trim().split(' ');
+
+                            const iniciais =
+                                partes.length > 1
+                                    ? `${partes[0][0]}${partes[partes.length - 1][0]}`
+                                    : partes[0].substring(0, 2);
+
+                            return {
+                                id: p.id || p.usuarioId,
+                                nome: nomeCompleto,
+                                iniciais: iniciais.toUpperCase(),
+                            };
+                        }
+                    );
+
+                    setPassageirosConfirmados(confirmados);
+                } else {
+                    setPassageirosConfirmados([]);
+                }
+
+                return turmaAtualId;
+            } catch (error) {
+                console.log(
+                    'Erro ao atualizar dados do passageiro.',
+                    error
+                );
+                return null;
+            }
+        },
+        [user?.id]
+    );
 
     useFocusEffect(
         useCallback(() => {
@@ -137,10 +252,10 @@ export default function HomePassageiro() {
 
             const inicializar = async () => {
                 if (primeiraCarga.current) setLoading(true);
-                
-                await buscarLocalizacaoPassageiro(); 
+
+                await buscarLocalizacaoPassageiro();
                 await carregarDadosSilencioso();
-                
+
                 if (ativo) {
                     setLoading(false);
                     primeiraCarga.current = false;
@@ -169,14 +284,14 @@ export default function HomePassageiro() {
                 }
 
                 const res = await apiFetch(`/rota/status-atual?turmaId=${turmaId}`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } });
-                
+
                 if (!res.ok) {
                     setStatusViagem('INATIVA');
                     setStatusGps('GARAGEM');
                     buscando = false;
                     return;
                 }
-                
+
                 const data = await res.json();
                 const estadoAtual = data?.status || data?.situacao || 'INATIVA';
                 const ativoStr = estadoAtual === 'ATIVA' || estadoAtual === 'EM_CURSO' || data?.ativa === true ? 'ATIVA' : 'INATIVA';
@@ -186,15 +301,15 @@ export default function HomePassageiro() {
 
                 if (ativoStr === 'ATIVA') {
                     const resLoc = await apiFetch(`/rota/localizacao-van?turmaId=${turmaId}`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } });
-                    
+
                     if (resLoc.ok) {
                         setStatusGps('ONLINE');
                         const pos = await resLoc.json();
-                        
+
                         if (pos?.latitude && pos?.longitude) {
                             const novaPos = { latitude: Number(pos.latitude), longitude: Number(pos.longitude) };
                             setPosicaoVan(novaPos);
-                            
+
                             cameraRef.current?.setCamera({
                                 centerCoordinate: [novaPos.longitude, novaPos.latitude],
                                 zoomLevel: 16,
@@ -223,26 +338,88 @@ export default function HomePassageiro() {
         };
     }, [user?.id, turma?.id, carregarDadosSilencioso]);
 
-    const registrarPresenca = useCallback(async (status: string, enderecoId?: number) => {
-        if (!user?.id) return;
-        
-        const statusEnvio = status === 'LIMPAR' ? 'LIMPAR' : status;
-        setStatusConfirmado(status === 'LIMPAR' ? '' : statusEnvio);
 
-        try {
-            let url = `/rota/confirmar?usuarioId=${Number(user.id)}&status=${statusEnvio}`;
-            if (enderecoId) url += `&enderecoId=${enderecoId}`;
+    const registrarPresenca = useCallback(
+        async (
+            status: string,
+            enderecoIda?: number,
+            enderecoVolta?: number
+        ): Promise<boolean> => {
+            const turmaId = turmaSelecionadaRef.current;
 
-            const res = await apiFetch(url, {
-                method: 'POST',
-                headers: { 'Bypass-Tunnel-Reminder': 'true' }
-            });
+            if (!user?.id || !turmaId || salvandoPresenca) {
+                return false;
+            }
 
-            if (res.ok) await carregarDadosSilencioso();
-        } catch (e) {
-            Alert.alert("Erro", "Falha ao registrar presença.");
-        }
-    }, [user?.id, carregarDadosSilencioso]);
+            setSalvandoPresenca(true);
+
+            try {
+                const params = new URLSearchParams({
+                    usuarioId: String(user.id),
+                    turmaId: String(turmaId),
+                    status,
+                });
+
+                if (enderecoIda !== undefined) {
+                    params.append(
+                        'enderecoIda',
+                        String(enderecoIda)
+                    );
+                }
+
+                if (enderecoVolta !== undefined) {
+                    params.append(
+                        'enderecoVolta',
+                        String(enderecoVolta)
+                    );
+                }
+
+                const resposta = await apiFetch(
+                    `/rota/confirmar?${params.toString()}`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Bypass-Tunnel-Reminder': 'true',
+                        },
+                    }
+                );
+
+                if (!resposta.ok) {
+                    const mensagem = await resposta.text();
+
+                    Alert.alert(
+                        'Erro ao confirmar',
+                        mensagem ||
+                        'Não foi possível salvar sua presença.'
+                    );
+
+                    return false;
+                }
+
+                await carregarDadosSilencioso(turmaId);
+                return true;
+            } catch (error) {
+                console.log(
+                    'Erro ao registrar presença:',
+                    error
+                );
+
+                Alert.alert(
+                    'Erro',
+                    'Não foi possível conectar ao servidor.'
+                );
+
+                return false;
+            } finally {
+                setSalvandoPresenca(false);
+            }
+        },
+        [
+            user?.id,
+            salvandoPresenca,
+            carregarDadosSilencioso,
+        ]
+    );
 
     const minhaPosicaoNaFila = useMemo(() => {
         if (!user?.id || passageirosConfirmados.length === 0) return null;
@@ -272,8 +449,8 @@ export default function HomePassageiro() {
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                 {!temEndereco && (
-                    <TouchableOpacity 
-                        style={styles.bannerAlerta} 
+                    <TouchableOpacity
+                        style={styles.bannerAlerta}
                         onPress={() => router.push('/cadastro-endereco')}
                         activeOpacity={0.8}
                     >
@@ -287,6 +464,103 @@ export default function HomePassageiro() {
                         <Ionicons name="chevron-forward" size={18} color={theme.colors.textLight} />
                     </TouchableOpacity>
                 )}
+
+
+                {turmasPassageiro.length > 0 && (
+                    <View style={{
+                        gap: 10,
+                        padding: theme.spacing.md,
+                        backgroundColor: theme.colors.surface,
+                        borderRadius: theme.borderRadius.lg,
+                        borderWidth: 1,
+                        borderColor: theme.colors.border,
+                    }}>
+                        <Text style={{
+                            fontSize: theme.typography.size.regular,
+                            fontWeight: '700',
+                            color: theme.colors.text,
+                        }}>
+                            Minhas turmas
+                        </Text>
+
+                        <View style={{
+                            flexDirection: 'row',
+                            flexWrap: 'wrap',
+                            gap: 8,
+                        }}>
+                            {turmasPassageiro.map((item: any) => {
+                                const selecionada =
+                                    item.id === turmaSelecionadaId;
+
+                                return (
+                                    <TouchableOpacity
+                                        key={item.id}
+                                        onPress={() => {
+                                            if (selecionada) return;
+
+                                            turmaSelecionadaRef.current =
+                                                item.id;
+
+                                            setTurmaSelecionadaId(item.id);
+                                            setTurma(item);
+                                            setConfirmacao(null);
+                                            setPassageirosConfirmados([]);
+                                            setPosicaoVan(null);
+                                            setStatusViagem('INATIVA');
+                                            setStatusGps('GARAGEM');
+
+                                            carregarDadosSilencioso(item.id);
+                                        }}
+                                        style={{
+                                            paddingHorizontal: 14,
+                                            paddingVertical: 10,
+                                            borderRadius: 10,
+                                            borderWidth: 1,
+                                            borderColor: selecionada
+                                                ? theme.colors.primary
+                                                : theme.colors.border,
+                                            backgroundColor: selecionada
+                                                ? theme.colors.primary
+                                                : theme.colors.background,
+                                        }}
+                                    >
+                                        <Text style={{
+                                            color: selecionada
+                                                ? '#FFFFFF'
+                                                : theme.colors.text,
+                                            fontWeight: '600',
+                                        }}>
+                                            {item.nome} · {item.turno}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+
+                        <TouchableOpacity
+                            onPress={() => router.push('/entrar-turma')}
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 6,
+                                paddingVertical: 8,
+                            }}
+                        >
+                            <Ionicons
+                                name="add-circle-outline"
+                                size={19}
+                                color={theme.colors.primary}
+                            />
+                            <Text style={{
+                                color: theme.colors.primary,
+                                fontWeight: '600',
+                            }}>
+                                Entrar em outra turma
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+
 
                 <CardTurmaPassageiro turma={turma} />
 
@@ -390,7 +664,13 @@ export default function HomePassageiro() {
                             <ConfirmadosAvatares passageiros={passageirosConfirmados} />
                         </View>
 
-                        <SeletorPresenca statusConfirmado={statusConfirmado} enderecos={enderecos} onRegistrar={registrarPresenca} />
+                        <SeletorPresenca
+                            key={turmaSelecionadaId ?? 'sem-turma'}
+                            confirmacao={confirmacao}
+                            enderecos={enderecos}
+                            salvando={salvandoPresenca}
+                            onRegistrar={registrarPresenca}
+                        />
                     </>
                 ) : (
                     <View style={styles.emptyStateCard}>

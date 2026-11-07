@@ -55,10 +55,7 @@ export default function HomeMotorista() {
     const [alunosPendentes, setAlunosPendentes] = useState<VinculoPendente[]>([]);
     const [viagemAtiva, setViagemAtiva] = useState(false);
 
-    const [modalVisible, setModalVisible] = useState(false);
     const [modalNotificacoesVisible, setModalNotificacoesVisible] = useState(false);
-    const [todosAlunos, setTodosAlunos] = useState<Aluno[]>([]);
-    const [carregandoAlunos, setCarregandoAlunos] = useState(false);
 
     useFocusEffect(
         useCallback(() => {
@@ -221,47 +218,6 @@ export default function HomeMotorista() {
             }
         } catch (e: any) {
             setViagemAtiva(false);
-        }
-    }
-
-    async function abrirModalAdicionarAluno() {
-        if (!turmaSelecionada) return;
-        setModalVisible(true);
-        setCarregandoAlunos(true);
-        try {
-            const res = await apiFetch(`/usuarios/passageiros`, {
-                headers: { 'Bypass-Tunnel-Reminder': 'true' }
-            });
-            if (res.ok) {
-                const todosOsPassageiros: Aluno[] = await res.json();
-                const idsNaTurma = new Set(passageiros.map(p => p.id));
-                const disponiveis = todosOsPassageiros.filter((p) => !idsNaTurma.has(p.id));
-                setTodosAlunos(disponiveis);
-            }
-        } catch (e) {
-            Alert.alert("Erro", "Não foi possível carregar alunos livres.");
-        } finally {
-            setCarregandoAlunos(false);
-        }
-    }
-
-    async function vincularAluno(alunoId: number) {
-        if (!turmaSelecionada) return;
-        try {
-            const res = await apiFetch(`/turmas/${turmaSelecionada.id}/alunos/${alunoId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' }
-            });
-
-            if (res.ok) {
-                setModalVisible(false);
-                await buscarDadosDaTurma(turmaSelecionada.id);
-            } else {
-                const erroTexto = await res.text();
-                Alert.alert("Erro", erroTexto || "Não foi possível vincular o aluno.");
-            }
-        } catch (e) {
-            Alert.alert("Erro", "Falha de conexão com o servidor.");
         }
     }
 
@@ -486,7 +442,6 @@ export default function HomeMotorista() {
                 <ListaPassageirosAprovados
                     passageiros={passageiros}
                     turmaSelecionada={turmaSelecionada}
-                    onAdicionarAluno={abrirModalAdicionarAluno}
                     onRemoverAluno={removerAluno}
                 />
             </ScrollView>
@@ -548,49 +503,6 @@ export default function HomeMotorista() {
                 </View>
             </Modal>
 
-            <Modal
-                visible={modalVisible}
-                animationType="fade"
-                transparent={true}
-                onRequestClose={() => setModalVisible(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <Pressable
-                        style={styles.modalBackdrop}
-                        onPress={() => setModalVisible(false)}
-                    />
-                    <View style={styles.modalCard}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Adicionar Passageiro</Text>
-                            <TouchableOpacity onPress={() => setModalVisible(false)}>
-                                <Ionicons name="close" size={24} color={theme.colors.textLight} />
-                            </TouchableOpacity>
-                        </View>
-
-                        {carregandoAlunos ? (
-                            <ActivityIndicator size="large" color={theme.colors.primary} style={styles.spinnerModal} />
-                        ) : todosAlunos.length === 0 ? (
-                            <Text style={styles.emptyTextModal}>Nenhum aluno disponível no momento.</Text>
-                        ) : (
-                            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScrollContent}>
-                                {todosAlunos.map(aluno => (
-                                    <TouchableOpacity
-                                        key={aluno.id}
-                                        style={styles.itemRowCard}
-                                        onPress={() => vincularAluno(aluno.id)}
-                                        activeOpacity={0.7}
-                                    >
-                                        <Text style={styles.nomeAluno}>{aluno.nome}</Text>
-                                        <View style={styles.iconContainer}>
-                                            <Ionicons name="add" size={20} color={theme.colors.primary} />
-                                        </View>
-                                    </TouchableOpacity>
-                                ))}
-                            </ScrollView>
-                        )}
-                    </View>
-                </View>
-            </Modal>
         </View>
     );
 }
@@ -672,9 +584,6 @@ const styles = StyleSheet.create({
         marginVertical: theme.spacing.xl,
         fontSize: theme.typography.size.regular,
     },
-    spinnerModal: {
-        marginVertical: theme.spacing.xl,
-    },
     modalScrollContent: {
         paddingBottom: theme.spacing.xl,
         gap: theme.spacing.sm,
@@ -716,14 +625,6 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
         borderRadius: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    iconContainer: {
-        backgroundColor: `${theme.colors.primary}15`,
-        width: 36,
-        height: 36,
-        borderRadius: 18,
         justifyContent: 'center',
         alignItems: 'center',
     },

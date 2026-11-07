@@ -24,7 +24,8 @@ function RootLayoutNav() {
             'cadastro-turma',
             'editar-turma',
             'mapa',
-            'selecionar-rota-mapa'
+            'selecionar-rota-mapa',
+            'editar-endereco'
         ];
 
         const estaEmTelaLivre = publicasForaDasTabs.includes(firstSegment);
