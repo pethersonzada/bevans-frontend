@@ -61,6 +61,7 @@ export default function Signup() {
         setLoading(true);
         let usuarioFirebaseCriado: Awaited<ReturnType<typeof createUserWithEmailAndPassword>>['user'] | null = null;
         let cadastroBackendConcluido = false;
+        let cadastroBackendRecusado = false;
         try {
             const emailFormatado = email.trim().toLowerCase();
 
@@ -90,6 +91,7 @@ export default function Signup() {
                     const errorData = await response.json();
                     mensagemErro = errorData.erro || errorData.message || mensagemErro;
                 } catch (e) {}
+                cadastroBackendRecusado = true;
                 throw new Error(mensagemErro);
             }
 
@@ -116,12 +118,15 @@ export default function Signup() {
             } else if (error.code === 'auth/weak-password') {
                 mensagemErro = "A senha deve ter pelo menos 6 caracteres.";
             }
-            if (usuarioFirebaseCriado && !cadastroBackendConcluido) {
+            if (usuarioFirebaseCriado && cadastroBackendRecusado) {
                 try {
                     await deleteUser(usuarioFirebaseCriado);
                 } catch {
                     mensagemErro += " A conta de autenticação pode ter sido criada. Entre em contato com o suporte antes de tentar novamente.";
                 }
+            }
+            if (usuarioFirebaseCriado && !cadastroBackendConcluido && !cadastroBackendRecusado) {
+                mensagemErro += " Não foi possível confirmar se o cadastro chegou ao servidor. Verifique sua conta antes de tentar novamente.";
             }
             Alert.alert("Erro no Cadastro", mensagemErro);
         } finally {
