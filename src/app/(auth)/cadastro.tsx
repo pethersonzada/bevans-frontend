@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
+import { createUserWithEmailAndPassword, deleteUser, sendEmailVerification } from 'firebase/auth';
 import { useState } from 'react';
 import {
     ActivityIndicator,
@@ -48,8 +48,8 @@ export default function Signup() {
             return;
         }
 
-        if (tipoUsuario === 'MOTORISTA' && codigoAcesso !== 'ROTA2026') {
-            Alert.alert("Acesso Restrito", "Código de motorista inválido.");
+        if (tipoUsuario === 'MOTORISTA' && !codigoAcesso.trim()) {
+            Alert.alert("Atenção", "Informe o código de autorização do motorista.");
             return;
         }
 
@@ -59,13 +59,15 @@ export default function Signup() {
         }
 
         setLoading(true);
+        let usuarioFirebaseCriado: Awaited<ReturnType<typeof createUserWithEmailAndPassword>>['user'] | null = null;
+        let cadastroBackendConcluido = false;
+        let cadastroBackendRecusado = false;
         try {
             const emailFormatado = email.trim().toLowerCase();
 
             const userCredential = await createUserWithEmailAndPassword(auth, emailFormatado, senha);
             const firebaseUid = userCredential.user.uid;
-
-            await sendEmailVerification(userCredential.user);
+            usuarioFirebaseCriado = userCredential.user;
 
             const response = await apiFetch(`/usuarios/cadastrar`, {
                 method: 'POST',
@@ -75,35 +77,56 @@ export default function Signup() {
                     email: emailFormatado, 
                     firebaseUid, 
                     telefone: telefone.replace(/\D/g, ''), 
-                    tipo: tipoUsuario, 
+                    tipo: tipoUsuario,
+                    ...(tipoUsuario === 'MOTORISTA' ? { codigoAcesso: codigoAcesso.trim() } : {}),
                     enderecoCompleto: 'Endereço Pendente', 
                     latitude: 0.0, 
                     longitude: 0.0 
                 })
             });
 
-            if (response.ok) {
-                Alert.alert(
-                    "Conta Criada!", 
-                    "Enviamos um e-mail de confirmação para a sua caixa de entrada. Por favor, verifique o seu e-mail antes de fazer o login."
-                );
-                router.replace('/(auth)/login');
-            } else {
+            if (!response.ok) {
                 let mensagemErro = "Não foi possível salvar o usuário no servidor.";
                 try {
                     const errorData = await response.json();
-                    if (errorData.message) mensagemErro = errorData.message;
+                    mensagemErro = errorData.erro || errorData.message || mensagemErro;
                 } catch (e) {}
-                Alert.alert("Atenção", mensagemErro);
+                cadastroBackendRecusado = true;
+                throw new Error(mensagemErro);
             }
+
+            cadastroBackendConcluido = true;
+            try {
+                await sendEmailVerification(userCredential.user);
+                Alert.alert(
+                    "Conta Criada!",
+                    "Enviamos um e-mail de confirmação. Verifique sua caixa de entrada antes de fazer login."
+                );
+            } catch {
+                Alert.alert(
+                    "Conta Criada!",
+                    "Seu cadastro foi concluído, mas não foi possível enviar o e-mail de confirmação. Solicite um novo envio na tela de login."
+                );
+            }
+            router.replace('/(auth)/login');
         } catch (error: any) {
-            let mensagemErro = "Não foi possível conectar ao servidor.";
+            let mensagemErro = error?.message || "Não foi possível concluir o cadastro.";
             if (error.code === 'auth/email-already-in-use') {
                 mensagemErro = "Este e-mail já está em uso no Firebase.";
             } else if (error.code === 'auth/invalid-email') {
                 mensagemErro = "E-mail inválido.";
             } else if (error.code === 'auth/weak-password') {
                 mensagemErro = "A senha deve ter pelo menos 6 caracteres.";
+            }
+            if (usuarioFirebaseCriado && cadastroBackendRecusado) {
+                try {
+                    await deleteUser(usuarioFirebaseCriado);
+                } catch {
+                    mensagemErro += " A conta de autenticação pode ter sido criada. Entre em contato com o suporte antes de tentar novamente.";
+                }
+            }
+            if (usuarioFirebaseCriado && !cadastroBackendConcluido && !cadastroBackendRecusado) {
+                mensagemErro += " Não foi possível confirmar se o cadastro chegou ao servidor. Verifique sua conta antes de tentar novamente.";
             }
             Alert.alert("Erro no Cadastro", mensagemErro);
         } finally {
