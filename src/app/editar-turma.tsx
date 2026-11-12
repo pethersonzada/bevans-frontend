@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
@@ -15,9 +14,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { apiFetch } from '../config/api';
+import { apiFetch, errorMessage, readApiError, readApiJson } from '../config/api';
 import { globalStyles } from '../styles/globalStyles';
 import { theme } from '../styles/theme';
+import { useAuth } from './context/AuthContext';
+import { AsyncState } from '../components/AsyncState';
 
 export default function EditarTurma() {
     const { id, nomeAtual, turnoAtual, origemAtual, destinoAtual } = useLocalSearchParams<{
@@ -29,6 +30,8 @@ export default function EditarTurma() {
     }>();
 
     const router = useRouter();
+    const { user, isLoading } = useAuth();
+    const sessaoValida = !isLoading && Boolean(user.id) && user.tipo === 'MOTORISTA';
     const insets = useSafeAreaInsets();
 
     const [nome, setNome] = useState(nomeAtual || '');
@@ -36,24 +39,29 @@ export default function EditarTurma() {
     const [origemNome, setOrigemNome] = useState(origemAtual || '');
     const [destinoNome, setDestinoNome] = useState(destinoAtual || '');
     const [loadingDados, setLoadingDados] = useState(false);
+    const [erroCarga, setErroCarga] = useState<string | null>(null);
     const [salvando, setSalvando] = useState(false);
     const [excluindo, setExcluindo] = useState(false);
 
     useFocusEffect(useCallback(() => {
-        if (id) buscarDetalhesTurma();
-    }, [id]));
+        if (id && sessaoValida) buscarDetalhesTurma();
+    }, [id, user.id, sessaoValida]));
 
     async function buscarDetalhesTurma() {
         setLoadingDados(true);
+        setErroCarga(null);
         try {
-            const motoristaId = await AsyncStorage.getItem('userId');
-            if (!motoristaId) throw new Error('Usuário não identificado.');
+            const motoristaId = user.id;
+            if (!sessaoValida || !motoristaId) return;
             const response = await apiFetch(`/turmas/motorista/${motoristaId}`, {
                 headers: { 'Accept': 'application/json', 'Bypass-Tunnel-Reminder': 'true' }
             });
+            if (!response.ok) throw await readApiError(response);
             if (response.ok) {
-                const turmas = await response.json();
+                const turmas = await readApiJson<any>(response);
+                if (!Array.isArray(turmas)) throw new Error('Resposta de turmas inválida.');
                 const turmaAtual = turmas.find((t: any) => t.id.toString() === id.toString());
+                if (!turmaAtual) throw new Error('Turma não encontrada na sua conta.');
                 if (turmaAtual) {
                     if (!nome) setNome(turmaAtual.nome || '');
                     if (!turno) setTurno(turmaAtual.turno || '');
@@ -62,6 +70,7 @@ export default function EditarTurma() {
                 }
             }
         } catch (e) {
+            setErroCarga(errorMessage(e));
             console.log("Erro ao buscar detalhes da turma", e);
         } finally {
             setLoadingDados(false);
@@ -69,6 +78,7 @@ export default function EditarTurma() {
     }
 
     async function handleSalvarEdicao() {
+        if (!sessaoValida || erroCarga || loadingDados || salvando || excluindo) return;
         if (!nome.trim() || !turno.trim()) {
             Alert.alert("Atenção", "Preencha o nome e o turno.");
             return;
@@ -98,17 +108,18 @@ export default function EditarTurma() {
                     { text: "OK", onPress: () => router.back() }
                 ]);
             } else {
-                const erroTexto = await response.text();
+                const erroTexto = (await readApiError(response)).message;
                 Alert.alert("Erro", erroTexto || "Não foi possível atualizar a turma.");
             }
         } catch (error) {
-            Alert.alert("Erro", "Falha de conexão com o servidor.");
+            Alert.alert("Erro", errorMessage(error));
         } finally {
             setSalvando(false);
         }
     }
 
     function confirmarExclusao() {
+        if (!sessaoValida || erroCarga || loadingDados || salvando || excluindo) return;
         Alert.alert(
             "Excluir Turma",
             "Deseja realmente excluir esta turma? Todos os vínculos de alunos e histórico de viagens desta rota serão apagados.",
@@ -124,7 +135,7 @@ export default function EditarTurma() {
     }
 
     async function handleExcluirTurma() {
-        if (!id) return;
+        if (!id || !sessaoValida || erroCarga || loadingDados || salvando || excluindo) return;
 
         setExcluindo(true);
         try {
@@ -138,14 +149,24 @@ export default function EditarTurma() {
                     { text: "OK", onPress: () => router.back() }
                 ]);
             } else {
-                const erroTexto = await response.text();
+                const erroTexto = (await readApiError(response)).message;
                 Alert.alert("Erro", erroTexto || "Não foi possível excluir a turma.");
             }
         } catch (error) {
-            Alert.alert("Erro", "Falha de conexão com o servidor.");
+            Alert.alert("Erro", errorMessage(error));
         } finally {
             setExcluindo(false);
         }
+    }
+
+    if (!sessaoValida) {
+        return (
+            <View style={globalStyles.container}>
+                {isLoading ? <ActivityIndicator /> : (
+                    <Text>Sessão de motorista necessária para editar esta turma.</Text>
+                )}
+            </View>
+        );
     }
 
     return (
@@ -160,6 +181,7 @@ export default function EditarTurma() {
             </View>
 
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                {erroCarga && <AsyncState message={erroCarga} onRetry={buscarDetalhesTurma} />}
                 {loadingDados && (
                     <ActivityIndicator size="small" color={theme.colors.primary} style={styles.loadingIndicator} />
                 )}

@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
+import { useHomeRefresh } from '../hooks/useHomeRefresh';
 import { ComponentProps, useCallback, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
@@ -8,6 +9,7 @@ import {
     Modal,
     Pressable,
     ScrollView,
+    RefreshControl,
     StatusBar,
     StyleSheet,
     Text,
@@ -15,7 +17,8 @@ import {
     View,
 } from 'react-native';
 
-import { apiFetch } from '../config/api';
+import { apiFetch, errorMessage, readApiError, readApiJson } from '../config/api';
+import { AsyncState } from '../components/AsyncState';
 import { theme } from '../styles/theme';
 import { useAuth } from './context/AuthContext';
 
@@ -47,7 +50,9 @@ export default function HomeMotorista() {
     const router = useRouter();
 
     const [loading, setLoading] = useState(true);
+    const [erroCarga, setErroCarga] = useState<string | null>(null);
     const primeiraCarga = useRef(true);
+    const turmaSelecionadaRef = useRef<Turma | null>(null);
 
     const [turmas, setTurmas] = useState<Turma[]>([]);
     const [turmaSelecionada, setTurmaSelecionada] = useState<Turma | null>(null);
@@ -57,24 +62,19 @@ export default function HomeMotorista() {
 
     const [modalNotificacoesVisible, setModalNotificacoesVisible] = useState(false);
 
-    useFocusEffect(
-        useCallback(() => {
-            carregarDadosSilencioso();
-        }, [user?.id, turmaSelecionada?.id])
-    );
+    const { refreshing, refresh } = useHomeRefresh(user?.id ?? null, carregarDadosSilencioso);
 
     async function carregarDadosSilencioso() {
         if (primeiraCarga.current) setLoading(true);
 
-        if (user?.id) {
-            await buscarTurmas(String(user.id));
-        }
-
+        const success = user?.id ? await buscarTurmas(String(user.id)) : false;
         setLoading(false);
         primeiraCarga.current = false;
+        return success;
     }
 
     async function buscarTurmas(motoristaId: string | number) {
+        setErroCarga(null);
         try {
             const res = await apiFetch(
                 `/turmas/motorista/${motoristaId}`,
@@ -87,25 +87,27 @@ export default function HomeMotorista() {
             );
 
             if (!res.ok) {
-                throw new Error('Falha ao carregar turmas');
+                throw await readApiError(res);
             }
 
-            const data: Turma[] = await res.json();
+            const data: Turma[] = await readApiJson<any>(res);
+            if (!Array.isArray(data)) throw new Error('Resposta de turmas inválida.');
             setTurmas(data);
 
             if (data.length === 0) {
+                turmaSelecionadaRef.current = null;
                 setTurmaSelecionada(null);
                 setPassageiros([]);
                 setAlunosPendentes([]);
                 setViagemAtiva(false);
-                return;
+                return true;
             }
 
             const chaveTurma = `@bevans:turma_selecionada:${motoristaId}`;
 
             const idSalvo = await AsyncStorage.getItem(chaveTurma);
 
-            const idPreferido = turmaSelecionada?.id ??
+            const idPreferido = turmaSelecionadaRef.current?.id ??
                 (idSalvo ? Number(idSalvo) : null);
 
             const turmaEncontrada = idPreferido !== null
@@ -116,6 +118,7 @@ export default function HomeMotorista() {
 
             const atual = turmaEncontrada ?? data[0];
 
+            turmaSelecionadaRef.current = atual;
             setTurmaSelecionada(atual);
 
             await AsyncStorage.setItem(
@@ -123,24 +126,22 @@ export default function HomeMotorista() {
                 String(atual.id)
             );
 
-            await buscarDadosDaTurma(atual.id);
-            await checarAmnesia(atual.id);
-
-            console.log('TURMA RESTAURADA:', {
-                id: atual.id,
-                nome: atual.nome,
-            });
+            const [detailsLoaded] = await Promise.all([buscarDadosDaTurma(atual.id), checarAmnesia(atual.id)]);
+            return detailsLoaded;
 
         } catch (error) {
+            setErroCarga(errorMessage(error));
             console.error('Erro ao carregar turmas:', error);
+            return false;
         }
     }
 
     async function buscarDadosDaTurma(turmaId: number) {
-        await Promise.all([
+        const results = await Promise.all([
             buscarPassageirosPorTurma(turmaId),
             buscarAlunosPendentes(turmaId)
         ]);
+        return results.every(Boolean);
     }
 
     async function buscarPassageirosPorTurma(turmaId: number) {
@@ -148,12 +149,18 @@ export default function HomeMotorista() {
             const res = await apiFetch(`/turmas/${turmaId}/passageiros`, {
                 headers: { 'Accept': 'application/json', 'Bypass-Tunnel-Reminder': 'true' }
             });
+            if (!res.ok) throw await readApiError(res);
             if (res.ok) {
-                const dados = await res.json();
+                const dados = await readApiJson<any>(res);
+                if (!Array.isArray(dados)) throw new Error('Resposta de passageiros inválida.');
+                if (turmaSelecionadaRef.current?.id !== turmaId) return false;
                 setPassageiros(dados);
+                return true;
             }
         } catch (e) {
+            setErroCarga(errorMessage(e));
             console.log("Falha ao buscar passageiros.");
+            return false;
         }
     }
 
@@ -162,12 +169,18 @@ export default function HomeMotorista() {
             const res = await apiFetch(`/turmas/${turmaId}/pendentes`, {
                 headers: { 'Accept': 'application/json', 'Bypass-Tunnel-Reminder': 'true' }
             });
+            if (!res.ok) throw await readApiError(res);
             if (res.ok) {
-                const dados = await res.json();
+                const dados = await readApiJson<any>(res);
+                if (!Array.isArray(dados)) throw new Error('Resposta de solicitações inválida.');
+                if (turmaSelecionadaRef.current?.id !== turmaId) return false;
                 setAlunosPendentes(dados);
+                return true;
             }
         } catch (e) {
+            setErroCarga(errorMessage(e));
             console.log("Falha ao buscar pendentes.");
+            return false;
         }
     }
 
@@ -185,7 +198,7 @@ export default function HomeMotorista() {
                 Alert.alert("Erro", "Não foi possível atualizar a solicitação.");
             }
         } catch (e) {
-            Alert.alert("Erro", "Falha de conexão com o servidor.");
+            Alert.alert("Erro", errorMessage(e));
         }
     }
 
@@ -198,12 +211,14 @@ export default function HomeMotorista() {
             const res = await apiFetch(`/rota/status-atual?turmaId=${turmaId}`, {
                 headers: { 'Bypass-Tunnel-Reminder': 'true' }
             });
+            if (turmaSelecionadaRef.current?.id !== turmaId) return;
 
             if (res.ok) {
-                const data = await res.json();
-                const statusStr = (data.status || data.situacao || '').toUpperCase();
+                const data = await readApiJson<any>(res);
+                if (turmaSelecionadaRef.current?.id !== turmaId) return;
+                const statusStr = (data?.status || data?.situacao || '').toUpperCase();
 
-                const ativo = statusStr === 'ATIVA' || statusStr === 'EM_CURSO' || data.ativa === true;
+                const ativo = statusStr === 'ATIVA' || statusStr === 'EM_CURSO' || data?.ativa === true;
 
                 setViagemAtiva(ativo);
 
@@ -242,7 +257,7 @@ export default function HomeMotorista() {
                             if (res.ok) await buscarDadosDaTurma(turmaSelecionada.id);
                             else Alert.alert("Erro", "Não foi possível remover o aluno.");
                         } catch (e) {
-                            Alert.alert("Erro", "Falha de conexão com o servidor.");
+            Alert.alert("Erro", errorMessage(e));
                         }
                     }
                 }
@@ -255,6 +270,7 @@ export default function HomeMotorista() {
     const todosResponderam = useMemo(() => totalPassageiros > 0 && totalRespostas === totalPassageiros, [totalPassageiros, totalRespostas]);
 
     const iniciarRota = useCallback((sentido: string) => {
+        if (!user?.id) return;
         if (!turmaSelecionada) {
             Alert.alert("Atenção", "Selecione uma turma.");
             return;
@@ -295,7 +311,7 @@ export default function HomeMotorista() {
                 });
 
                 if (!res.ok) {
-                    let errText = await res.text().catch(() => '');
+                    const errText = (await readApiError(res)).message;
 
                     if (!forcarEncerramento && (res.status === 400 || res.status === 409 || errText.toLowerCase().includes('em andamento') || errText.toLowerCase().includes('já existe'))) {
                         Alert.alert(
@@ -340,6 +356,10 @@ export default function HomeMotorista() {
         );
     }, [turmaSelecionada, todosResponderam, user?.id, router]);
 
+    if (!loading && erroCarga && turmas.length === 0) {
+        return <AsyncState message={erroCarga} onRetry={refresh} />;
+    }
+
     if (loading) {
         return (
             <View style={styles.centerContainer}>
@@ -358,7 +378,9 @@ export default function HomeMotorista() {
                 onAbrirNotificacoes={() => setModalNotificacoesVisible(true)}
             />
 
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
+                {erroCarga && <AsyncState message={erroCarga} onRetry={refresh} />}
                 {viagemAtiva && <BannerRotaAtiva
                     onPress={() => {
                         if (!turmaSelecionada) return;
@@ -376,7 +398,11 @@ export default function HomeMotorista() {
                     turmas={turmas}
                     turmaSelecionada={turmaSelecionada}
                     onSelecionarTurma={async (t) => {
+                        turmaSelecionadaRef.current = t;
                         setTurmaSelecionada(t);
+                        setPassageiros([]);
+                        setAlunosPendentes([]);
+                        setViagemAtiva(false);
 
                         if (user?.id) {
                             const chaveTurma =
@@ -388,8 +414,7 @@ export default function HomeMotorista() {
                             );
                         }
 
-                        await buscarDadosDaTurma(t.id);
-                        await checarAmnesia(t.id);
+                        await Promise.all([buscarDadosDaTurma(t.id), checarAmnesia(t.id)]);
 
                         console.log('TURMA SELECIONADA:', {
                             id: t.id,

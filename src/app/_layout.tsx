@@ -1,57 +1,42 @@
-import { Stack, useRouter, useSegments } from 'expo-router';
-import { useEffect } from 'react';
-import { ActivityIndicator, StatusBar, View } from 'react-native';
+import { Stack } from 'expo-router';
+import { StatusBar, View, Button } from 'react-native';
+import { AsyncState } from '../components/AsyncState';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 function RootLayoutNav() {
-    const { user, isLoading } = useAuth();
-    const segments = useSegments();
-    const router = useRouter();
-
-    useEffect(() => {
-        if (isLoading) return;
-
-        const firstSegment = segments[0] || '';
-        const inAuthGroup = firstSegment === '(tabs)';
-        
-        const publicasForaDasTabs = [
-            'login',
-            'cadastro',
-            'gerenciar-enderecos', 
-            'entrar-turma', 
-            'cadastro-endereco', 
-            'cadastro-turma',
-            'editar-turma',
-            'mapa',
-            'selecionar-rota-mapa',
-            'editar-endereco'
-        ];
-
-        const estaEmTelaLivre = publicasForaDasTabs.includes(firstSegment);
-
-        // O setTimeout coloca o redirecionamento na fila do próximo tick da call stack,
-        // dando tempo do <Stack /> e do Expo Router montarem sem dar erro de state update.
-        const timer = setTimeout(() => {
-            if (!user.id && inAuthGroup) {
-                router.replace('/login');
-            } else if (user.id && !inAuthGroup && !estaEmTelaLivre) {
-                router.replace('/(tabs)/home');
-            }
-        }, 0);
-
-        return () => clearTimeout(timer);
-    }, [user.id, isLoading, segments]);
-
-    if (isLoading) {
-        return (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
-                <ActivityIndicator size="large" color="#0E1524" />
-            </View>
-        );
-    }
-
-    return <Stack screenOptions={{ headerShown: false }} />;
+    const { user, isLoading, sessionError, retrySession, signOut } = useAuth();
+    if (isLoading) return <AsyncState loading />;
+    if (sessionError) return (
+        <View style={{ flex: 1, justifyContent: 'center' }}>
+            <AsyncState message={sessionError} onRetry={retrySession} />
+            <Button title="Voltar ao login" onPress={() => { void signOut().catch(console.error); }} />
+        </View>
+    );
+    const signedIn = Boolean(user.id);
+    return (
+        <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Protected guard={!signedIn}>
+                <Stack.Screen name="(auth)" />
+            </Stack.Protected>
+            <Stack.Protected guard={signedIn}>
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="gerenciar-enderecos" />
+                <Stack.Screen name="cadastro-endereco" />
+                <Stack.Screen name="editar-endereco" />
+                <Stack.Screen name="entrar-turma" />
+                <Stack.Screen name="home-passageiro" />
+            </Stack.Protected>
+            <Stack.Protected guard={signedIn && user.tipo === 'MOTORISTA'}>
+                <Stack.Screen name="home-motorista" />
+                <Stack.Screen name="cadastro-turma" />
+                <Stack.Screen name="editar-turma" />
+                <Stack.Screen name="selecionar-rota-mapa" />
+                <Stack.Screen name="mapa" />
+            </Stack.Protected>
+        </Stack>
+    );
 }
 
 export default function RootLayout() {

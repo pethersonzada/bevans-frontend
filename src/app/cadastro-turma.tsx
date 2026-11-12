@@ -14,13 +14,13 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { apiFetch } from '../config/api';
+import { apiFetch, errorMessage, readApiError, readApiJson } from '../config/api';
 import { globalStyles } from '../styles/globalStyles';
 import { theme } from '../styles/theme';
 import { useAuth } from './context/AuthContext';
 
 export default function CadastroTurma() {
-    const { user } = useAuth();
+    const { user, isLoading } = useAuth();
     const router = useRouter();
     const insets = useSafeAreaInsets();
 
@@ -32,6 +32,7 @@ export default function CadastroTurma() {
     const [loading, setLoading] = useState(false);
 
     async function garantirTurmaCriada() {
+        if (isLoading || !user.id || user.tipo !== 'MOTORISTA') return null;
         if (turmaCriadaId) return turmaCriadaId;
 
         if (!nome.trim() || !turno.trim()) {
@@ -59,15 +60,16 @@ export default function CadastroTurma() {
             });
 
             if (response.ok) {
-                const novaTurma = await response.json();
+                const novaTurma = await readApiJson<any>(response);
+                if (!novaTurma?.id) throw new Error('O servidor não retornou a turma criada.');
                 setTurmaCriadaId(novaTurma.id);
                 return novaTurma.id;
             } else {
-                Alert.alert("Erro", "Não foi possível iniciar a turma.");
+                Alert.alert("Erro", (await readApiError(response)).message);
                 return null;
             }
         } catch (e) {
-            Alert.alert("Erro", "Falha de conexão com o servidor.");
+            Alert.alert("Erro", errorMessage(e));
             return null;
         }
     }
@@ -95,7 +97,8 @@ export default function CadastroTurma() {
                     { text: "OK", onPress: () => router.back() }
                 ]);
             } else {
-                await garantirTurmaCriada();
+                const id = await garantirTurmaCriada();
+                if (!id) return;
                 Alert.alert("Sucesso", "Turma cadastrada com sucesso!", [
                     { text: "OK", onPress: () => router.back() }
                 ]);

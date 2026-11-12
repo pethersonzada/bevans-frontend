@@ -1,6 +1,5 @@
 
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 
@@ -17,9 +16,11 @@ import {
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { apiFetch } from '../config/api';
+import { apiFetch, errorMessage, readApiError, readApiJson } from '../config/api';
 import { globalStyles } from '../styles/globalStyles';
 import { theme } from '../styles/theme';
+import { useAuth } from './context/AuthContext';
+import { AsyncState } from '../components/AsyncState';
 
 type Endereco = {
   id: number;
@@ -32,18 +33,22 @@ type Endereco = {
 };
 
 export default function GerenciarEnderecos() {
+  const { user, isLoading } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
   const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState<string | null>(null);
   const [enderecos, setEnderecos] =
     useState<Endereco[]>([]);
 
   const carregarEnderecos = useCallback(async () => {
+    if (isLoading || !user.id) return;
     setLoading(true);
+    setErro(null);
 
     try {
-      const userId = await AsyncStorage.getItem('userId');
+      const userId = user.id;
 
       if (!userId) {
         throw new Error('Usuário não identificado.');
@@ -59,12 +64,10 @@ export default function GerenciarEnderecos() {
       );
 
       if (!response.ok) {
-        throw new Error(
-          `Erro HTTP ${response.status}`
-        );
+        throw await readApiError(response);
       }
 
-      const data = await response.json();
+      const data = await readApiJson<any>(response);
 
       if (!Array.isArray(data)) {
         throw new Error('Resposta inválida do servidor.');
@@ -74,14 +77,11 @@ export default function GerenciarEnderecos() {
     } catch (error) {
       console.error('Erro ao carregar endereços:', error);
 
-      Alert.alert(
-        'Erro',
-        'Não foi possível carregar os endereços.'
-      );
+      setErro(errorMessage(error, 'Não foi possível carregar os endereços.'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isLoading, user.id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -111,6 +111,7 @@ export default function GerenciarEnderecos() {
           text: 'Excluir',
           style: 'destructive',
           onPress: async () => {
+            if (isLoading || !user.id) return;
             try {
               const response = await apiFetch(
                 `/enderecos/${endereco.id}`,
@@ -123,9 +124,7 @@ export default function GerenciarEnderecos() {
               );
 
               if (!response.ok) {
-                throw new Error(
-                  'Não foi possível excluir o endereço.'
-                );
+                throw await readApiError(response);
               }
 
               await carregarEnderecos();
@@ -209,7 +208,7 @@ export default function GerenciarEnderecos() {
           />
         )}
 
-        {enderecos.length === 0 ? (
+        {erro ? <AsyncState message={erro} onRetry={carregarEnderecos} /> : enderecos.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons
               name="location-outline"

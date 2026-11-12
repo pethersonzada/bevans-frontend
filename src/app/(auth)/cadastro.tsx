@@ -18,7 +18,7 @@ import {
 import { TextInputMask } from 'react-native-masked-text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { apiFetch } from '../../config/api';
+import { apiFetch, readApiError } from '../../config/api';
 import { auth } from '../../config/firebase';
 import { globalStyles } from '../../styles/globalStyles';
 import { theme } from '../../styles/theme';
@@ -86,13 +86,8 @@ export default function Signup() {
             });
 
             if (!response.ok) {
-                let mensagemErro = "Não foi possível salvar o usuário no servidor.";
-                try {
-                    const errorData = await response.json();
-                    mensagemErro = errorData.erro || errorData.message || mensagemErro;
-                } catch (e) {}
                 cadastroBackendRecusado = true;
-                throw new Error(mensagemErro);
+                throw await readApiError(response);
             }
 
             cadastroBackendConcluido = true;

@@ -74,13 +74,18 @@ export function SeletorPresenca({
     const [campoAberto, setCampoAberto] =
         useState<'ida' | 'volta' | null>(null);
 
+    const statusSalvo = confirmacao?.status || '';
+    const idaSalva = confirmacao?.enderecoIda?.id ?? null;
+    const voltaSalva = confirmacao?.enderecoVolta?.id ?? null;
+
     useEffect(() => {
-        setStatus(confirmacao?.status || '');
-        setEnderecoIda(confirmacao?.enderecoIda?.id ?? null);
-        setEnderecoVolta(confirmacao?.enderecoVolta?.id ?? null);
-        setEditando(false);
+        // Polling may update the saved confirmation while a draft is open.
+        if (editando) return;
+        setStatus(statusSalvo);
+        setEnderecoIda(idaSalva);
+        setEnderecoVolta(voltaSalva);
         setCampoAberto(null);
-    }, [confirmacao]);
+    }, [statusSalvo, idaSalva, voltaSalva, editando]);
 
     const confirmado = Boolean(confirmacao?.status);
     const exibirFormulario = !confirmado || editando;
@@ -299,6 +304,7 @@ export function SeletorPresenca({
                                         ativo && styles.opcaoAtiva,
                                     ]}
                                     onPress={() => {
+                                        setEditando(true);
                                         setStatus(opcao.key);
                                         setCampoAberto(null);
                                     }}
