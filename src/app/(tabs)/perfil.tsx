@@ -1,19 +1,17 @@
+import { useAppAlert } from '../../contexts/AppAlertContext';
+import { AppModal as Modal } from '../../components/AppModal';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import {
-    EmailAuthProvider,
-    deleteUser,
-    reauthenticateWithCredential,
     sendPasswordResetEmail,
-    updateEmail,
 } from 'firebase/auth';
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
+    
     KeyboardAvoidingView,
     Linking,
-    Modal,
+    
     Platform,
     Pressable,
     ScrollView,
@@ -25,16 +23,20 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { apiFetch, readApiError } from '@/src/config/api';
+import { errorMessage } from '../../config/api';
+import { alterarEmailConta, excluirContaServidor, accountErrorMessage } from '../../services/conta';
+import { FormFeedback } from '../../components/FormFeedback';
+import { LogoutConfirmation } from '../../components/LogoutConfirmation';
 import { auth } from '../../config/firebase';
 import { globalStyles } from '../../styles/globalStyles';
 import { theme } from '../../styles/theme';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 const WHATSAPP_URL = 'https://wa.me/5581991976404';
 const PALAVRA_CONFIRMACAO = 'EXCLUIR';
 
 export default function Perfil() {
+    const Alert = useAppAlert();
     const { user, signOut } = useAuth();
     const router = useRouter();
     const insets = useSafeAreaInsets();
@@ -43,6 +45,9 @@ export default function Perfil() {
     const [modalDeletarVisivel, setModalDeletarVisivel] = useState(false);
     const [modalEmailVisivel, setModalEmailVisivel] = useState(false);
     const [modalSenhaVisivel, setModalSenhaVisivel] = useState(false);
+    const [confirmarSaida, setConfirmarSaida] = useState(false);
+    const cancelarSaida = useCallback(() => setConfirmarSaida(false), []);
+    useFocusEffect(useCallback(() => cancelarSaida, [cancelarSaida]));
 
     // Estados dos Formularios
     const [textoDigitado, setTextoDigitado] = useState('');
@@ -55,10 +60,12 @@ export default function Perfil() {
     const [erroExclusao, setErroExclusao] = useState('');
     const [carregandoEmail, setCarregandoEmail] = useState(false);
     const [carregandoSenha, setCarregandoSenha] = useState(false);
+    const [erroEmail, setErroEmail] = useState<string | null>(null);
+    const contaPendente = useRef(false);
 
     const nome = user?.nome?.trim() || 'Usuário';
     const inicial = nome.charAt(0).toUpperCase();
-    const emailUsuario = (user as any)?.email || auth.currentUser?.email || '';
+    const emailUsuario = auth.currentUser?.email || '';
     const confirmacaoOk = textoDigitado.trim().toUpperCase() === PALAVRA_CONFIRMACAO;
     const ehPassageiro = ['PASSAGEIRO', 'ALUNO'].includes(user?.tipo?.toUpperCase() || '');
 
@@ -75,8 +82,8 @@ export default function Perfil() {
         }
     };
 
-    const fecharModais = () => {
-        if (excluindo || carregandoEmail || carregandoSenha) return;
+    const limparModais = () => {
+        setErroEmail(null);
 
         setModalDeletarVisivel(false);
         setTextoDigitado('');
@@ -90,18 +97,13 @@ export default function Perfil() {
         setModalSenhaVisivel(false);
     };
 
+    const fecharModais = () => {
+        if (contaPendente.current || carregandoSenha) return;
+        limparModais();
+    };
+
     const sair = () => {
-        Alert.alert('Encerrar sessão', 'Deseja realmente sair do aplicativo?', [
-            { text: 'Cancelar', style: 'cancel' },
-            {
-                text: 'Sair',
-                style: 'destructive',
-                onPress: async () => {
-                    await signOut();
-                    router.replace('/login');
-                },
-            },
-        ]);
+        if (!contaPendente.current) setConfirmarSaida(true);
     };
 
     const handleAlterarEmail = async () => {
@@ -112,55 +114,26 @@ export default function Perfil() {
             return;
         }
 
-        if (emailUsuario && emailUsuario.toLowerCase() === emailFormatado) {
-            Alert.alert('Atenção', 'O novo e-mail precisa ser diferente do e-mail atual.');
-            return;
-        }
-
+        if (contaPendente.current) return;
+        contaPendente.current = true;
+        setErroEmail(null);
         setCarregandoEmail(true);
         try {
-            const userFirebase = auth.currentUser;
-            if (!userFirebase || !userFirebase.email) {
-                throw new Error('Sessão expirada. Faça login novamente.');
-            }
-
-            const credential = EmailAuthProvider.credential(userFirebase.email, senhaAtual);
-            await reauthenticateWithCredential(userFirebase, credential);
-
-            const resposta = await apiFetch(`/usuarios/${user.id}/email`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Bypass-Tunnel-Reminder': 'true',
-                },
-                body: JSON.stringify({ email: emailFormatado }),
-            });
-
-            if (!resposta.ok) {
-                throw await readApiError(resposta);
-            }
-
-            await updateEmail(userFirebase, emailFormatado);
-
+            if (!user.id) throw new Error('Entre novamente para alterar sua conta.');
+            await alterarEmailConta(user.id, emailFormatado, senhaAtual);
             Alert.alert('Sucesso', 'Seu e-mail foi atualizado com sucesso.');
-            fecharModais();
-        } catch (error: any) {
-            console.error(error);
-            if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-                Alert.alert('Erro', 'A senha atual informada está incorreta.');
-            } else if (error.code === 'auth/email-already-in-use') {
-                Alert.alert('Erro', 'Este e-mail já está em uso por outra conta.');
-            } else if (error.code === 'auth/invalid-email') {
-                Alert.alert('Erro', 'O formato do e-mail digitado é inválido.');
-            } else {
-                Alert.alert('Erro', error.message || 'Não foi possível alterar o e-mail.');
-            }
+            limparModais();
+        } catch (error) {
+            setErroEmail(accountErrorMessage(error));
         } finally {
+            contaPendente.current = false;
             setCarregandoEmail(false);
         }
     };
 
     const handleRecuperarSenha = async () => {
+        if (contaPendente.current) return;
+        contaPendente.current = true;
         setCarregandoSenha(true);
         try {
             const userFirebase = auth.currentUser;
@@ -174,17 +147,19 @@ export default function Perfil() {
                 'Link Enviado',
                 `Enviamos um link seguro de redefinição para ${userFirebase.email}. Verifique sua caixa de entrada e spam.`
             );
-            fecharModais();
+            limparModais();
         } catch (error: any) {
             console.error(error);
             Alert.alert('Erro', 'Ocorreu um erro ao enviar o link de recuperação de senha.');
         } finally {
+            contaPendente.current = false;
             setCarregandoSenha(false);
         }
     };
 
     const excluirConta = async () => {
-        if (!confirmacaoOk || excluindo) return;
+        if (!confirmacaoOk || contaPendente.current) return;
+        contaPendente.current = true;
 
         setExcluindo(true);
         setErroExclusao('');
@@ -194,30 +169,19 @@ export default function Perfil() {
                 throw new Error('Usuário não identificado.');
             }
 
-            const resposta = await apiFetch(`/usuarios/${user.id}`, {
-                method: 'DELETE',
-                headers: { 'Bypass-Tunnel-Reminder': 'true' },
-            });
-
-            if (!resposta.ok) {
-                throw new Error(`Erro no servidor: HTTP ${resposta.status}`);
-            }
-
-            await deleteUser(userFirebase).catch((err) => {
-                console.warn('Aviso: conta removida do backend, mas falhou no Firebase Auth:', err);
-            });
-
+            await excluirContaServidor(user.id);
             await signOut();
-            fecharModais();
+            limparModais();
             router.replace('/login');
         } catch (error: any) {
             console.error(error);
             if (error?.code === 'auth/requires-recent-login') {
                 setErroExclusao('Por motivos de segurança, faça login novamente antes de excluir sua conta.');
             } else {
-                setErroExclusao('Serviço indisponível no momento. Tente novamente mais tarde.');
+                setErroExclusao(errorMessage(error));
             }
         } finally {
+            contaPendente.current = false;
             setExcluindo(false);
         }
     };
@@ -227,6 +191,8 @@ export default function Perfil() {
             <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
             <ScrollView
+                accessibilityElementsHidden={confirmarSaida}
+                importantForAccessibility={confirmarSaida ? 'no-hide-descendants' : 'auto'}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={[
                     styles.scrollContent,
@@ -337,11 +303,14 @@ export default function Perfil() {
                 </View>
             </ScrollView>
 
+            {confirmarSaida && <LogoutConfirmation onConfirm={signOut} onCancel={cancelarSaida} />}
+
             {/* Modal Alterar Email */}
             <Modal animationType="fade" transparent visible={modalEmailVisivel} onRequestClose={fecharModais}>
                 <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
                     <View style={[globalStyles.card, styles.modalContent]}>
                         <Text style={globalStyles.title}>Alterar E-mail</Text>
+                        <FormFeedback message={erroEmail} />
                         <Text style={styles.modalTexto}>
                             Informe sua senha atual e o novo e-mail para realizar a atualização de segurança.
                         </Text>

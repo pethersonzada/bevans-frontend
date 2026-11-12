@@ -1,11 +1,11 @@
+import { useAppAlert } from '../contexts/AppAlertContext';
 
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import {
-    ActivityIndicator,
-    Alert,
+    
     ScrollView,
     StatusBar,
     StyleSheet,
@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiFetch, errorMessage, readApiError, readApiJson } from '../config/api';
 import { globalStyles } from '../styles/globalStyles';
 import { theme } from '../styles/theme';
-import { useAuth } from './context/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 import { AsyncState } from '../components/AsyncState';
 
 type Endereco = {
@@ -33,12 +33,15 @@ type Endereco = {
 };
 
 export default function GerenciarEnderecos() {
+    const Alert = useAppAlert();
   const { user, isLoading } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+  const [excluindo, setExcluindo] = useState<number | null>(null);
+  const exclusaoRef = useRef(false);
   const [enderecos, setEnderecos] =
     useState<Endereco[]>([]);
 
@@ -111,7 +114,9 @@ export default function GerenciarEnderecos() {
           text: 'Excluir',
           style: 'destructive',
           onPress: async () => {
-            if (isLoading || !user.id) return;
+            if (isLoading || !user.id || exclusaoRef.current) return;
+            exclusaoRef.current = true;
+            setExcluindo(endereco.id);
             try {
               const response = await apiFetch(
                 `/enderecos/${endereco.id}`,
@@ -127,6 +132,7 @@ export default function GerenciarEnderecos() {
                 throw await readApiError(response);
               }
 
+              setEnderecos(current => current.filter(item => item.id !== endereco.id));
               await carregarEnderecos();
 
               Alert.alert(
@@ -140,6 +146,9 @@ export default function GerenciarEnderecos() {
                   ? error.message
                   : 'Falha de conexão.'
               );
+            } finally {
+              exclusaoRef.current = false;
+              setExcluindo(null);
             }
           },
         },
@@ -155,10 +164,7 @@ export default function GerenciarEnderecos() {
           styles.center,
         ]}
       >
-        <ActivityIndicator
-          size="large"
-          color={theme.colors.primary}
-        />
+        <AsyncState loading title="Carregando seus endereços..." />
       </View>
     );
   }
@@ -200,27 +206,13 @@ export default function GerenciarEnderecos() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {loading && (
-          <ActivityIndicator
-            size="small"
-            color={theme.colors.primary}
-            style={styles.loading}
-          />
+        {(loading || excluindo !== null) && <AsyncState loading title={excluindo !== null ? 'Excluindo endereço...' : 'Atualizando endereços...'} />}
+
+        {!loading && erro && <AsyncState message={erro} onRetry={carregarEnderecos} />}
+        {!loading && !erro && enderecos.length === 0 && (
+          <AsyncState status="empty" title="Nenhum endereço cadastrado" message="Cadastre um local para usar como ponto de embarque." />
         )}
-
-        {erro ? <AsyncState message={erro} onRetry={carregarEnderecos} /> : enderecos.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Ionicons
-              name="location-outline"
-              size={36}
-              color={theme.colors.textLight}
-            />
-
-            <Text style={styles.emptyText}>
-              Nenhum endereço cadastrado.
-            </Text>
-          </View>
-        ) : (
+        {enderecos.length > 0 && (
           enderecos.map((endereco) => (
             <View
               key={endereco.id}
@@ -248,6 +240,8 @@ export default function GerenciarEnderecos() {
                     editarEndereco(endereco)
                   }
                   style={styles.actionButton}
+                  accessibilityRole="button"
+                  disabled={excluindo !== null || loading}
                   accessibilityLabel="Editar endereço"
                 >
                   <Ionicons
@@ -262,6 +256,8 @@ export default function GerenciarEnderecos() {
                     excluirEndereco(endereco)
                   }
                   style={styles.actionButton}
+                  accessibilityRole="button"
+                  disabled={excluindo !== null || loading}
                   accessibilityLabel="Excluir endereço"
                 >
                   <Ionicons

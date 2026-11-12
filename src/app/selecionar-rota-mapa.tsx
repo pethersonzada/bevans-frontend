@@ -1,3 +1,4 @@
+import { useAppAlert } from '../contexts/AppAlertContext';
 
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -5,7 +6,7 @@ import { useState } from 'react';
 
 import {
   ActivityIndicator,
-  Alert,
+  
   StatusBar,
   StyleSheet,
   Text,
@@ -24,6 +25,7 @@ import { apiFetch, errorMessage, readApiError, readApiJson } from '../config/api
 import { theme } from '../styles/theme';
 
 export default function SelecionarRotaMapa() {
+    const Alert = useAppAlert();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 

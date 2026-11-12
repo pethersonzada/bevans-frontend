@@ -1,9 +1,10 @@
+import { useAppAlert } from '../contexts/AppAlertContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
+    
     ScrollView,
     StatusBar,
     StyleSheet,
@@ -14,13 +15,15 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { apiFetch, errorMessage, readApiError, readApiJson } from '../config/api';
+import { errorMessage } from '../config/api';
+import { buscarTurmaMotorista, atualizarTurma, excluirTurma } from '../services/turmas';
 import { globalStyles } from '../styles/globalStyles';
 import { theme } from '../styles/theme';
-import { useAuth } from './context/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 import { AsyncState } from '../components/AsyncState';
 
 export default function EditarTurma() {
+    const Alert = useAppAlert();
     const { id, nomeAtual, turnoAtual, origemAtual, destinoAtual } = useLocalSearchParams<{
         id: string;
         nomeAtual?: string;
@@ -53,22 +56,11 @@ export default function EditarTurma() {
         try {
             const motoristaId = user.id;
             if (!sessaoValida || !motoristaId) return;
-            const response = await apiFetch(`/turmas/motorista/${motoristaId}`, {
-                headers: { 'Accept': 'application/json', 'Bypass-Tunnel-Reminder': 'true' }
-            });
-            if (!response.ok) throw await readApiError(response);
-            if (response.ok) {
-                const turmas = await readApiJson<any>(response);
-                if (!Array.isArray(turmas)) throw new Error('Resposta de turmas inválida.');
-                const turmaAtual = turmas.find((t: any) => t.id.toString() === id.toString());
-                if (!turmaAtual) throw new Error('Turma não encontrada na sua conta.');
-                if (turmaAtual) {
-                    if (!nome) setNome(turmaAtual.nome || '');
-                    if (!turno) setTurno(turmaAtual.turno || '');
-                    setOrigemNome(turmaAtual.origemNome || '');
-                    setDestinoNome(turmaAtual.destinoNome || '');
-                }
-            }
+            const turmaAtual = await buscarTurmaMotorista(motoristaId, id);
+            if (!nome) setNome(turmaAtual.nome || '');
+            if (!turno) setTurno(turmaAtual.turno || '');
+            setOrigemNome(turmaAtual.origemNome || '');
+            setDestinoNome(turmaAtual.destinoNome || '');
         } catch (e) {
             setErroCarga(errorMessage(e));
             console.log("Erro ao buscar detalhes da turma", e);
@@ -91,26 +83,10 @@ export default function EditarTurma() {
 
         setSalvando(true);
         try {
-            const response = await apiFetch(`/turmas/${id}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Bypass-Tunnel-Reminder': 'true'
-                },
-                body: JSON.stringify({
-                    nome: nome.trim(),
-                    turno: turno.trim()
-                })
-            });
-
-            if (response.ok) {
-                Alert.alert("Sucesso", "Turma atualizada com sucesso!", [
-                    { text: "OK", onPress: () => router.back() }
-                ]);
-            } else {
-                const erroTexto = (await readApiError(response)).message;
-                Alert.alert("Erro", erroTexto || "Não foi possível atualizar a turma.");
-            }
+            await atualizarTurma(id, nome, turno);
+            Alert.alert('Sucesso', 'Turma atualizada com sucesso!', [
+                { text: 'OK', onPress: () => router.back() }
+            ]);
         } catch (error) {
             Alert.alert("Erro", errorMessage(error));
         } finally {
@@ -139,19 +115,10 @@ export default function EditarTurma() {
 
         setExcluindo(true);
         try {
-            const response = await apiFetch(`/turmas/${id}`, {
-                method: 'DELETE',
-                headers: { 'Bypass-Tunnel-Reminder': 'true' }
-            });
-
-            if (response.ok) {
-                Alert.alert("Sucesso", "Turma excluída com sucesso!", [
-                    { text: "OK", onPress: () => router.back() }
-                ]);
-            } else {
-                const erroTexto = (await readApiError(response)).message;
-                Alert.alert("Erro", erroTexto || "Não foi possível excluir a turma.");
-            }
+            await excluirTurma(id);
+            Alert.alert('Sucesso', 'Turma excluída com sucesso!', [
+                { text: 'OK', onPress: () => router.back() }
+            ]);
         } catch (error) {
             Alert.alert("Erro", errorMessage(error));
         } finally {
@@ -162,9 +129,7 @@ export default function EditarTurma() {
     if (!sessaoValida) {
         return (
             <View style={globalStyles.container}>
-                {isLoading ? <ActivityIndicator /> : (
-                    <Text>Sessão de motorista necessária para editar esta turma.</Text>
-                )}
+                <AsyncState loading={isLoading} message={isLoading ? undefined : 'Entre com uma conta de motorista para editar esta turma.'} />
             </View>
         );
     }
@@ -183,7 +148,7 @@ export default function EditarTurma() {
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 {erroCarga && <AsyncState message={erroCarga} onRetry={buscarDetalhesTurma} />}
                 {loadingDados && (
-                    <ActivityIndicator size="small" color={theme.colors.primary} style={styles.loadingIndicator} />
+                    <AsyncState loading title="Carregando os dados da turma..." />
                 )}
 
                 <View style={styles.inputGroup}>
@@ -220,7 +185,8 @@ export default function EditarTurma() {
                         />
                         <TouchableOpacity
                             style={styles.mapButton}
-                            onPress={() => router.push({ pathname: '/selecionar-rota-mapa', params: { turmaId: id, tipo: 'ORIGEM' } } as any)}
+                            disabled={loadingDados || Boolean(erroCarga) || salvando || excluindo}
+                            onPress={() => router.push({ pathname: '/selecionar-rota-mapa', params: { turmaId: id, tipo: 'ORIGEM' } })}
                             activeOpacity={0.8}
                         >
                             <Ionicons name="map" size={20} color={theme.colors.surface} />
@@ -240,7 +206,7 @@ export default function EditarTurma() {
                         />
                         <TouchableOpacity
                             style={styles.mapButton}
-                            onPress={() => router.push({ pathname: '/selecionar-rota-mapa', params: { turmaId: id, tipo: 'DESTINO' } } as any)}
+                            onPress={() => router.push({ pathname: '/selecionar-rota-mapa', params: { turmaId: id, tipo: 'DESTINO' } })}
                             activeOpacity={0.8}
                         >
                             <Ionicons name="map" size={20} color={theme.colors.surface} />
@@ -251,7 +217,9 @@ export default function EditarTurma() {
                 <TouchableOpacity
                     style={[styles.buttonSubmit, (salvando || excluindo) && styles.buttonDisabled]}
                     onPress={handleSalvarEdicao}
-                    disabled={salvando || excluindo}
+                    accessibilityRole="button"
+                    accessibilityState={{ busy: salvando, disabled: salvando || excluindo || loadingDados || Boolean(erroCarga) }}
+                    disabled={salvando || excluindo || loadingDados || Boolean(erroCarga)}
                     activeOpacity={0.85}
                 >
                     {salvando ? (
@@ -267,7 +235,9 @@ export default function EditarTurma() {
                 <TouchableOpacity
                     style={[styles.buttonDelete, (salvando || excluindo) && styles.buttonDisabled]}
                     onPress={confirmarExclusao}
-                    disabled={salvando || excluindo}
+                    accessibilityRole="button"
+                    accessibilityState={{ busy: excluindo, disabled: salvando || excluindo || loadingDados || Boolean(erroCarga) }}
+                    disabled={salvando || excluindo || loadingDados || Boolean(erroCarga)}
                     activeOpacity={0.8}
                 >
                     {excluindo ? (

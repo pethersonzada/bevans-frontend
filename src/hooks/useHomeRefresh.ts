@@ -1,6 +1,7 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
+import NetInfo from '@react-native-community/netinfo';
 import { getApiDataRevision } from '../config/api';
 import { createRefreshTask } from '../services/refreshTask';
 
@@ -12,10 +13,17 @@ export function useHomeRefresh(identity: string | null, load: () => Promise<bool
     const refresh = useMemo(() => createRefreshTask(() => latest.current(), getApiDataRevision), [identity]);
     useFocusEffect(useCallback(() => {
         if (!identity) return;
-        const run = () => { void refresh().catch(console.error); };
-        if (!AppState.currentState || AppState.currentState === 'active') run();
-        const subscription = AppState.addEventListener('change', state => { if (state === 'active') run(); });
-        return () => subscription.remove();
+        let foreground = !AppState.currentState || AppState.currentState === 'active';
+        let online = true;
+        const run = (force = false) => { if (foreground && online) void refresh(force).catch(console.error); };
+        run();
+        const subscription = AppState.addEventListener('change', state => { foreground = state === 'active'; run(); });
+        const unsubscribeNetwork = NetInfo.addEventListener(state => {
+            const wasOnline = online;
+            online = state.isConnected !== false && state.isInternetReachable !== false;
+            if (!wasOnline && online) run(true);
+        });
+        return () => { subscription.remove(); unsubscribeNetwork(); };
     }, [identity, refresh]));
     return {
         refreshing,

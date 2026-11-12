@@ -19,6 +19,7 @@ import {
 } from '../services/enderecoSearch';
 
 import { theme } from '../styles/theme';
+import { AsyncState } from './AsyncState';
 
 type Props = {
   onSelecionar: (endereco: EnderecoEncontrado | null) => void;
@@ -42,8 +43,12 @@ export default function EnderecoSearchInput({
   const [buscando, setBuscando] = useState(false);
   const [resolvendo, setResolvendo] = useState(false);
   const [erro, setErro] = useState('');
+  const [semResultados, setSemResultados] = useState(false);
+  const [tentativa, setTentativa] = useState(0);
+  const numeroController = useRef<AbortController | null>(null);
 
   const requisicaoId = useRef(0);
+  useEffect(() => () => { requisicaoId.current++; numeroController.current?.abort(); }, []);
 
   useEffect(() => {
     if (base) return;
@@ -61,6 +66,7 @@ export default function EnderecoSearchInput({
     const timer = setTimeout(async () => {
       setBuscando(true);
       setErro('');
+      setSemResultados(false);
 
       try {
         const itens = await pesquisarEnderecos(
@@ -71,11 +77,7 @@ export default function EnderecoSearchInput({
         if (!controller.signal.aborted) {
           setResultados(itens);
 
-          if (!itens.length) {
-            setErro(
-              'Nenhum resultado. Tente incluir a cidade.'
-            );
-          }
+          setSemResultados(itens.length === 0);
         }
       } catch (e) {
         if (!controller.signal.aborted) {
@@ -96,10 +98,13 @@ export default function EnderecoSearchInput({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [texto, base]);
+  }, [texto, base, tentativa]);
 
   function alterarTexto(valor: string) {
     requisicaoId.current++;
+    numeroController.current?.abort();
+    setResolvendo(false);
+    setSemResultados(false);
 
     setTexto(valor);
     setNumero('');
@@ -113,6 +118,8 @@ export default function EnderecoSearchInput({
 
   function alterarNumero(valor: string) {
     requisicaoId.current++;
+    numeroController.current?.abort();
+    setResolvendo(false);
 
     setNumero(valor);
     setSelecionado(null);
@@ -123,6 +130,10 @@ export default function EnderecoSearchInput({
 
   function selecionarResultado(item: EnderecoEncontrado) {
     requisicaoId.current++;
+    numeroController.current?.abort();
+    setResolvendo(false);
+    setBuscando(false);
+    setSemResultados(false);
 
     setBase(item);
     setTexto(item.nome);
@@ -155,6 +166,9 @@ export default function EnderecoSearchInput({
     }
 
     const id = ++requisicaoId.current;
+    numeroController.current?.abort();
+    const controller = new AbortController();
+    numeroController.current = controller;
 
     setResolvendo(true);
     setSelecionado(null);
@@ -164,7 +178,8 @@ export default function EnderecoSearchInput({
     try {
       const encontrado = await localizarNumero(
         base,
-        numero
+        numero,
+        controller.signal
       );
 
       if (id !== requisicaoId.current) return;
@@ -207,6 +222,7 @@ export default function EnderecoSearchInput({
 
         {buscando && (
           <ActivityIndicator
+            accessibilityLabel="Pesquisando endereços"
             color={theme.colors.primary}
             size="small"
           />
@@ -214,6 +230,9 @@ export default function EnderecoSearchInput({
 
         {!!texto && (
           <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Limpar endereço pesquisado"
+            hitSlop={12}
             onPress={() => alterarTexto('')}
           >
             <Ionicons
@@ -313,7 +332,9 @@ export default function EnderecoSearchInput({
         </View>
       )}
 
-      {!!erro && <Text style={styles.erro}>{erro}</Text>}
+      {semResultados && !buscando && <AsyncState appearance="map" status="empty" title="Nenhum endereço encontrado" message="Tente incluir o bairro ou a cidade na pesquisa." />}
+      {!!erro && <AsyncState appearance="map" title="Confira o endereço" message={erro}
+        onRetry={!base && texto.trim().length >= 3 ? () => setTentativa(value => value + 1) : undefined} />}
     </View>
   );
 }

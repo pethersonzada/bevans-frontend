@@ -1,10 +1,11 @@
+import { useAppAlert } from '../../contexts/AppAlertContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { createUserWithEmailAndPassword, deleteUser, sendEmailVerification } from 'firebase/auth';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
+    
     KeyboardAvoidingView,
     Platform,
     ScrollView,
@@ -22,8 +23,10 @@ import { apiFetch, readApiError } from '../../config/api';
 import { auth } from '../../config/firebase';
 import { globalStyles } from '../../styles/globalStyles';
 import { theme } from '../../styles/theme';
+import { FormFeedback } from '../../components/FormFeedback';
 
 export default function Signup() {
+    const Alert = useAppAlert();
     const { tipo } = useLocalSearchParams();
     const router = useRouter();
     const insets = useSafeAreaInsets();
@@ -35,6 +38,8 @@ export default function Signup() {
     const [telefone, setTelefone] = useState('');
     const [codigoAcesso, setCodigoAcesso] = useState('');
     const [loading, setLoading] = useState(false);
+    const [erroFormulario, setErroFormulario] = useState<string | null>(null);
+    const enviando = useRef(false);
     const [showSenha, setShowSenha] = useState(false);
     const [showConfirmaSenha, setShowConfirmaSenha] = useState(false);
     const [focado, setFocado] = useState<string | null>(null);
@@ -43,21 +48,24 @@ export default function Signup() {
     const isFocado = (campo: string) => focado === campo;
 
     async function handleCadastro() {
+        if (enviando.current) return;
+        setErroFormulario(null);
         if (!nome || !email || !senha || !confirmaSenha || !telefone) {
-            Alert.alert("Atenção", "Preencha todos os campos.");
+            setErroFormulario('Preencha todos os campos para continuar.');
             return;
         }
 
         if (tipoUsuario === 'MOTORISTA' && !codigoAcesso.trim()) {
-            Alert.alert("Atenção", "Informe o código de autorização do motorista.");
+            setErroFormulario('Informe o código de autorização do motorista.');
             return;
         }
 
         if (senha !== confirmaSenha) {
-            Alert.alert("Erro", "As senhas não coincidem.");
+            setErroFormulario('As senhas não coincidem. Confira os dois campos.');
             return;
         }
 
+        enviando.current = true;
         setLoading(true);
         let usuarioFirebaseCriado: Awaited<ReturnType<typeof createUserWithEmailAndPassword>>['user'] | null = null;
         let cadastroBackendConcluido = false;
@@ -112,6 +120,8 @@ export default function Signup() {
                 mensagemErro = "E-mail inválido.";
             } else if (error.code === 'auth/weak-password') {
                 mensagemErro = "A senha deve ter pelo menos 6 caracteres.";
+            } else if (error.code === 'auth/network-request-failed') {
+                mensagemErro = 'Não foi possível conectar. Verifique sua conexão e tente novamente.';
             }
             if (usuarioFirebaseCriado && cadastroBackendRecusado) {
                 try {
@@ -123,8 +133,9 @@ export default function Signup() {
             if (usuarioFirebaseCriado && !cadastroBackendConcluido && !cadastroBackendRecusado) {
                 mensagemErro += " Não foi possível confirmar se o cadastro chegou ao servidor. Verifique sua conta antes de tentar novamente.";
             }
-            Alert.alert("Erro no Cadastro", mensagemErro);
+            setErroFormulario(mensagemErro);
         } finally {
+            enviando.current = false;
             setLoading(false);
         }
     }
@@ -152,6 +163,7 @@ export default function Signup() {
                         <Text style={styles.subtitulo}>Preencha seus dados para começar</Text>
                     </View>
 
+                    <FormFeedback message={erroFormulario} />
                     {tipoUsuario === 'MOTORISTA' && (
                         <View style={[
                             styles.inputContainer,
@@ -160,6 +172,7 @@ export default function Signup() {
                         ]}>
                             <Ionicons name="key-outline" size={22} color={theme.colors.primary} style={styles.inputIcon} />
                             <TextInput
+                            editable={!loading}
                                 style={styles.inputComIcone}
                                 placeholder="Código de Autorização"
                                 placeholderTextColor={theme.colors.textLight}
@@ -177,6 +190,7 @@ export default function Signup() {
                     <View style={[styles.inputContainer, isFocado('nome') && styles.inputFocused]}>
                         <Ionicons name="person-outline" size={22} color={isFocado('nome') ? theme.colors.primary : theme.colors.textLight} style={styles.inputIcon} />
                         <TextInput
+                            editable={!loading}
                             style={styles.inputComIcone}
                             placeholder="Nome Completo"
                             placeholderTextColor={theme.colors.textLight}
@@ -195,6 +209,7 @@ export default function Signup() {
                     <View style={[styles.inputContainer, isFocado('email') && styles.inputFocused]}>
                         <Ionicons name="mail-outline" size={22} color={isFocado('email') ? theme.colors.primary : theme.colors.textLight} style={styles.inputIcon} />
                         <TextInput
+                            editable={!loading}
                             style={styles.inputComIcone}
                             placeholder="E-mail"
                             placeholderTextColor={theme.colors.textLight}
@@ -213,6 +228,7 @@ export default function Signup() {
                     <View style={[styles.inputContainer, isFocado('telefone') && styles.inputFocused]}>
                         <Ionicons name="call-outline" size={22} color={isFocado('telefone') ? theme.colors.primary : theme.colors.textLight} style={styles.inputIcon} />
                         <TextInputMask
+                            editable={!loading}
                             type={'cel-phone'}
                             options={{ withDDD: true, dddMask: '(99) ' }}
                             style={styles.inputComIcone}
@@ -232,6 +248,7 @@ export default function Signup() {
                     <View style={[styles.inputContainer, isFocado('senha') && styles.inputFocused]}>
                         <Ionicons name="lock-closed-outline" size={22} color={isFocado('senha') ? theme.colors.primary : theme.colors.textLight} style={styles.inputIcon} />
                         <TextInput
+                            editable={!loading}
                             style={styles.inputComIcone}
                             placeholder="Senha"
                             placeholderTextColor={theme.colors.textLight}
@@ -257,6 +274,7 @@ export default function Signup() {
                     <View style={[styles.inputContainer, isFocado('confirmaSenha') && styles.inputFocused]}>
                         <Ionicons name="lock-closed-outline" size={22} color={isFocado('confirmaSenha') ? theme.colors.primary : theme.colors.textLight} style={styles.inputIcon} />
                         <TextInput
+                            editable={!loading}
                             style={styles.inputComIcone}
                             placeholder="Confirmar Senha"
                             placeholderTextColor={theme.colors.textLight}
@@ -288,6 +306,9 @@ export default function Signup() {
 
                     <TouchableOpacity
                         style={[styles.buttonSubmit, loading && styles.buttonDisabled]}
+                        accessibilityRole="button"
+                        accessibilityLabel={loading ? "Criando conta" : "Criar conta"}
+                        accessibilityState={{ busy: loading, disabled: loading }}
                         onPress={handleCadastro}
                         disabled={loading}
                         activeOpacity={0.85}

@@ -1,8 +1,9 @@
 import { Stack } from 'expo-router';
+import { AppAlertProvider } from '../contexts/AppAlertContext';
 import { StatusBar, View, Button } from 'react-native';
 import { AsyncState } from '../components/AsyncState';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider, useAuth } from '../contexts/AuthContext';
 
 function RootLayoutNav() {
     const { user, isLoading, sessionError, retrySession, signOut } = useAuth();
@@ -43,9 +44,9 @@ export default function RootLayout() {
     return (
         <SafeAreaProvider>
             <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
-            <AuthProvider>
+            <AppAlertProvider><AuthProvider>
                 <RootLayoutNav />
-            </AuthProvider>
+            </AuthProvider></AppAlertProvider>
         </SafeAreaProvider>
     );
 }

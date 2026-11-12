@@ -1,3 +1,4 @@
+import { useAppAlert } from '../contexts/AppAlertContext';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
@@ -7,7 +8,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
+    Linking,
+    
     StatusBar,
     StyleSheet,
     Text,
@@ -17,9 +19,15 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { API_URL } from '../config/config';
-import { apiFetch, readApiJson, readApiError } from '../config/api';
+import { apiFetch, readApiJson, readApiError, errorMessage } from '../config/api';
+import { AsyncState } from '../components/AsyncState';
+import { withDeadline } from '../services/asyncOperation';
+import { validCoordinates } from '../services/location';
+import { ensureNavigationLocation, NavigationLocationError } from '../services/navigationLocation';
+import { encerrarViagem } from '../services/viagens';
+import { createPositionSender } from '../services/telemetria';
 import { theme } from '../styles/theme';
-import { useAuth } from './context/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 
 import { CabecalhoMapa } from '../components/mapa/CabecalhoMapa';
 import { ControlesViagem } from '../components/mapa/ControlesViagem';
@@ -86,7 +94,6 @@ const CACHE_KEYS = {
         const diaLocal = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
         return `@bevans:visitadas:${turmaId}:${sentido}:${diaLocal}`;
     },
-    filaLocalizacoes: '@bevans:fila_localizacoes',
 };
 
 const RAIO_DESVIO_ROTA_METROS = 80;
@@ -295,6 +302,7 @@ function distanciaRestanteDesde(
 }
 
 export default function Mapa() {
+    const Alert = useAppAlert();
     const router = useRouter();
     const insets = useSafeAreaInsets();
 
@@ -329,7 +337,14 @@ export default function Mapa() {
     const [manobraAtual, setManobraAtual] = useState<Manobra | null>(null);
 
     const [loading, setLoading] = useState(true);
-    const [viagemAtiva, setViagemAtiva] = useState(true);
+    const [tentativaInicial, setTentativaInicial] = useState(0);
+    const [localizacaoBloqueada, setLocalizacaoBloqueada] = useState(false);
+    const [viagemAtiva, setViagemAtiva] = useState(false);
+    const viagemAtivaRef = useRef(false);
+    const onlineRef = useRef(true);
+    const encerrandoRef = useRef(false);
+    const usuarioAtualRef = useRef(user?.id);
+    usuarioAtualRef.current = user?.id;
 
     const [online, setOnline] = useState(true);
     const [erroRede, setErroRede] = useState<string | null>(null);
@@ -375,6 +390,11 @@ export default function Mapa() {
     const ultimaRecalculacaoRef = useRef<number | null>(null);
 
     const turmaIdRef = useRef<number | null>(null);
+    const publisherRef = useRef<ReturnType<typeof createPositionSender> | null>(null);
+    if (!publisherRef.current) publisherRef.current = createPositionSender(user?.id || '', () => ({
+        userId: usuarioAtualRef.current, turmaId: turmaIdRef.current, online: onlineRef.current,
+        active: viagemAtivaRef.current && !encerrandoRef.current, mounted: montadoRef.current,
+    }));
     const paradasRef = useRef<ParadaNavegacao[]>([]);
     const visitadosRef = useRef<Set<number>>(new Set());
     const leiturasChegadaRef = useRef(0);
@@ -575,88 +595,19 @@ export default function Mapa() {
     }, []);
 
     useEffect(() => {
-        const unsubscribe = NetInfo.addEventListener((state) => {
-            const estaOnline =
-                !!state.isConnected &&
-                !!state.isInternetReachable;
-
-            setOnline((prev) => {
-                if (!prev && estaOnline) {
-                    esvaziarFilaLocalizacoes();
-                }
-
-                return estaOnline;
-            });
+        // Old queue entries have no identity/turma/trip context and must never be replayed.
+        void AsyncStorage.removeItem('@bevans:fila_localizacoes').catch(() => {});
+        const unsubscribe = NetInfo.addEventListener(state => {
+            const available = state.isConnected !== false && state.isInternetReachable !== false;
+            onlineRef.current = available;
+            setOnline(available);
+            if (!available) setErroRede('Sem conexão. Novas posições serão enviadas quando a rede voltar.');
         });
-
-        return () => unsubscribe();
+        return unsubscribe;
     }, []);
 
-    async function enfileirarLocalizacao(ponto: LatLng) {
-        const fila =
-            (await lerCache<LatLng[]>(
-                CACHE_KEYS.filaLocalizacoes
-            )) || [];
-
-        fila.push(ponto);
-
-        await salvarCache(
-            CACHE_KEYS.filaLocalizacoes,
-            fila.slice(-50)
-        );
-    }
-
-    async function esvaziarFilaLocalizacoes() {
-        const fila =
-            (await lerCache<LatLng[]>(
-                CACHE_KEYS.filaLocalizacoes
-            )) || [];
-
-        if (fila.length === 0) return;
-
-        const restantes: LatLng[] = [];
-
-        for (const ponto of fila) {
-            try {
-                await enviarLocalizacao(ponto);
-            } catch {
-                restantes.push(ponto);
-            }
-        }
-
-        await salvarCache(
-            CACHE_KEYS.filaLocalizacoes,
-            restantes
-        );
-    }
-
     async function enviarLocalizacao(ponto: LatLng) {
-        const turmaId = turmaIdRef.current;
-
-        const queryTurma = turmaId
-            ? `?turmaId=${turmaId}&latitude=${ponto.latitude}&longitude=${ponto.longitude}`
-            : `?latitude=${ponto.latitude}&longitude=${ponto.longitude}`;
-
-        try {
-            const res = await fetchComTimeout(
-                `${API_URL}/rota/localizacao-van${queryTurma}`,
-                {
-                    method: 'POST',
-                    headers: {
-                        Accept: 'application/json',
-                        ...HEADERS_PADRAO,
-                    },
-                },
-                10000
-            );
-
-            if (!res.ok) {
-                throw new Error('Falha ao enviar localização');
-            }
-        } catch (error) {
-            await enfileirarLocalizacao(ponto);
-            throw error;
-        }
+        return publisherRef.current?.send(ponto) ?? false;
     }
 
     function animarParaNovaPosicao(novaPos: LatLng) {
@@ -836,6 +787,7 @@ export default function Mapa() {
 
     useEffect(() => {
         montadoRef.current = true;
+        let ativo = true;
 
         let locationSubscription:
             | Location.LocationSubscription
@@ -845,28 +797,16 @@ export default function Mapa() {
             let direcaoDefinitiva: Sentido =
                 (sentido as Sentido) || 'ida';
 
-            const { status } =
-                await Location.requestForegroundPermissionsAsync();
-
-            if (!montadoRef.current) return;
-
-            if (status !== 'granted') {
-                Alert.alert(
-                    'Permissão negada',
-                    'Ative o acesso à localização para usar o painel de navegação.'
-                );
-
-                setLoading(false);
-                return;
-            }
+            setLocalizacaoBloqueada(false);
+            if (!await ensureNavigationLocation(() => ativo)) return;
 
             let posicaoInicial: LatLng | null = null;
 
             try {
                 const locAtual =
-                    await Location.getCurrentPositionAsync({
+                    await withDeadline(() => Location.getCurrentPositionAsync({
                         accuracy: Location.Accuracy.High,
-                    });
+                    }), { timeoutMs: 20000 });
 
                 console.log('GPS INICIAL:', {
                     latitude: locAtual.coords.latitude,
@@ -874,7 +814,7 @@ export default function Mapa() {
                     precisao: locAtual.coords.accuracy,
                 });
 
-                if (locAtual) {
+                if (validCoordinates(locAtual.coords.latitude, locAtual.coords.longitude)) {
                     posicaoInicial = {
                         latitude: locAtual.coords.latitude,
                         longitude: locAtual.coords.longitude,
@@ -888,8 +828,8 @@ export default function Mapa() {
                     setPosicaoSuave(posicaoInicial);
                 }
             } catch {
-                const ultima = await Location.getLastKnownPositionAsync().catch(() => null);
-                if (ultima) {
+                const ultima = await withDeadline(() => Location.getLastKnownPositionAsync({ maxAge: 60000 }), { timeoutMs: 5000 }).catch(() => null);
+                if (ultima && validCoordinates(ultima.coords.latitude, ultima.coords.longitude)) {
                     posicaoInicial = {
                         latitude: ultima.coords.latitude,
                         longitude: ultima.coords.longitude,
@@ -901,7 +841,7 @@ export default function Mapa() {
             }
 
             if (!posicaoInicial) {
-                Alert.alert('GPS indisponível', 'Não foi possível obter uma posição para iniciar a navegação.');
+                setErroRede('Não foi possível obter uma posição para iniciar a navegação. Confira se o GPS está ligado.');
                 setLoading(false);
                 return;
             }
@@ -911,7 +851,7 @@ export default function Mapa() {
                 posicaoInicial
             );
 
-            if (!montadoRef.current) return;
+            if (!ativo) return;
 
             if (cameraRef.current) {
                 cameraRef.current.setCamera({
@@ -934,7 +874,8 @@ export default function Mapa() {
                         distanceInterval: 1,
                     },
                     (loc) => {
-                        if (!montadoRef.current) return;
+                        if (!ativo) return;
+                        if (!validCoordinates(loc.coords.latitude, loc.coords.longitude)) return;
 
                         const pontoBruto: LatLng = {
                             latitude: loc.coords.latitude,
@@ -1098,26 +1039,35 @@ export default function Mapa() {
                         // A confirmação será implementada com persistência no backend.
 
                         enviarLocalizacao(pontoBruto)
-                            .then(() => {
-                                if (montadoRef.current) {
+                            .then(enviado => {
+                                if (ativo && enviado) {
                                     setErroRede(null);
                                 }
                             })
                             .catch(() => {
-                                if (montadoRef.current) {
+                                if (ativo) {
                                     setErroRede(
-                                        'Sinal instável. Localização em fila para reenvio.'
+                                        'Sinal instável. Aguardando uma nova leitura de localização para tentar novamente.'
                                     );
                                 }
                             });
                     }
                 );
+            if (!ativo) locationSubscription.remove();
         };
 
-        iniciarSistema();
+        iniciarSistema().catch(error => {
+            if (ativo) {
+                setLocalizacaoBloqueada(error instanceof NavigationLocationError && error.reason === 'blocked');
+                setErroRede(errorMessage(error));
+                setLoading(false);
+            }
+        });
 
         return () => {
+            ativo = false;
             montadoRef.current = false;
+            publisherRef.current?.cancel();
 
             if (locationSubscription) {
                 locationSubscription.remove();
@@ -1133,7 +1083,7 @@ export default function Mapa() {
 
             controladoresAtivosRef.current.clear();
         };
-    }, []);
+    }, [tentativaInicial]);
 
     async function carregarGaragemERota(
         direcaoUsada: Sentido,
@@ -1172,14 +1122,17 @@ export default function Mapa() {
 
             // O contrato do backend exige turmaId. Consulta após localizar as turmas.
             let turmaIdAtiva: number | null = null;
-            for (const turma of turmas) {
+            const idSolicitado = turmaId ? Number(turmaId) : null;
+            if (idSolicitado !== null && (!Number.isSafeInteger(idSolicitado) || idSolicitado <= 0)) throw new Error('Turma invalida.');
+            const candidatas = idSolicitado !== null ? turmas.filter((item: { id: number }) => Number(item.id) === idSolicitado) : turmas;
+            for (const turma of candidatas) {
                 const resStatus = await fetchComTimeout(
                     `${API_URL}/rota/status-atual?turmaId=${turma.id}`,
                     { headers: HEADERS_PADRAO }, 6000
                 );
                 if (!resStatus.ok) continue;
                 const status = await readApiJson<any>(resStatus);
-                if (status.status === 'ATIVA') {
+                if (status?.status === 'ATIVA') {
                     turmaIdAtiva = Number(turma.id);
                     const sentidoServidor = String(status.sentido || '').toLowerCase();
                     if (sentidoServidor === 'ida' || sentidoServidor === 'volta') {
@@ -1188,9 +1141,7 @@ export default function Mapa() {
                     break;
                 }
             }
-            const idSolicitado = turmaId ? Number(turmaId) : null;
-
-            const idEscolhido = turmaIdAtiva ?? idSolicitado;
+            const idEscolhido = idSolicitado ?? turmaIdAtiva;
 
             const turmaAtual = idEscolhido !== null
                 ? turmas.find((t: any) => Number(t.id) === idEscolhido)
@@ -1201,6 +1152,9 @@ export default function Mapa() {
                     'Turma da viagem ativa não encontrada'
                 );
             }
+
+            viagemAtivaRef.current = turmaIdAtiva === Number(turmaAtual.id);
+            setViagemAtiva(viagemAtivaRef.current);
 
             // DIAGNÓSTICO DAS COORDENADAS
             console.log('DIAGNÓSTICO TURMA:', {
@@ -1528,38 +1482,16 @@ export default function Mapa() {
                                 return;
                             }
 
-                            const res = await fetchComTimeout(
-                                `${API_URL}/rota/encerrar?turmaId=${turmaIdParam}&motoristaId=${motoristaIdParam}`,
-                                {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type':
-                                            'application/json',
-                                        ...HEADERS_PADRAO,
-                                    },
-                                    body: JSON.stringify({
-                                        turmaId: Number(
-                                            turmaIdParam
-                                        ),
-                                        motoristaId: Number(
-                                            motoristaIdParam
-                                        ),
-                                    }),
-                                }
-                            );
-
-                            if (res.ok) {
-                                await AsyncStorage.removeItem(
-                                    '@vanbora:viagem_ativa'
-                                );
-
+                            if (encerrandoRef.current) return;
+                            encerrandoRef.current = true;
+                            publisherRef.current?.cancel();
+                            try {
+                                await encerrarViagem(turmaIdParam);
+                                viagemAtivaRef.current = false;
+                                setViagemAtiva(false);
+                                await AsyncStorage.multiRemove(['@vanbora:viagem_ativa', '@vanbora:viagem_ativa_' + motoristaIdParam]);
                                 router.replace('/(tabs)/home');
-                            } else {
-                                Alert.alert(
-                                    'Erro',
-                                    'O servidor não conseguiu encerrar a viagem.'
-                                );
-                            }
+                            } finally { encerrandoRef.current = false; }
                         } catch {
                             if (montadoRef.current) {
                                 setErroRede(
@@ -1670,17 +1602,27 @@ export default function Mapa() {
         };
     }
 
-    if (loading || !garagem || !destino) {
+    if (loading) {
         return (
             <View style={styles.loadingContainer}>
-                <ActivityIndicator
-                    size="large"
-                    color="#00D2FF"
-                />
+                <AsyncState loading appearance="map" title="Carregando navegação..." message="Buscando sua localização e os dados da rota." />
+            </View>
+        );
+    }
 
-                <Text style={styles.loadingText}>
-                    Carregando telemetria...
-                </Text>
+    if (!garagem || !destino) {
+        return (
+            <View style={styles.loadingContainer}>
+                <AsyncState appearance="map" title="Navegação indisponível" message={erroRede || 'Não foi possível carregar a origem e o destino da rota.'}
+                    onRetry={() => { setErroRede(null); setLoading(true); setTentativaInicial(value => value + 1); }} />
+                {localizacaoBloqueada && <TouchableOpacity accessibilityRole="button" style={{ minHeight: 48, justifyContent: 'center' }}
+                    onPress={() => { void Linking.openSettings().catch(error => Alert.alert('Erro', errorMessage(error))); }}>
+                    <Text style={{ color: theme.colors.map.text }}>Abrir configurações de localização</Text>
+                </TouchableOpacity>}
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Voltar ao início" style={{ minHeight: 48, justifyContent: 'center' }}
+                    onPress={() => router.replace('/(tabs)/home')}>
+                    <Text style={{ color: theme.colors.map.text }}>Voltar ao início</Text>
+                </TouchableOpacity>
             </View>
         );
     }

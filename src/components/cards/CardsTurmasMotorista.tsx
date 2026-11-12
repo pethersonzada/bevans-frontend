@@ -1,15 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { theme } from '../../styles/theme';
+import { AsyncState } from '../AsyncState';
+import { filterTurmas } from '../../services/turmaSearch';
 
-type Turma = {
-    id: number;
-    nome?: string;
-    origemNome?: string;
-    destinoNome?: string;
-    turno: string;
-};
+import type { Turma } from '../../types/turma';
 
 type Props = {
     turmas: Turma[];
@@ -20,6 +17,8 @@ type Props = {
 
 export function CardsTurmasMotorista({ turmas, turmaSelecionada, onSelecionarTurma, onEditarTurma }: Props) {
     const router = useRouter();
+    const [pesquisa, setPesquisa] = useState('');
+    const resultados = useMemo(() => filterTurmas(turmas, pesquisa), [turmas, pesquisa]);
 
     return (
         <View style={styles.container}>
@@ -49,20 +48,26 @@ export function CardsTurmasMotorista({ turmas, turmaSelecionada, onSelecionarTur
                 </View>
             </View>
 
+            {turmas.length > 0 && <TextInput accessibilityLabel="Pesquisar turma pelo nome ou código"
+                style={styles.search} placeholder="Pesquisar turma ou código" placeholderTextColor={theme.colors.textLight}
+                value={pesquisa} onChangeText={setPesquisa} autoCorrect={false} autoCapitalize="none"
+                returnKeyType="search" onSubmitEditing={() => {
+                    if (pesquisa.trim() && resultados.length === 1) onSelecionarTurma(resultados[0]);
+                }} />}
             {turmas.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                    <Ionicons name="bus-outline" size={32} color={theme.colors.textLight} />
-                    <Text style={styles.emptyText}>
-                        Nenhuma turma ou rota cadastrada até o momento.
-                    </Text>
-                </View>
+                <AsyncState status="empty" title="Nenhuma turma cadastrada" message="Crie sua primeira turma para organizar os passageiros e o percurso."
+                    actionLabel="Criar turma" onAction={() => router.push('/cadastro-turma')} />
+            ) : resultados.length === 0 ? (
+                <AsyncState status="empty" title="Nenhuma turma encontrada"
+                    message="Confira o código ou pesquise pelo nome. A busca inclui somente suas turmas."
+                    actionLabel="Limpar pesquisa" onAction={() => setPesquisa('')} />
             ) : (
                 <ScrollView 
                     horizontal 
                     showsHorizontalScrollIndicator={false} 
                     contentContainerStyle={styles.scrollContent}
                 >
-                    {turmas.map(t => {
+                    {resultados.map(t => {
                         const selecionada = turmaSelecionada?.id === t.id;
                         
                         const tituloExibicao = t.nome?.trim() 
@@ -104,6 +109,9 @@ export function CardsTurmasMotorista({ turmas, turmaSelecionada, onSelecionarTur
 }
 
 const styles = StyleSheet.create({
+    search: { minHeight: 48, paddingHorizontal: theme.spacing.md, marginBottom: theme.spacing.sm,
+        borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.borderRadius.md,
+        color: theme.colors.text, backgroundColor: theme.colors.surface, fontSize: theme.typography.size.regular },
     container: {
         marginBottom: theme.spacing.lg,
     },

@@ -1,3 +1,5 @@
+import { useAppAlert } from '../contexts/AppAlertContext';
+import { AppModal as Modal } from '../components/AppModal';
 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -5,9 +7,9 @@ import { useState } from 'react';
 
 import {
   ActivityIndicator,
-  Alert,
+  
   KeyboardAvoidingView,
-  Modal,
+  
   Platform,
   StatusBar,
   StyleSheet,
@@ -26,9 +28,10 @@ import type {
 
 import { apiFetch, errorMessage, readApiError, readApiJson } from '../config/api';
 import { theme } from '../styles/theme';
-import { useAuth } from './context/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function CadastroEndereco() {
+    const Alert = useAppAlert();
   const { user, isLoading, updateAddress } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();

@@ -1,13 +1,13 @@
+import { useAppAlert } from '../contexts/AppAlertContext';
 import { Ionicons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
+import { getCurrentCoordinates } from '../services/location';
 import { useRouter } from 'expo-router';
 import { useHomeRefresh } from '../hooks/useHomeRefresh';
 import { useFocusedPolling } from '../hooks/useFocusedPolling';
 import { fetchMinhaConfirmacao, fetchPassengerRadar } from '../services/passageiroHome';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
+    
     ScrollView,
     RefreshControl,
     StatusBar,
@@ -24,20 +24,14 @@ import { globalStyles } from '../styles/globalStyles';
 import { theme } from '../styles/theme';
 
 import { CardTurmaPassageiro } from '../components/cards/CardTurmaPassageiro';
-import ConfirmadosAvatares from '../components/motorista/ConfirmadosAvatares';
 import { MapaRadarPassageiro } from '../components/passageiro/MapaRadarPassageiro';
 import {
     SeletorPresenca,
-    type ConfirmacaoPresenca,
+
 } from '../components/passageiro/SeletorPresenca';
-import { useAuth } from './context/AuthContext';
+import type { ConfirmacaoPresenca } from '../types/presenca';
+import { useAuth } from '../contexts/AuthContext';
 
-
-interface PassageiroConfirmado {
-    id: number | string;
-    nome: string;
-    iniciais: string;
-}
 
 interface Coordenadas {
     latitude: number;
@@ -45,12 +39,15 @@ interface Coordenadas {
 }
 
 export default function HomePassageiro() {
+    const Alert = useAppAlert();
     const { user } = useAuth();
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const primeiraCarga = useRef(true);
     const dadosRequestRef = useRef(0);
     const gpsSolicitadoRef = useRef(false);
+    const gpsController = useRef<AbortController | null>(null);
+    useEffect(() => () => gpsController.current?.abort(), []);
 
     const [loading, setLoading] = useState(true);
     const [erroCarga, setErroCarga] = useState<string | null>(null);
@@ -76,21 +73,16 @@ export default function HomePassageiro() {
 
     const [turma, setTurma] = useState<any>(null);
     const [enderecos, setEnderecos] = useState<any[]>([]);
-    const [passageirosConfirmados, setPassageirosConfirmados] = useState<PassageiroConfirmado[]>([]);
 
     const buscarLocalizacaoPassageiro = useCallback(async () => {
+        gpsController.current?.abort();
+        const controller = new AbortController();
+        gpsController.current = controller;
         try {
-            const { status } = await Location.requestForegroundPermissionsAsync();
-            if (status === 'granted') {
-                const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-                const coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
-                setMinhaLocalizacao(coords);
-            }
-        } catch (e) {
-            console.log("Erro silencioso ao buscar GPS local.");
-        }
+            const coordinates = await getCurrentCoordinates({ signal: controller.signal });
+            if (!controller.signal.aborted) setMinhaLocalizacao(coordinates);
+        } catch { /* The home remains usable without device location. */ }
     }, []);
-
 
     const carregarDadosSilencioso = useCallback(
         async (turmaPreferidaId?: number) => {
@@ -126,6 +118,8 @@ export default function HomePassageiro() {
                     if (!Array.isArray(lista)) throw new Error('Resposta de endereços inválida.');
                     setEnderecos(lista);
                     setTemEndereco(lista.length > 0);
+                } else {
+                    throw await readApiError(resEnderecos);
                 }
 
                 if (!resTurmas.ok) {
@@ -168,32 +162,13 @@ export default function HomePassageiro() {
 
                 if (!turmaAtualId) {
                     setConfirmacao(null);
-                    setPassageirosConfirmados([]);
                     setPosicaoVan(null);
                     setStatusViagem('INATIVA');
                     setStatusGps('GARAGEM');
                     return null;
                 }
 
-                const [resConfirmacao, resOtimizada] =
-                    await Promise.all([
-                        apiFetch(
-                            `/rota/minha-confirmacao?usuarioId=${user.id}&turmaId=${turmaAtualId}`,
-                            {
-                                headers: {
-                                    'Bypass-Tunnel-Reminder': 'true',
-                                },
-                            }
-                        ),
-                        apiFetch(
-                            `/rota/otimizar?sentido=ida&turmaId=${turmaAtualId}`,
-                            {
-                                headers: {
-                                    'Bypass-Tunnel-Reminder': 'true',
-                                },
-                            }
-                        ),
-                    ]);
+                const saved = await fetchMinhaConfirmacao(user.id, turmaAtualId);
 
                 // Não aplicar resultados de turma anterior.
                 if (
@@ -204,51 +179,7 @@ export default function HomePassageiro() {
                     return null;
                 }
 
-                if (resConfirmacao.ok) {
-                    const dados = await readApiJson<any>(resConfirmacao);
-                    if (!atual()) return null;
-
-                    setConfirmacao(
-                        dados?.status ? dados : null
-                    );
-                } else if (resConfirmacao.status === 404 || resConfirmacao.status === 204) {
-                    setConfirmacao(null);
-                } else {
-                    throw await readApiError(resConfirmacao);
-                }
-
-                if (resOtimizada.ok) {
-                    const lista = await readApiJson<any>(resOtimizada);
-                    if (!atual()) return null;
-                    if (!Array.isArray(lista)) throw new Error('Resposta de rota inválida.');
-
-                    const confirmados = lista.map(
-                        (p: any) => {
-                            const nomeCompleto =
-                                p.nome ||
-                                p.usuarioNome ||
-                                'Passageiro';
-
-                            const partes =
-                                nomeCompleto.trim().split(' ');
-
-                            const iniciais =
-                                partes.length > 1
-                                    ? `${partes[0][0]}${partes[partes.length - 1][0]}`
-                                    : partes[0].substring(0, 2);
-
-                            return {
-                                id: p.id || p.usuarioId,
-                                nome: nomeCompleto,
-                                iniciais: iniciais.toUpperCase(),
-                            };
-                        }
-                    );
-
-                    setPassageirosConfirmados(confirmados);
-                } else {
-                    setPassageirosConfirmados([]);
-                }
+                setConfirmacao(saved);
 
                 return turmaAtualId;
             } catch (error) {
@@ -391,23 +322,17 @@ export default function HomePassageiro() {
         ]
     );
 
-    const minhaPosicaoNaFila = useMemo(() => {
-        if (!user?.id || passageirosConfirmados.length === 0) return null;
-        const index = passageirosConfirmados.findIndex(p => String(p.id) === String(user.id));
-        return index !== -1 ? index + 1 : null;
-    }, [passageirosConfirmados, user?.id]);
-
     const centroMapa = useMemo(() => minhaLocalizacao || posicaoVan, [minhaLocalizacao, posicaoVan]);
     const dataFormatada = useMemo(() => new Date().toLocaleDateString('pt-BR', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase(), []);
 
     if (!loading && erroCarga && turmasPassageiro.length === 0) {
-        return <AsyncState message={erroCarga} onRetry={refresh} />;
+        return <View style={[globalStyles.container, styles.center]}><AsyncState message={erroCarga} onRetry={refresh} /></View>;
     }
 
     if (loading) {
         return (
             <View style={[globalStyles.container, styles.center]}>
-                <ActivityIndicator size="large" color={theme.colors.primary} />
+                <AsyncState loading title="Carregando suas turmas..." />
             </View>
         );
     }
@@ -480,7 +405,6 @@ export default function HomePassageiro() {
                                             setTurmaSelecionadaId(item.id);
                                             setTurma(item);
                                             setConfirmacao(null);
-                                            setPassageirosConfirmados([]);
                                             setPosicaoVan(null);
                                             setStatusViagem('INATIVA');
                                             setStatusGps('GARAGEM');
@@ -574,7 +498,7 @@ export default function HomePassageiro() {
                                 <MapaRadarPassageiro centroMapa={centroMapa} minhaLocalizacao={minhaLocalizacao} posicaoVan={posicaoVan} />
                             ) : (
                                 <View style={styles.center}>
-                                    <ActivityIndicator size="small" color={theme.colors.primary} />
+                                    <AsyncState status="empty" title="Localização indisponível" message="Aguardando uma localização válida. O radar tenta atualizar automaticamente." />
                                 </View>
                             )}
                         </View>
@@ -596,7 +520,7 @@ export default function HomePassageiro() {
                                 <View style={styles.filaBox}>
                                     <Text style={styles.filaLabel}>Sua Posição na Fila</Text>
                                     <Text style={styles.filaValue}>
-                                        {minhaPosicaoNaFila ? `${minhaPosicaoNaFila}º na ordem de embarque` : 'Não confirmado na rota de hoje'}
+                                        A ordem de embarque ainda não está disponível.
                                     </Text>
                                 </View>
 
@@ -609,11 +533,6 @@ export default function HomePassageiro() {
                             </View>
                         )}
 
-                        <View style={styles.colegasCard}>
-                            <Text style={styles.colegasTitle}>Colegas Confirmados na Rota</Text>
-                            <ConfirmadosAvatares passageiros={passageirosConfirmados} />
-                        </View>
-
                         <SeletorPresenca
                             key={turmaSelecionadaId ?? 'sem-turma'}
                             confirmacao={confirmacao}
@@ -624,21 +543,9 @@ export default function HomePassageiro() {
                     </>
                 ) : (
                     <View style={styles.emptyStateCard}>
-                        <View style={styles.emptyIconCircle}>
-                            <Ionicons name="ticket-outline" size={32} color={theme.colors.primary} />
-                        </View>
-                        <Text style={styles.emptyTitle}>Aguardando Vinculação</Text>
-                        <Text style={styles.emptyText}>
-                            Você ainda não faz parte de nenhuma turma ou o motorista ainda não aprovou o seu acesso.
-                        </Text>
-                        <TouchableOpacity
-                            style={styles.emptyButton}
-                            onPress={() => router.push('/entrar-turma')}
-                            activeOpacity={0.85}
-                        >
-                            <Ionicons name="key-outline" size={18} color={theme.colors.surface} style={styles.emptyButtonIcon} />
-                            <Text style={styles.emptyButtonText}>Inserir Código de Convite</Text>
-                        </TouchableOpacity>
+                        <AsyncState status="empty" title="Aguardando vínculo com uma turma"
+                            message="Você ainda não participa de uma turma ou seu pedido aguarda aprovação."
+                            actionLabel="Inserir código de convite" onAction={() => router.push('/entrar-turma')} />
                     </View>
                 )}
             </ScrollView>

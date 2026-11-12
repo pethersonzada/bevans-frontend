@@ -1,15 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 import { theme } from '../../styles/theme';
+import type { Turma } from '../../types/turma';
 
 interface CardTurmaPassageiroProps {
-    turma: {
-        id?: number;
-        nome?: string;
-        turno?: string;
-        codigo?: string;
-        [key: string]: any;
-    } | null;
+    turma: Turma | null;
 }
 
 export function CardTurmaPassageiro({ turma }: CardTurmaPassageiroProps) {

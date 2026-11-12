@@ -1,9 +1,10 @@
+import { useAppAlert } from '../../contexts/AppAlertContext';
 
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
+    
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -12,19 +13,7 @@ import {
 
 import { theme } from '../../styles/theme';
 
-export type EnderecoPresenca = {
-    id: number;
-    apelido: string;
-    rua: string;
-    numero: string;
-    bairro: string;
-};
-
-export type ConfirmacaoPresenca = {
-    status: string;
-    enderecoIda: EnderecoPresenca | null;
-    enderecoVolta: EnderecoPresenca | null;
-};
+import type { EnderecoPresenca, ConfirmacaoPresenca } from '../../types/presenca';
 
 type Props = {
     confirmacao: ConfirmacaoPresenca | null;
@@ -65,6 +54,7 @@ export function SeletorPresenca({
     salvando = false,
     onRegistrar,
 }: Props) {
+    const Alert = useAppAlert();
     const [editando, setEditando] = useState(false);
     const [status, setStatus] = useState('');
     const [enderecoIda, setEnderecoIda] =

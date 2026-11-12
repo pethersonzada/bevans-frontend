@@ -1,3 +1,16 @@
+import { withDeadline } from './asyncOperation';
+
+async function searchJson<T>(url: string, signal?: AbortSignal): Promise<T> {
+  return withDeadline(async activeSignal => {
+    const response = await fetch(url, { signal: activeSignal });
+    if (!response.ok) throw new Error(response.status === 401 || response.status === 403
+      ? 'O serviço de endereços não autorizou a pesquisa. Verifique a configuração do provedor.'
+      : `Falha na busca de endereços (HTTP ${response.status}).`);
+    try { return await response.json() as T; }
+    catch { throw new Error('O serviço de endereços retornou uma resposta inválida. Tente novamente.'); }
+  }, { signal, timeoutMessage: 'A busca de endereços demorou para responder. Tente novamente.' });
+}
+
 export type EnderecoEncontrado = {
   id: string;
   nome: string;
@@ -36,15 +49,9 @@ async function geocodificar(termo: string, types: string, signal?: AbortSignal):
     'permanent=true', 'proximity=-35.97,-8.28',
     `access_token=${encodeURIComponent(token)}`,
   ].join('&');
-  const response = await fetch(`https://api.mapbox.com/search/geocode/v6/forward?${params}`, { signal });
-  if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
-      throw new Error('Confira o token e a permissão Permanent Geocoding do Mapbox.');
-    }
-    throw new Error(`Falha na busca de endereços (HTTP ${response.status}).`);
-  }
-  const body: { features?: Feature[] } = await response.json();
-  return body.features ?? [];
+  const body = await searchJson<{ features?: Feature[] }>(`https://api.mapbox.com/search/geocode/v6/forward?${params}`, signal);
+  if (!Array.isArray(body?.features)) throw new Error('O serviço de endereços retornou resultados inválidos.');
+  return body.features;
 }
 
 function converter(f: Feature, indice: number): EnderecoEncontrado | null {
@@ -75,7 +82,7 @@ export async function pesquisarEnderecos(termo: string, signal?: AbortSignal): P
     ? ruas.value.map(converter).filter((v): v is EnderecoEncontrado => v !== null)
     : [];
   const estabelecimentos = lugares.status === 'fulfilled' ? lugares.value : [];
-  if (ruas.status === 'rejected' && lugares.status === 'rejected') {
+  if (ruas.status === 'rejected' && (!process.env.EXPO_PUBLIC_GEOAPIFY_API_KEY || lugares.status === 'rejected')) {
     throw ruas.reason instanceof Error ? ruas.reason : new Error('Falha na busca de endereços.');
   }
   const ids = new Set<string>();
@@ -122,12 +129,11 @@ async function pesquisarEstabelecimentos(termo: string, signal?: AbortSignal): P
     'filter=countrycode:br', 'bias=proximity:-35.97,-8.28',
     `apiKey=${encodeURIComponent(key)}`,
   ].join('&');
-  const response = await fetch(`https://api.geoapify.com/v1/geocode/autocomplete?${params}`, { signal });
-  if (!response.ok) throw new Error(`Falha na busca por estabelecimentos (HTTP ${response.status}).`);
   type Local = { place_id?: string; name?: string; address_line1?: string; formatted?: string;
     lat?: number; lon?: number; street?: string; housenumber?: string; suburb?: string; district?: string };
-  const data: { results?: Local[] } = await response.json();
-  return (data.results || []).flatMap((p, i) => {
+  const data = await searchJson<{ results?: Local[] }>(`https://api.geoapify.com/v1/geocode/autocomplete?${params}`, signal);
+  if (!Array.isArray(data?.results)) throw new Error('O serviço de estabelecimentos retornou resultados inválidos.');
+  return data.results.flatMap((p, i) => {
     if (!Number.isFinite(p.lat) || !Number.isFinite(p.lon) ||
       Math.abs(p.lat!) > 90 || Math.abs(p.lon!) > 180 ||
       (p.lat === 0 && p.lon === 0)) return [];

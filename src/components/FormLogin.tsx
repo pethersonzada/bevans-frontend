@@ -85,12 +85,15 @@ export function FormLogin({ email, setEmail, senha, setSenha, loading, onLogin, 
 
             <TouchableOpacity
                 style={[styles.button, (loading || carregandoSenha) && styles.buttonDisabled]}
+                accessibilityRole="button"
+                accessibilityLabel={loading ? "Entrando" : "Entrar"}
+                accessibilityState={{ busy: loading, disabled: loading || carregandoSenha }}
                 onPress={onLogin}
                 disabled={loading || carregandoSenha}
                 activeOpacity={0.85}
             >
                 {loading ? (
-                    <ActivityIndicator color={theme.colors.surface} size="small" />
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><ActivityIndicator color={theme.colors.surface} size="small" /><Text style={styles.buttonText}>Entrando...</Text></View>
                 ) : (
                     <Text style={styles.buttonText}>Entrar</Text>
                 )}

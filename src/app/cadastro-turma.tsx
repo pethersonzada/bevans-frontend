@@ -1,9 +1,10 @@
+import { useAppAlert } from '../contexts/AppAlertContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
+    
     ScrollView,
     StatusBar,
     StyleSheet,
@@ -14,12 +15,16 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { apiFetch, errorMessage, readApiError, readApiJson } from '../config/api';
+import { errorMessage } from '../config/api';
+import { criarTurma, buscarTurmaMotorista, atualizarTurma } from '../services/turmas';
 import { globalStyles } from '../styles/globalStyles';
 import { theme } from '../styles/theme';
-import { useAuth } from './context/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
+import { FormFeedback } from '../components/FormFeedback';
+import { AsyncState } from '../components/AsyncState';
 
 export default function CadastroTurma() {
+    const Alert = useAppAlert();
     const { user, isLoading } = useAuth();
     const router = useRouter();
     const insets = useSafeAreaInsets();
@@ -30,6 +35,8 @@ export default function CadastroTurma() {
     const [destinoNome, setDestinoNome] = useState('');
     const [turmaCriadaId, setTurmaCriadaId] = useState<number | null>(null);
     const [loading, setLoading] = useState(false);
+    const [erroFormulario, setErroFormulario] = useState<string | null>(null);
+    const operacaoPendente = useRef(false);
 
     async function garantirTurmaCriada() {
         if (isLoading || !user.id || user.tipo !== 'MOTORISTA') return null;
@@ -40,48 +47,29 @@ export default function CadastroTurma() {
             return null;
         }
 
-        if (!user?.id) {
-            Alert.alert("Erro", "Usuário não identificado.");
-            return null;
-        }
-
         try {
-            const response = await apiFetch(`/turmas`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Bypass-Tunnel-Reminder': 'true'
-                },
-                body: JSON.stringify({
-                    nome: nome.trim(),
-                    turno: turno.trim(),
-                    motorista: { id: Number(user.id) }
-                })
-            });
-
-            if (response.ok) {
-                const novaTurma = await readApiJson<any>(response);
-                if (!novaTurma?.id) throw new Error('O servidor não retornou a turma criada.');
-                setTurmaCriadaId(novaTurma.id);
-                return novaTurma.id;
-            } else {
-                Alert.alert("Erro", (await readApiError(response)).message);
-                return null;
-            }
+            const novaTurma = await criarTurma(user.id, nome, turno);
+            setTurmaCriadaId(novaTurma.id);
+            return novaTurma.id;
         } catch (e) {
-            Alert.alert("Erro", errorMessage(e));
+            setErroFormulario(errorMessage(e));
             return null;
         }
     }
 
     async function abrirMapaPara(tipo: 'ORIGEM' | 'DESTINO') {
-        const id = await garantirTurmaCriada();
-        if (!id) return;
-
-        router.push({ 
-            pathname: '/selecionar-rota-mapa', 
-            params: { turmaId: id, tipo } 
-        } as any);
+        if (operacaoPendente.current) return;
+        operacaoPendente.current = true;
+        setLoading(true);
+        setErroFormulario(null);
+        try {
+            const id = await garantirTurmaCriada();
+            if (!id) return;
+            router.push({ pathname: '/selecionar-rota-mapa', params: { turmaId: String(id), tipo } });
+        } finally {
+            operacaoPendente.current = false;
+            setLoading(false);
+        }
     }
 
 
@@ -90,25 +78,7 @@ export default function CadastroTurma() {
             throw new Error('Motorista nao identificado.');
         }
 
-        const response = await apiFetch(
-            `/turmas/motorista/${user.id}`
-        );
-
-        if (!response.ok) {
-            throw await readApiError(response);
-        }
-
-        const turmas = await readApiJson<any[]>(response);
-
-        const turma = turmas.find(
-            (item) => Number(item.id) === id
-        );
-
-        if (!turma) {
-            throw new Error('Turma nao encontrada no servidor.');
-        }
-
-        return turma;
+        return buscarTurmaMotorista(user.id, id);
     }, [user?.id]);
 
     useFocusEffect(
@@ -160,9 +130,11 @@ export default function CadastroTurma() {
     }
 
     async function finalizarCadastro() {
+        if (operacaoPendente.current) return;
+        setErroFormulario(null);
         if (!nome.trim() || !turno.trim()) {
             Alert.alert(
-                'Aten??o',
+                'Atenção',
                 'Preencha o nome e o turno.'
             );
             return;
@@ -176,6 +148,7 @@ export default function CadastroTurma() {
             return;
         }
 
+        operacaoPendente.current = true;
         setLoading(true);
 
         try {
@@ -197,28 +170,12 @@ export default function CadastroTurma() {
             if (!origemValida || !destinoValido) {
                 Alert.alert(
                     'Percurso incompleto',
-                    'Configure uma origem e um destino v?lidos no mapa.'
+                    'Configure uma origem e um destino válidos no mapa.'
                 );
                 return;
             }
 
-            const response = await apiFetch(
-                `/turmas/${turmaCriadaId}`,
-                {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        nome: nome.trim(),
-                        turno: turno.trim(),
-                    }),
-                }
-            );
-
-            if (!response.ok) {
-                throw await readApiError(response);
-            }
+            await atualizarTurma(turmaCriadaId, nome, turno);
 
             const confirmada = await buscarTurmaSalva(turmaCriadaId);
 
@@ -233,7 +190,7 @@ export default function CadastroTurma() {
                 )
             ) {
                 throw new Error(
-                    'Os endere?os n?o foram confirmados no servidor.'
+                    'Os endereços não foram confirmados no servidor.'
                 );
             }
 
@@ -248,11 +205,9 @@ export default function CadastroTurma() {
                 ]
             );
         } catch (erro) {
-            Alert.alert(
-                'Erro ao finalizar',
-                errorMessage(erro)
-            );
+            setErroFormulario(errorMessage(erro));
         } finally {
+            operacaoPendente.current = false;
             setLoading(false);
         }
     }
@@ -269,6 +224,8 @@ export default function CadastroTurma() {
             </View>
 
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                <FormFeedback message={erroFormulario} />
+                {loading && <AsyncState loading title="Salvando os dados da turma..." />}
                 <View style={styles.inputGroup}>
                     <Text style={styles.label}>Nome da Turma / Rota</Text>
                     <TextInput
@@ -303,6 +260,9 @@ export default function CadastroTurma() {
                         />
                         <TouchableOpacity 
                             style={styles.mapButton}
+                            disabled={loading}
+                            accessibilityRole="button"
+                            accessibilityLabel="Selecionar origem no mapa"
                             onPress={() => abrirMapaPara('ORIGEM')}
                             activeOpacity={0.8}
                         >
@@ -323,6 +283,9 @@ export default function CadastroTurma() {
                         />
                         <TouchableOpacity 
                             style={styles.mapButton}
+                            disabled={loading}
+                            accessibilityRole="button"
+                            accessibilityLabel="Selecionar destino no mapa"
                             onPress={() => abrirMapaPara('DESTINO')}
                             activeOpacity={0.8}
                         >

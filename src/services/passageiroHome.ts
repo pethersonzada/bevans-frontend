@@ -1,7 +1,7 @@
 import { apiFetch, readApiError, readApiJson } from '../config/api';
-import type { ConfirmacaoPresenca } from '../components/passageiro/SeletorPresenca';
+import type { ConfirmacaoPresenca } from '../types/presenca';
 
-export async function fetchMinhaConfirmacao(userId: string, turmaId: number, signal: AbortSignal) {
+export async function fetchMinhaConfirmacao(userId: string, turmaId: number, signal?: AbortSignal) {
     const response = await apiFetch(`/rota/minha-confirmacao?usuarioId=${userId}&turmaId=${turmaId}`, { signal });
     if (response.status === 404) return null;
     const data = await readApiJson<ConfirmacaoPresenca>(response);

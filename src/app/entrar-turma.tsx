@@ -1,9 +1,10 @@
+import { useAppAlert } from '../contexts/AppAlertContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
+    
     StatusBar,
     StyleSheet,
     Text,
@@ -16,9 +17,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiFetch, errorMessage, readApiError, readApiJson } from '../config/api';
 import { globalStyles } from '../styles/globalStyles';
 import { theme } from '../styles/theme';
-import { useAuth } from './context/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function EntrarTurma() {
+    const Alert = useAppAlert();
     const { user, isLoading } = useAuth();
     const router = useRouter();
     const insets = useSafeAreaInsets();

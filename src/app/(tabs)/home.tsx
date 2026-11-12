@@ -1,5 +1,5 @@
 import { ActivityIndicator, View } from 'react-native';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 import HomeMotorista from '../home-motorista';
 import HomePassageiro from '../home-passageiro';
 

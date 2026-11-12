@@ -1,3 +1,4 @@
+import { useAppAlert } from '../contexts/AppAlertContext';
 
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -8,7 +9,7 @@ import { useEffect, useState } from 'react';
 
 import {
   ActivityIndicator,
-  Alert,
+  
   StatusBar,
   StyleSheet,
   Text,
@@ -26,7 +27,7 @@ import type {
 
 import { apiFetch, errorMessage, readApiError, readApiJson } from '../config/api';
 import { theme } from '../styles/theme';
-import { useAuth } from './context/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 import { AsyncState } from '../components/AsyncState';
 
 type EnderecoSalvo = {
@@ -40,6 +41,7 @@ type EnderecoSalvo = {
 };
 
 export default function EditarEndereco() {
+    const Alert = useAppAlert();
   const { user, isLoading } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -264,10 +266,7 @@ export default function EditarEndereco() {
   if (carregando) {
     return (
       <View style={styles.carregando}>
-        <ActivityIndicator
-          size="large"
-          color={theme.colors.primary}
-        />
+        <AsyncState loading title="Carregando endereço..." />
       </View>
     );
   }

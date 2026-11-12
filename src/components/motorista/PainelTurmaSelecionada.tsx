@@ -1,34 +1,55 @@
+import { useAppAlert } from '../../contexts/AppAlertContext';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { apiFetch } from '../../config/api';
+import { ActivityIndicator,  StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { errorMessage } from '../../config/api';
+import { regenerarCodigoTurma } from '../../services/turmas';
+import type { Turma } from '../../types/turma';
 import { theme } from '../../styles/theme';
 
 type Props = {
-    turma: any;
-    onAtualizarTurma: (turmaAtualizada: any) => void;
+    turma: Turma | null;
+    onAtualizarTurma: (turmaAtualizada: Turma) => void;
 };
 
 export function PainelTurmaSelecionada({ turma, onAtualizarTurma }: Props) {
+    const Alert = useAppAlert();
     const [carregandoCodigo, setCarregandoCodigo] = useState(false);
     const [copiado, setCopiado] = useState(false);
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const montado = useRef(true);
+    const turmaAtualId = useRef(turma?.id);
+    turmaAtualId.current = turma?.id;
+    const operacaoPendente = useRef(false);
 
     // Evita memory leak caso o componente desmonte durante os 2s do "Copiado!"
     useEffect(() => {
+        montado.current = true;
         return () => {
+            montado.current = false;
             if (timerRef.current) clearTimeout(timerRef.current);
         };
     }, []);
+    useEffect(() => {
+        setCopiado(false);
+        if (timerRef.current) clearTimeout(timerRef.current);
+    }, [turma?.id]);
 
     if (!turma) return null;
 
     const codigo = turma.codigoConvite || '------';
 
     async function handleCopiarCodigo() {
-        if (!turma.codigoConvite) return;
-        await Clipboard.setStringAsync(turma.codigoConvite);
+        if (!turma?.codigoConvite) return;
+        const id = turma.id;
+        try {
+            await Clipboard.setStringAsync(turma.codigoConvite);
+        } catch (error) {
+            if (montado.current && turmaAtualId.current === id) Alert.alert('Erro ao copiar', errorMessage(error));
+            return;
+        }
+        if (!montado.current || turmaAtualId.current !== id) return;
         setCopiado(true);
         
         if (timerRef.current) clearTimeout(timerRef.current);
@@ -36,23 +57,18 @@ export function PainelTurmaSelecionada({ turma, onAtualizarTurma }: Props) {
     }
 
     async function handleRegenerarCodigo() {
+        if (!turma || operacaoPendente.current) return;
+        const id = turma.id;
+        operacaoPendente.current = true;
         setCarregandoCodigo(true);
         try {
-            const res = await apiFetch(`/turmas/${turma.id}/regenerar-codigo`, {
-                method: 'PUT',
-                headers: { 'Bypass-Tunnel-Reminder': 'true' }
-            });
-
-            if (res.ok) {
-                const turmaAtualizada = await res.json();
-                onAtualizarTurma(turmaAtualizada);
-            } else {
-                Alert.alert("Erro", "Não foi possível gerar um novo código.");
-            }
+            const turmaAtualizada = await regenerarCodigoTurma(id);
+            if (montado.current && turmaAtualId.current === id) onAtualizarTurma(turmaAtualizada);
         } catch (e) {
-            Alert.alert("Erro", "Falha de conexão com o servidor.");
+            if (montado.current && turmaAtualId.current === id) Alert.alert('Erro', errorMessage(e));
         } finally {
-            setCarregandoCodigo(false);
+            operacaoPendente.current = false;
+            if (montado.current) setCarregandoCodigo(false);
         }
     }
 

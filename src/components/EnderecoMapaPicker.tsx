@@ -1,6 +1,6 @@
 
 import MapboxGL from '@rnmapbox/maps';
-import * as Location from 'expo-location';
+import { getCurrentCoordinates } from '../services/location';
 
 import { useEffect, useRef, useState } from 'react';
 
@@ -101,69 +101,24 @@ export default function EnderecoMapaPicker({
   const selecionouRef = useRef(false);
 
   useEffect(() => {
-    let ativo = true;
-
-    async function obterGPS() {
-      try {
-        const permissao =
-          await Location.requestForegroundPermissionsAsync();
-
-        if (!ativo) return;
-
-        if (permissao.status !== 'granted') {
-          setErroGPS(
-            'Localização não autorizada. Pesquise um endereço para continuar.'
-          );
-          return;
-        }
-
-        const localizacao =
-          await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.High,
-          });
-
-        if (!ativo) return;
-
-        const coordenadas: Coordenadas = [
-          localizacao.coords.longitude,
-          localizacao.coords.latitude,
-        ];
-
-        setPosicaoGPS(coordenadas);
-
-        // GPS só centraliza a câmera se não houver
-        // endereço salvo ou endereço recém-selecionado.
-        if (!posicaoSalva && !selecionouRef.current) {
-          camera.current?.setCamera({
-            centerCoordinate: coordenadas,
-            zoomLevel: 17,
-            animationDuration: 800,
-          });
-        }
-      } catch (error) {
-        if (ativo) {
-          console.error('Erro ao obter GPS:', error);
-
-          setErroGPS(
-            'Não foi possível obter o GPS. Pesquise um endereço manualmente.'
-          );
-        }
-      } finally {
-        if (ativo) {
-          setCarregandoGPS(false);
-        }
-      }
-    }
-
-    obterGPS();
-
-    return () => {
-      ativo = false;
-    };
-  }, [
-    localizacaoInicial?.latitude,
-    localizacaoInicial?.longitude,
-  ]);
+    const controller = new AbortController();
+    setErroGPS('');
+    setCarregandoGPS(!posicaoSalva);
+    if (posicaoSalva) return () => controller.abort();
+    getCurrentCoordinates({ signal: controller.signal }).then(({ latitude, longitude }) => {
+      if (controller.signal.aborted) return;
+      const coordenadas: Coordenadas = [longitude, latitude];
+      setPosicaoGPS(coordenadas);
+      if (!selecionouRef.current) camera.current?.setCamera({
+        centerCoordinate: coordenadas, zoomLevel: 17, animationDuration: 800,
+      });
+    }).catch(error => {
+      if (!controller.signal.aborted) setErroGPS(error instanceof Error ? error.message : 'GPS indisponivel. Pesquise um endereco.');
+    }).finally(() => {
+      if (!controller.signal.aborted) setCarregandoGPS(false);
+    });
+    return () => controller.abort();
+  }, [localizacaoInicial?.latitude, localizacaoInicial?.longitude]);
 
   function atualizarEndereco(
     endereco: EnderecoEncontrado | null

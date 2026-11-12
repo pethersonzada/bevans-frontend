@@ -1,8 +1,9 @@
+import { useAppAlert } from '../../contexts/AppAlertContext';
 import { useRouter } from 'expo-router';
 import { sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/auth';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
-    Alert,
+    
     Image,
     KeyboardAvoidingView,
     Platform,
@@ -16,14 +17,16 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FormLogin } from '../../components/FormLogin';
+import { FormFeedback } from '../../components/FormFeedback';
 import { ApiError, errorMessage } from '../../config/api';
 import { fetchSessionUser } from '../../services/session';
 import { auth } from '../../config/firebase';
 import { globalStyles } from '../../styles/globalStyles';
 import { theme } from '../../styles/theme';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function Login() {
+    const Alert = useAppAlert();
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const { signIn } = useAuth();
@@ -31,14 +34,19 @@ export default function Login() {
     const [email, setEmail] = useState('');
     const [senha, setSenha] = useState('');
     const [loading, setLoading] = useState(false);
+    const [erroFormulario, setErroFormulario] = useState<string | null>(null);
+    const enviando = useRef(false);
     const [carregandoSenha, setCarregandoSenha] = useState(false);
 
     const handleLogin = useCallback(async () => {
+        if (enviando.current) return;
+        setErroFormulario(null);
         if (!email || !senha) {
-            Alert.alert("Atenção", "Preencha o e-mail e a senha.");
+            setErroFormulario('Preencha o e-mail e a senha para continuar.');
             return;
         }
 
+        enviando.current = true;
         setLoading(true);
         try {
             const emailFormatado = email.trim().toLowerCase();
@@ -56,9 +64,12 @@ export default function Login() {
                 mensagemErro = "E-mail ou senha incorretos.";
             } else if (error.code === 'auth/invalid-email') {
                 mensagemErro = "Formato de e-mail inválido.";
+            } else if (error.code === 'auth/network-request-failed') {
+                mensagemErro = 'Não foi possível conectar. Verifique sua conexão e tente novamente.';
             }
-            Alert.alert("Acesso Negado", mensagemErro);
+            setErroFormulario(mensagemErro);
         } finally {
+            enviando.current = false;
             setLoading(false);
         }
     }, [email, senha, signIn, router]);
@@ -111,6 +122,7 @@ export default function Login() {
                 </View>
 
                 <View style={styles.formCard}>
+                    <FormFeedback message={erroFormulario} />
                     <FormLogin 
                         email={email} 
                         setEmail={setEmail} 

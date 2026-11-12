@@ -1,9 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { errorMessage, onSessionExpired } from '../../config/api';
-import { auth } from '../../config/firebase';
-import { EMPTY_USER, SESSION_KEYS, fetchSessionUser, type SessionUser } from '../../services/session';
+import { errorMessage, onSessionExpired } from '../config/api';
+import { auth } from '../config/firebase';
+import { EMPTY_USER, SESSION_KEYS, fetchSessionUser, type SessionUser } from '../services/session';
 
 type AuthContextData = {
     user: SessionUser;
@@ -14,7 +14,7 @@ type AuthContextData = {
     signOut: () => Promise<void>;
     updateAddress: (address: string) => Promise<void>;
 };
-const AuthContext = createContext<AuthContextData>({} as AuthContextData);
+const AuthContext = createContext<AuthContextData | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<SessionUser>(EMPTY_USER);
@@ -109,5 +109,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 }
 
-export function useAuth() { return useContext(AuthContext); }
-export default function AuthLayout() { return null; }
+export function useAuth() {
+    const context = useContext(AuthContext);
+    if (!context) throw new Error('useAuth requires AuthProvider.');
+    return context;
+}
+

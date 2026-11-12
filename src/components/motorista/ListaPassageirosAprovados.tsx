@@ -1,11 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { theme } from '../../styles/theme';
+import { AsyncState } from '../AsyncState';
+import type { PassageiroTurma } from '../../types/turma';
 
 type Props = {
-    passageiros: any[];
-    turmaSelecionada: any;
+    passageiros: PassageiroTurma[];
     onRemoverAluno: (id: number, nome: string) => void;
+    loading?: boolean;
+    error?: string | null;
+    onRetry?: () => Promise<unknown>;
 };
 
 // Funções puras movidas para fora para não realocar memória a cada render
@@ -23,25 +27,25 @@ const obterIniciais = (nomeCompleto: string) => {
     return `${partes[0][0]}${partes[1][0]}`.toUpperCase();
 };
 
-export function ListaPassageirosAprovados({ passageiros, onRemoverAluno }: Props) {
+export function ListaPassageirosAprovados({ passageiros, onRemoverAluno, loading, error, onRetry }: Props) {
     return (
         <View style={styles.container}>
             <View style={styles.headerRow}>
                 <View style={styles.titleContainer}>
                     <Text style={styles.sectionTitle}>Passageiros</Text>
                     <View style={styles.countBadge}>
-                        <Text style={styles.countText}>{passageiros.length}</Text>
+                        <Text style={styles.countText}>{error && passageiros.length === 0 ? '—' : passageiros.length}</Text>
                     </View>
                 </View>
             </View>
 
             <View style={styles.cardList}>
-                {passageiros.length === 0 ? (
-                    <View style={styles.emptyContainer}>
-                        <Ionicons name="people-outline" size={36} color={theme.colors.border} />
-                        <Text style={styles.emptyText}>Nenhum aluno vinculado a esta turma no momento.</Text>
-                    </View>
-                ) : (
+                {loading && <AsyncState loading title="Carregando passageiros..." />}
+                {!loading && error && <AsyncState status="error" message={error} onRetry={onRetry} />}
+                {!loading && !error && passageiros.length === 0 && (
+                    <AsyncState status="empty" title="Nenhum passageiro vinculado" message="Os passageiros aprovados desta turma aparecerão aqui." />
+                )}
+                {passageiros.length > 0 && (
                     passageiros.map(p => {
                         const respondeu = Boolean(p.status);
                         return (
@@ -63,6 +67,8 @@ export function ListaPassageirosAprovados({ passageiros, onRemoverAluno }: Props
                                 </View>
 
                                 <TouchableOpacity
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Remover ${p.nome || 'passageiro'} da turma`}
                                     onPress={() => onRemoverAluno(p.id, p.nome)}
                                     style={styles.deleteBtn}
                                     activeOpacity={0.7}
