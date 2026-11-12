@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -84,27 +84,174 @@ export default function CadastroTurma() {
         } as any);
     }
 
+
+    const buscarTurmaSalva = useCallback(async (id: number) => {
+        if (!user?.id) {
+            throw new Error('Motorista nao identificado.');
+        }
+
+        const response = await apiFetch(
+            `/turmas/motorista/${user.id}`
+        );
+
+        if (!response.ok) {
+            throw await readApiError(response);
+        }
+
+        const turmas = await readApiJson<any[]>(response);
+
+        const turma = turmas.find(
+            (item) => Number(item.id) === id
+        );
+
+        if (!turma) {
+            throw new Error('Turma nao encontrada no servidor.');
+        }
+
+        return turma;
+    }, [user?.id]);
+
+    useFocusEffect(
+        useCallback(() => {
+            if (!turmaCriadaId) return;
+
+            let ativo = true;
+
+            buscarTurmaSalva(turmaCriadaId)
+                .then((turma) => {
+                    if (!ativo) return;
+
+                    setOrigemNome(turma.origemNome || '');
+                    setDestinoNome(turma.destinoNome || '');
+                })
+                .catch((erro) => {
+                    if (ativo) {
+                        Alert.alert(
+                            'Erro ao carregar turma',
+                            errorMessage(erro)
+                        );
+                    }
+                });
+
+            return () => {
+                ativo = false;
+            };
+        }, [turmaCriadaId, buscarTurmaSalva])
+    );
+
+    function coordenadasValidas(
+        latitude: unknown,
+        longitude: unknown
+    ) {
+        if (latitude == null || longitude == null) {
+            return false;
+        }
+
+        const lat = Number(latitude);
+        const lon = Number(longitude);
+
+        return Number.isFinite(lat)
+            && Number.isFinite(lon)
+            && lat >= -90
+            && lat <= 90
+            && lon >= -180
+            && lon <= 180
+            && !(lat === 0 && lon === 0);
+    }
+
     async function finalizarCadastro() {
         if (!nome.trim() || !turno.trim()) {
-            Alert.alert("Atenção", "Preencha o nome e o turno.");
+            Alert.alert(
+                'Aten??o',
+                'Preencha o nome e o turno.'
+            );
+            return;
+        }
+
+        if (!turmaCriadaId) {
+            Alert.alert(
+                'Configure o percurso',
+                'Selecione a origem e o destino no mapa antes de finalizar.'
+            );
             return;
         }
 
         setLoading(true);
+
         try {
-            if (turmaCriadaId) {
-                Alert.alert("Sucesso", "Turma cadastrada e percurso configurado!", [
-                    { text: "OK", onPress: () => router.back() }
-                ]);
-            } else {
-                const id = await garantirTurmaCriada();
-                if (!id) return;
-                Alert.alert("Sucesso", "Turma cadastrada com sucesso!", [
-                    { text: "OK", onPress: () => router.back() }
-                ]);
+            const turma = await buscarTurmaSalva(turmaCriadaId);
+
+            const origemValida = coordenadasValidas(
+                turma.origemLatitude,
+                turma.origemLongitude
+            );
+
+            const destinoValido = coordenadasValidas(
+                turma.destinoLatitude,
+                turma.destinoLongitude
+            );
+
+            setOrigemNome(turma.origemNome || '');
+            setDestinoNome(turma.destinoNome || '');
+
+            if (!origemValida || !destinoValido) {
+                Alert.alert(
+                    'Percurso incompleto',
+                    'Configure uma origem e um destino v?lidos no mapa.'
+                );
+                return;
             }
-        } catch (error) {
-            Alert.alert("Erro", "Falha ao finalizar cadastro.");
+
+            const response = await apiFetch(
+                `/turmas/${turmaCriadaId}`,
+                {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        nome: nome.trim(),
+                        turno: turno.trim(),
+                    }),
+                }
+            );
+
+            if (!response.ok) {
+                throw await readApiError(response);
+            }
+
+            const confirmada = await buscarTurmaSalva(turmaCriadaId);
+
+            if (
+                !coordenadasValidas(
+                    confirmada.origemLatitude,
+                    confirmada.origemLongitude
+                ) ||
+                !coordenadasValidas(
+                    confirmada.destinoLatitude,
+                    confirmada.destinoLongitude
+                )
+            ) {
+                throw new Error(
+                    'Os endere?os n?o foram confirmados no servidor.'
+                );
+            }
+
+            Alert.alert(
+                'Sucesso',
+                'Turma e percurso salvos com sucesso!',
+                [
+                    {
+                        text: 'OK',
+                        onPress: () => router.back(),
+                    },
+                ]
+            );
+        } catch (erro) {
+            Alert.alert(
+                'Erro ao finalizar',
+                errorMessage(erro)
+            );
         } finally {
             setLoading(false);
         }
