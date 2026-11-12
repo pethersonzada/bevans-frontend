@@ -1,6 +1,5 @@
 
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 
@@ -25,10 +24,12 @@ import type {
   EnderecoEncontrado,
 } from '../services/enderecoSearch';
 
-import { apiFetch } from '../config/api';
+import { apiFetch, errorMessage, readApiError, readApiJson } from '../config/api';
 import { theme } from '../styles/theme';
+import { useAuth } from './context/AuthContext';
 
 export default function CadastroEndereco() {
+  const { user, isLoading, updateAddress } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -40,6 +41,7 @@ export default function CadastroEndereco() {
   const [salvando, setSalvando] = useState(false);
 
   async function salvar() {
+    if (isLoading || !user.id || salvando) return;
     if (!endereco || !apelido.trim()) {
       Alert.alert(
         'Atenção',
@@ -51,7 +53,7 @@ export default function CadastroEndereco() {
     setSalvando(true);
 
     try {
-      const userId = await AsyncStorage.getItem('userId');
+      const userId = user.id;
 
       if (!userId) {
         throw new Error(
@@ -80,17 +82,14 @@ export default function CadastroEndereco() {
       );
 
       if (!response.ok) {
-        const mensagem = await response.text();
+        const mensagem = (await readApiError(response)).message;
 
         throw new Error(
           mensagem || `Erro HTTP ${response.status}`
         );
       }
 
-      await AsyncStorage.setItem(
-        'userEndereco',
-        endereco.nome
-      );
+      await updateAddress(endereco.nome);
 
       setModal(false);
 

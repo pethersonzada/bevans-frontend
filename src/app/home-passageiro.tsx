@@ -1,12 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
-import MapboxGL from '@rnmapbox/maps';
 import * as Location from 'expo-location';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'expo-router';
+import { useHomeRefresh } from '../hooks/useHomeRefresh';
+import { useFocusedPolling } from '../hooks/useFocusedPolling';
+import { fetchMinhaConfirmacao, fetchPassengerRadar } from '../services/passageiroHome';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
     ScrollView,
+    RefreshControl,
     StatusBar,
     StyleSheet,
     Text,
@@ -15,20 +18,20 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { apiFetch } from '../config/api';
+import { apiFetch, errorMessage, readApiError, readApiJson } from '../config/api';
+import { AsyncState } from '../components/AsyncState';
 import { globalStyles } from '../styles/globalStyles';
 import { theme } from '../styles/theme';
 
 import { CardTurmaPassageiro } from '../components/cards/CardTurmaPassageiro';
 import ConfirmadosAvatares from '../components/motorista/ConfirmadosAvatares';
+import { MapaRadarPassageiro } from '../components/passageiro/MapaRadarPassageiro';
 import {
     SeletorPresenca,
     type ConfirmacaoPresenca,
 } from '../components/passageiro/SeletorPresenca';
 import { useAuth } from './context/AuthContext';
 
-const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
-MapboxGL.setAccessToken(MAPBOX_TOKEN);
 
 interface PassageiroConfirmado {
     id: number | string;
@@ -45,10 +48,12 @@ export default function HomePassageiro() {
     const { user } = useAuth();
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    const cameraRef = useRef<MapboxGL.Camera>(null);
     const primeiraCarga = useRef(true);
+    const dadosRequestRef = useRef(0);
+    const gpsSolicitadoRef = useRef(false);
 
     const [loading, setLoading] = useState(true);
+    const [erroCarga, setErroCarga] = useState<string | null>(null);
     const [temEndereco, setTemEndereco] = useState(true);
     const [confirmacao, setConfirmacao] =
         useState<ConfirmacaoPresenca | null>(null);
@@ -90,6 +95,9 @@ export default function HomePassageiro() {
     const carregarDadosSilencioso = useCallback(
         async (turmaPreferidaId?: number) => {
             if (!user?.id) return null;
+            const requestId = ++dadosRequestRef.current;
+            const atual = () => requestId === dadosRequestRef.current;
+            setErroCarga(null);
 
             try {
                 const [resTurmas, resEnderecos] =
@@ -113,19 +121,21 @@ export default function HomePassageiro() {
                     ]);
 
                 if (resEnderecos.ok) {
-                    const lista = await resEnderecos.json();
+                    const lista = await readApiJson<any>(resEnderecos);
+                    if (!atual()) return null;
+                    if (!Array.isArray(lista)) throw new Error('Resposta de endereços inválida.');
                     setEnderecos(lista);
                     setTemEndereco(lista.length > 0);
                 }
 
                 if (!resTurmas.ok) {
-                    throw new Error(
-                        'Falha ao consultar as turmas.'
-                    );
+                    throw await readApiError(resTurmas);
                 }
 
                 const turmasRecebidas: any[] =
-                    await resTurmas.json();
+                    await readApiJson<any>(resTurmas);
+                if (!atual()) return null;
+                if (!Array.isArray(turmasRecebidas)) throw new Error('Resposta de turmas inválida.');
 
                 setTurmasPassageiro(turmasRecebidas);
 
@@ -187,6 +197,7 @@ export default function HomePassageiro() {
 
                 // Não aplicar resultados de turma anterior.
                 if (
+                    !atual() ||
                     turmaSelecionadaRef.current !==
                     turmaAtualId
                 ) {
@@ -194,17 +205,22 @@ export default function HomePassageiro() {
                 }
 
                 if (resConfirmacao.ok) {
-                    const dados = await resConfirmacao.json();
+                    const dados = await readApiJson<any>(resConfirmacao);
+                    if (!atual()) return null;
 
                     setConfirmacao(
                         dados?.status ? dados : null
                     );
-                } else {
+                } else if (resConfirmacao.status === 404 || resConfirmacao.status === 204) {
                     setConfirmacao(null);
+                } else {
+                    throw await readApiError(resConfirmacao);
                 }
 
                 if (resOtimizada.ok) {
-                    const lista = await resOtimizada.json();
+                    const lista = await readApiJson<any>(resOtimizada);
+                    if (!atual()) return null;
+                    if (!Array.isArray(lista)) throw new Error('Resposta de rota inválida.');
 
                     const confirmados = lista.map(
                         (p: any) => {
@@ -236,108 +252,52 @@ export default function HomePassageiro() {
 
                 return turmaAtualId;
             } catch (error) {
+                if (atual()) setErroCarga(errorMessage(error));
                 console.log(
                     'Erro ao atualizar dados do passageiro.',
                     error
                 );
-                return null;
+                return false;
             }
         },
         [user?.id]
     );
 
-    useFocusEffect(
-        useCallback(() => {
-            let ativo = true;
+    const { refreshing, refresh } = useHomeRefresh(user?.id ?? null, async () => {
+        if (primeiraCarga.current) setLoading(true);
+        if (!gpsSolicitadoRef.current) {
+            gpsSolicitadoRef.current = true;
+            void buscarLocalizacaoPassageiro();
+        }
+        const result = await carregarDadosSilencioso();
+        setLoading(false);
+        primeiraCarga.current = false;
+        return result !== false;
+    });
 
-            const inicializar = async () => {
-                if (primeiraCarga.current) setLoading(true);
+    const pollingKey = user?.id && turmaSelecionadaId ? user.id + ':' + turmaSelecionadaId : false;
+    useFocusedPolling(async signal => {
+        const turmaId = turmaSelecionadaRef.current;
+        if (!turmaId) return;
+        try {
+            const radar = await fetchPassengerRadar(turmaId, signal);
+            if (signal.aborted || turmaSelecionadaRef.current !== turmaId) return;
+            setStatusViagem(radar.status);
+            setStatusGps(radar.gps);
+            setPosicaoVan(previous => previous?.latitude === radar.position?.latitude && previous?.longitude === radar.position?.longitude ? previous : radar.position);
 
-                await buscarLocalizacaoPassageiro();
-                await carregarDadosSilencioso();
+        } catch (error) {
+            if (!signal.aborted) setStatusGps('AGUARDANDO');
+        }
+    }, 10000, pollingKey);
 
-                if (ativo) {
-                    setLoading(false);
-                    primeiraCarga.current = false;
-                }
-            };
-
-            inicializar();
-
-            return () => { ativo = false; };
-        }, [buscarLocalizacaoPassageiro, carregarDadosSilencioso])
-    );
-
-    useEffect(() => {
-        let intervalo: ReturnType<typeof setInterval> | null = null;
-        let buscando = false;
-
-        const verificarRadar = async () => {
-            if (!user?.id || buscando) return;
-            buscando = true;
-
-            try {
-                const turmaId = turma?.id;
-                if (!turmaId) {
-                    buscando = false;
-                    return;
-                }
-
-                const res = await apiFetch(`/rota/status-atual?turmaId=${turmaId}`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } });
-
-                if (!res.ok) {
-                    setStatusViagem('INATIVA');
-                    setStatusGps('GARAGEM');
-                    buscando = false;
-                    return;
-                }
-
-                const data = await res.json();
-                const estadoAtual = data?.status || data?.situacao || 'INATIVA';
-                const ativoStr = estadoAtual === 'ATIVA' || estadoAtual === 'EM_CURSO' || data?.ativa === true ? 'ATIVA' : 'INATIVA';
-                setStatusViagem(ativoStr);
-
-                carregarDadosSilencioso();
-
-                if (ativoStr === 'ATIVA') {
-                    const resLoc = await apiFetch(`/rota/localizacao-van?turmaId=${turmaId}`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } });
-
-                    if (resLoc.ok) {
-                        setStatusGps('ONLINE');
-                        const pos = await resLoc.json();
-
-                        if (pos?.latitude && pos?.longitude) {
-                            const novaPos = { latitude: Number(pos.latitude), longitude: Number(pos.longitude) };
-                            setPosicaoVan(novaPos);
-
-                            cameraRef.current?.setCamera({
-                                centerCoordinate: [novaPos.longitude, novaPos.latitude],
-                                zoomLevel: 16,
-                                animationDuration: 1000,
-                            });
-                        }
-                    } else {
-                        setStatusGps('AGUARDANDO');
-                    }
-                } else {
-                    setStatusGps('GARAGEM');
-                    setPosicaoVan(null);
-                }
-            } catch (e) {
-                setStatusGps('AGUARDANDO');
-            } finally {
-                buscando = false;
-            }
-        };
-
-        verificarRadar();
-        intervalo = setInterval(verificarRadar, 10000);
-
-        return () => {
-            if (intervalo) clearInterval(intervalo);
-        };
-    }, [user?.id, turma?.id, carregarDadosSilencioso]);
-
+    useFocusedPolling(async signal => {
+        const turmaId = turmaSelecionadaRef.current;
+        if (!user?.id || !turmaId || salvandoPresenca) return;
+        const revision = dadosRequestRef.current;
+        const saved = await fetchMinhaConfirmacao(user.id, turmaId, signal);
+        if (!signal.aborted && turmaSelecionadaRef.current === turmaId && revision === dadosRequestRef.current) setConfirmacao(saved);
+    }, 30000, pollingKey, false);
 
     const registrarPresenca = useCallback(
         async (
@@ -385,7 +345,7 @@ export default function HomePassageiro() {
                 );
 
                 if (!resposta.ok) {
-                    const mensagem = await resposta.text();
+                    const mensagem = (await readApiError(resposta)).message;
 
                     Alert.alert(
                         'Erro ao confirmar',
@@ -396,6 +356,15 @@ export default function HomePassageiro() {
                     return false;
                 }
 
+                if (turmaSelecionadaRef.current !== turmaId) return false;
+                // The server accepted the save. Do not let an older poll restore
+                // the previous confirmation while the follow-up fetch is pending.
+                dadosRequestRef.current++;
+                setConfirmacao({
+                    status,
+                    enderecoIda: enderecos.find(endereco => endereco.id === enderecoIda) ?? null,
+                    enderecoVolta: enderecos.find(endereco => endereco.id === enderecoVolta) ?? null,
+                });
                 await carregarDadosSilencioso(turmaId);
                 return true;
             } catch (error) {
@@ -406,7 +375,7 @@ export default function HomePassageiro() {
 
                 Alert.alert(
                     'Erro',
-                    'Não foi possível conectar ao servidor.'
+                    errorMessage(error)
                 );
 
                 return false;
@@ -418,6 +387,7 @@ export default function HomePassageiro() {
             user?.id,
             salvandoPresenca,
             carregarDadosSilencioso,
+            enderecos,
         ]
     );
 
@@ -429,6 +399,10 @@ export default function HomePassageiro() {
 
     const centroMapa = useMemo(() => minhaLocalizacao || posicaoVan, [minhaLocalizacao, posicaoVan]);
     const dataFormatada = useMemo(() => new Date().toLocaleDateString('pt-BR', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase(), []);
+
+    if (!loading && erroCarga && turmasPassageiro.length === 0) {
+        return <AsyncState message={erroCarga} onRetry={refresh} />;
+    }
 
     if (loading) {
         return (
@@ -447,7 +421,9 @@ export default function HomePassageiro() {
                 <Text style={styles.welcome}>Olá, <Text style={styles.nomeBold}>{user?.nome ? user.nome.split(' ')[0] : ''}</Text></Text>
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
+                {erroCarga && <AsyncState message={erroCarga} onRetry={refresh} />}
                 {!temEndereco && (
                     <TouchableOpacity
                         style={styles.bannerAlerta}
@@ -595,33 +571,7 @@ export default function HomePassageiro() {
                                     <Text style={styles.cadeadoSubtitulo}>O radar será ativado quando a viagem começar.</Text>
                                 </View>
                             ) : centroMapa ? (
-                                <MapboxGL.MapView
-                                    style={styles.flexOne}
-                                    styleURL={MapboxGL.StyleURL.Dark}
-                                    logoEnabled={false}
-                                    attributionEnabled={false}
-                                    compassEnabled={false}
-                                >
-                                    <MapboxGL.Camera
-                                        ref={cameraRef}
-                                        zoomLevel={16}
-                                        centerCoordinate={[centroMapa.longitude, centroMapa.latitude]}
-                                    />
-                                    {minhaLocalizacao && (
-                                        <MapboxGL.PointAnnotation id="passageiro-local" coordinate={[minhaLocalizacao.longitude, minhaLocalizacao.latitude]}>
-                                            <View style={styles.passageiroMarker}>
-                                                <Ionicons name="person" size={14} color="#FFFFFF" />
-                                            </View>
-                                        </MapboxGL.PointAnnotation>
-                                    )}
-                                    {posicaoVan && (
-                                        <MapboxGL.PointAnnotation id="van-passageiro" coordinate={[posicaoVan.longitude, posicaoVan.latitude]}>
-                                            <View style={styles.vanMarker}>
-                                                <Text style={styles.vanMarkerIcon}>🚐</Text>
-                                            </View>
-                                        </MapboxGL.PointAnnotation>
-                                    )}
-                                </MapboxGL.MapView>
+                                <MapaRadarPassageiro centroMapa={centroMapa} minhaLocalizacao={minhaLocalizacao} posicaoVan={posicaoVan} />
                             ) : (
                                 <View style={styles.center}>
                                     <ActivityIndicator size="small" color={theme.colors.primary} />
@@ -855,34 +805,9 @@ const styles = StyleSheet.create({
         marginTop: 4,
         textAlign: 'center',
     },
-    vanMarker: {
-        backgroundColor: '#1E1E1E',
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        borderWidth: 3,
-        borderColor: theme.colors.primary,
-        justifyContent: 'center',
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.4,
-        shadowRadius: 5,
-        elevation: 5,
-    },
-    vanMarkerIcon: {
-        fontSize: 20,
-    },
-    passageiroMarker: {
-        backgroundColor: theme.colors.primary,
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        borderWidth: 2,
-        borderColor: '#FFFFFF',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
+
+
+
     statusViagemCard: {
         backgroundColor: theme.colors.surface,
         padding: theme.spacing.lg,

@@ -25,7 +25,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { apiFetch } from '@/src/config/api';
+import { apiFetch, readApiError } from '@/src/config/api';
 import { auth } from '../../config/firebase';
 import { globalStyles } from '../../styles/globalStyles';
 import { theme } from '../../styles/theme';
@@ -137,8 +137,7 @@ export default function Perfil() {
             });
 
             if (!resposta.ok) {
-                const erroData = await resposta.json().catch(() => ({}));
-                throw new Error(erroData.erro || 'Falha ao atualizar e-mail no servidor.');
+                throw await readApiError(resposta);
             }
 
             await updateEmail(userFirebase, emailFormatado);

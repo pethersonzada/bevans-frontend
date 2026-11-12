@@ -16,7 +16,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FormLogin } from '../../components/FormLogin';
-import { apiFetch } from '../../config/api';
+import { ApiError, errorMessage } from '../../config/api';
+import { fetchSessionUser } from '../../services/session';
 import { auth } from '../../config/firebase';
 import { globalStyles } from '../../styles/globalStyles';
 import { theme } from '../../styles/theme';
@@ -45,30 +46,12 @@ export default function Login() {
             const userCredential = await signInWithEmailAndPassword(auth, emailFormatado, senha);
             const firebaseUid = userCredential.user.uid;
 
-            const response = await apiFetch(`/usuarios/por-uid/${firebaseUid}`, {
-                method: 'GET',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Bypass-Tunnel-Reminder': 'true' 
-                }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-
-                await signIn({
-                    id: String(data.id),
-                    nome: data.nome || 'Usuário',
-                    tipo: data.tipo || 'PASSAGEIRO',
-                    endereco: data.enderecoCompleto || 'Endereço Pendente'
-                });
-                
-                router.replace('/(tabs)/home');
-            } else {
-                Alert.alert("Aviso", "Conta autenticada, mas o perfil não foi encontrado no banco de dados.");
-            }
+            await signIn(await fetchSessionUser(firebaseUid));
+            router.replace('/(tabs)/home');
         } catch (error: any) {
-            let mensagemErro = "E-mail ou senha incorretos.";
+            let mensagemErro = error instanceof ApiError
+                ? errorMessage(error)
+                : "Não foi possível entrar. Tente novamente.";
             if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
                 mensagemErro = "E-mail ou senha incorretos.";
             } else if (error.code === 'auth/invalid-email') {

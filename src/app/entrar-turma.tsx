@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -14,17 +13,20 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { apiFetch } from '../config/api';
+import { apiFetch, errorMessage, readApiError, readApiJson } from '../config/api';
 import { globalStyles } from '../styles/globalStyles';
 import { theme } from '../styles/theme';
+import { useAuth } from './context/AuthContext';
 
 export default function EntrarTurma() {
+    const { user, isLoading } = useAuth();
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const [codigo, setCodigo] = useState('');
     const [loading, setLoading] = useState(false);
 
     const handleSolicitarEntrada = async () => {
+        if (isLoading || !user.id || loading) return;
         if (!codigo.trim()) {
             Alert.alert("Atenção", "Digite o código de convite enviado pelo motorista.");
             return;
@@ -32,18 +34,18 @@ export default function EntrarTurma() {
 
         setLoading(true);
         try {
-            const userId = await AsyncStorage.getItem('userId');
+            const userId = user.id;
             if (!userId) {
                 Alert.alert("Erro", "Usuário não identificado. Faça login novamente.");
                 return;
             }
 
-            const res = await apiFetch(`/turmas/entrar/${userId}?codigo=${codigo.toUpperCase().trim()}`, {
+            const res = await apiFetch(`/turmas/entrar/${userId}?codigo=${encodeURIComponent(codigo.toUpperCase().trim())}`, {
                 method: 'POST',
                 headers: { 'Bypass-Tunnel-Reminder': 'true' }
             });
 
-            const textResponse = await res.text();
+            const textResponse = (await readApiError(res)).message;
 
             if (res.ok) {
                 Alert.alert("Sucesso", "Solicitação enviada! Aguarde a aprovação do motorista.", [
@@ -53,7 +55,7 @@ export default function EntrarTurma() {
                 Alert.alert("Erro", textResponse || "Não foi possível entrar na turma.");
             }
         } catch (e) {
-            Alert.alert("Erro", "Falha de conexão com o servidor.");
+            Alert.alert("Erro", errorMessage(e));
         } finally {
             setLoading(false);
         }

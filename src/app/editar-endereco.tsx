@@ -1,6 +1,5 @@
 
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   useLocalSearchParams,
   useRouter,
@@ -25,8 +24,10 @@ import type {
   EnderecoEncontrado,
 } from '../services/enderecoSearch';
 
-import { apiFetch } from '../config/api';
+import { apiFetch, errorMessage, readApiError, readApiJson } from '../config/api';
 import { theme } from '../styles/theme';
+import { useAuth } from './context/AuthContext';
+import { AsyncState } from '../components/AsyncState';
 
 type EnderecoSalvo = {
   id: number;
@@ -39,6 +40,7 @@ type EnderecoSalvo = {
 };
 
 export default function EditarEndereco() {
+  const { user, isLoading } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -55,15 +57,18 @@ export default function EditarEndereco() {
     useState<EnderecoEncontrado | null>(null);
 
   const [carregando, setCarregando] = useState(true);
+  const [erroCarga, setErroCarga] = useState<string | null>(null);
+  const [tentativa, setTentativa] = useState(0);
   const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
     let ativo = true;
 
     async function carregarEndereco() {
+      setCarregando(true);
+      setErroCarga(null);
       try {
-        const userId =
-          await AsyncStorage.getItem('userId');
+        const userId = user.id;
 
         if (!userId || !id) {
           throw new Error(
@@ -81,13 +86,11 @@ export default function EditarEndereco() {
         );
 
         if (!response.ok) {
-          throw new Error(
-            'Não foi possível carregar o endereço.'
-          );
+          throw await readApiError(response);
         }
 
         const lista: EnderecoSalvo[] =
-          await response.json();
+          await readApiJson<any>(response);
 
         if (!Array.isArray(lista)) {
           throw new Error(
@@ -112,18 +115,7 @@ export default function EditarEndereco() {
       } catch (error) {
         if (!ativo) return;
 
-        Alert.alert(
-          'Erro',
-          error instanceof Error
-            ? error.message
-            : 'Falha ao carregar endereço.',
-          [
-            {
-              text: 'OK',
-              onPress: () => router.back(),
-            },
-          ]
-        );
+        setErroCarga(errorMessage(error, 'Falha ao carregar endereço.'));
       } finally {
         if (ativo) {
           setCarregando(false);
@@ -131,12 +123,12 @@ export default function EditarEndereco() {
       }
     }
 
-    carregarEndereco();
+    if (!isLoading && user.id) carregarEndereco();
 
     return () => {
       ativo = false;
     };
-  }, [id, router]);
+  }, [id, router, isLoading, user.id, tentativa]);
 
   const apelidoValido = apelido.trim().length > 0;
 
@@ -149,13 +141,14 @@ export default function EditarEndereco() {
     apelidoAlterado || novaLocalizacao !== null;
 
   const podeSalvar =
+    !isLoading && Boolean(user.id) &&
     enderecoAtual !== null &&
     apelidoValido &&
     temAlteracoes &&
     !salvando;
 
   async function salvarAlteracoes() {
-    if (!enderecoAtual || salvando) return;
+    if (!enderecoAtual || salvando || isLoading || !user.id) return;
 
     if (!apelido.trim()) {
       Alert.alert(
@@ -233,7 +226,7 @@ export default function EditarEndereco() {
       );
 
       if (!response.ok) {
-        const mensagem = await response.text();
+        const mensagem = (await readApiError(response)).message;
 
         throw new Error(
           mensagem ||
@@ -279,12 +272,10 @@ export default function EditarEndereco() {
     );
   }
 
-  if (!enderecoAtual) {
+  if (erroCarga || !enderecoAtual) {
     return (
       <View style={styles.carregando}>
-        <Text style={styles.erro}>
-          Não foi possível carregar o endereço.
-        </Text>
+        <AsyncState message={erroCarga || 'Endereço indisponível.'} onRetry={() => setTentativa(value => value + 1)} />
 
         <TouchableOpacity
           onPress={() => router.back()}

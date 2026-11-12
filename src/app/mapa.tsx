@@ -17,7 +17,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { API_URL } from '../config/config';
-import { auth } from '../config/firebase';
+import { apiFetch, readApiJson, readApiError } from '../config/api';
 import { theme } from '../styles/theme';
 import { useAuth } from './context/AuthContext';
 
@@ -426,21 +426,13 @@ export default function Mapa() {
         );
 
         try {
-            const headers: Record<string, string> = {
-                ...(options.headers as Record<string, string>),
-            };
-
-            if (API_URL && url.startsWith(API_URL)) {
-                const token = await auth.currentUser?.getIdToken();
-
-                if (token) {
-                    headers.Authorization = `Bearer ${token}`;
-                }
+            if (API_URL && url.startsWith(API_URL + '/')) {
+                return await apiFetch(url.slice(API_URL.length), {
+                    ...options, signal: controller.signal, timeoutMs,
+                });
             }
-
             return await fetch(url, {
                 ...options,
-                headers,
                 signal: controller.signal,
             });
         } finally {
@@ -478,7 +470,7 @@ export default function Mapa() {
 
         const res = await fetchComTimeout(url, {}, 15000);
 
-        const data = await res.json();
+        const data = await readApiJson<any>(res);
 
         if (data.code !== 'Ok' || !data.routes?.length) {
             throw new Error(
@@ -1170,7 +1162,7 @@ export default function Mapa() {
                 );
             }
 
-            const turmas = await resTurmas.json();
+            const turmas = await readApiJson<any>(resTurmas);
 
             if (!turmas || turmas.length === 0) {
                 throw new Error(
@@ -1186,7 +1178,7 @@ export default function Mapa() {
                     { headers: HEADERS_PADRAO }, 6000
                 );
                 if (!resStatus.ok) continue;
-                const status = await resStatus.json();
+                const status = await readApiJson<any>(resStatus);
                 if (status.status === 'ATIVA') {
                     turmaIdAtiva = Number(turma.id);
                     const sentidoServidor = String(status.sentido || '').toLowerCase();
@@ -1293,7 +1285,7 @@ export default function Mapa() {
             );
 
             if (!resPassageiros.ok) {
-                const respostaErro = await resPassageiros.text();
+                const respostaErro = (await readApiError(resPassageiros)).message;
 
                 let mensagem = respostaErro;
 
@@ -1314,7 +1306,7 @@ export default function Mapa() {
                 throw new Error(`Falha na otimização: ${mensagem}`);
             }
 
-            const lista = await resPassageiros.json();
+            const lista = await readApiJson<any>(resPassageiros);
 
             console.log(
                 'Passageiros retornados pelo otimizar:',

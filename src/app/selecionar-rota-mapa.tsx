@@ -20,7 +20,7 @@ import type {
   EnderecoEncontrado,
 } from '../services/enderecoSearch';
 
-import { apiFetch } from '../config/api';
+import { apiFetch, errorMessage, readApiError, readApiJson } from '../config/api';
 import { theme } from '../styles/theme';
 
 export default function SelecionarRotaMapa() {
@@ -79,7 +79,7 @@ export default function SelecionarRotaMapa() {
       );
 
       if (!response.ok) {
-        const mensagem = await response.text();
+        const mensagem = (await readApiError(response)).message;
 
         throw new Error(
           mensagem || `HTTP ${response.status}`
