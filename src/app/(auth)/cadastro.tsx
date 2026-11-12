@@ -27,7 +27,7 @@ export default function Signup() {
     const { tipo } = useLocalSearchParams();
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    
+
     const [nome, setNome] = useState('');
     const [email, setEmail] = useState('');
     const [senha, setSenha] = useState('');
@@ -72,16 +72,16 @@ export default function Signup() {
             const response = await apiFetch(`/usuarios/cadastrar`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
-                body: JSON.stringify({ 
-                    nome, 
-                    email: emailFormatado, 
-                    firebaseUid, 
-                    telefone: telefone.replace(/\D/g, ''), 
+                body: JSON.stringify({
+                    nome,
+                    email: emailFormatado,
+                    firebaseUid,
+                    telefone: telefone.replace(/\D/g, ''),
                     tipo: tipoUsuario,
                     ...(tipoUsuario === 'MOTORISTA' ? { codigoAcesso: codigoAcesso.trim() } : {}),
-                    enderecoCompleto: 'Endereço Pendente', 
-                    latitude: 0.0, 
-                    longitude: 0.0 
+                    enderecoCompleto: 'Endereço Pendente',
+                    latitude: 0.0,
+                    longitude: 0.0
                 })
             });
 
@@ -133,11 +133,11 @@ export default function Signup() {
         <View style={globalStyles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flexOne}>
-                <ScrollView 
+                <ScrollView
                     contentContainerStyle={[
-                        styles.content, 
+                        styles.content,
                         { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 40 }
-                    ]} 
+                    ]}
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="handled"
                 >
@@ -151,17 +151,17 @@ export default function Signup() {
                         </Text>
                         <Text style={styles.subtitulo}>Preencha seus dados para começar</Text>
                     </View>
-                    
+
                     {tipoUsuario === 'MOTORISTA' && (
                         <View style={[
-                            styles.inputContainer, 
+                            styles.inputContainer,
                             styles.inputContainerMotorista,
                             isFocado('codigo') && styles.inputFocused
                         ]}>
                             <Ionicons name="key-outline" size={22} color={theme.colors.primary} style={styles.inputIcon} />
-                            <TextInput 
-                                style={styles.inputComIcone} 
-                                placeholder="Código de Autorização" 
+                            <TextInput
+                                style={styles.inputComIcone}
+                                placeholder="Código de Autorização"
                                 placeholderTextColor={theme.colors.textLight}
                                 onChangeText={setCodigoAcesso}
                                 onFocus={() => setFocado('codigo')}
@@ -176,11 +176,11 @@ export default function Signup() {
 
                     <View style={[styles.inputContainer, isFocado('nome') && styles.inputFocused]}>
                         <Ionicons name="person-outline" size={22} color={isFocado('nome') ? theme.colors.primary : theme.colors.textLight} style={styles.inputIcon} />
-                        <TextInput 
-                            style={styles.inputComIcone} 
-                            placeholder="Nome Completo" 
-                            placeholderTextColor={theme.colors.textLight} 
-                            onChangeText={setNome} 
+                        <TextInput
+                            style={styles.inputComIcone}
+                            placeholder="Nome Completo"
+                            placeholderTextColor={theme.colors.textLight}
+                            onChangeText={setNome}
                             onFocus={() => setFocado('nome')}
                             onBlur={() => setFocado(null)}
                             value={nome}
@@ -194,13 +194,13 @@ export default function Signup() {
 
                     <View style={[styles.inputContainer, isFocado('email') && styles.inputFocused]}>
                         <Ionicons name="mail-outline" size={22} color={isFocado('email') ? theme.colors.primary : theme.colors.textLight} style={styles.inputIcon} />
-                        <TextInput 
-                            style={styles.inputComIcone} 
-                            placeholder="E-mail" 
-                            placeholderTextColor={theme.colors.textLight} 
+                        <TextInput
+                            style={styles.inputComIcone}
+                            placeholder="E-mail"
+                            placeholderTextColor={theme.colors.textLight}
                             keyboardType="email-address"
                             autoCapitalize="none"
-                            value={email} 
+                            value={email}
                             onChangeText={setEmail}
                             onFocus={() => setFocado('email')}
                             onBlur={() => setFocado(null)}
@@ -212,14 +212,14 @@ export default function Signup() {
 
                     <View style={[styles.inputContainer, isFocado('telefone') && styles.inputFocused]}>
                         <Ionicons name="call-outline" size={22} color={isFocado('telefone') ? theme.colors.primary : theme.colors.textLight} style={styles.inputIcon} />
-                        <TextInputMask 
-                            type={'cel-phone'} 
-                            options={{ withDDD: true, dddMask: '(99) ' }} 
-                            style={styles.inputComIcone} 
-                            placeholderTextColor={theme.colors.textLight} 
-                            placeholder="Telefone" 
-                            keyboardType="numeric" 
-                            value={telefone} 
+                        <TextInputMask
+                            type={'cel-phone'}
+                            options={{ withDDD: true, dddMask: '(99) ' }}
+                            style={styles.inputComIcone}
+                            placeholderTextColor={theme.colors.textLight}
+                            placeholder="Telefone"
+                            keyboardType="numeric"
+                            value={telefone}
                             onChangeText={setTelefone}
                             onFocus={() => setFocado('telefone')}
                             onBlur={() => setFocado(null)}
@@ -231,12 +231,12 @@ export default function Signup() {
 
                     <View style={[styles.inputContainer, isFocado('senha') && styles.inputFocused]}>
                         <Ionicons name="lock-closed-outline" size={22} color={isFocado('senha') ? theme.colors.primary : theme.colors.textLight} style={styles.inputIcon} />
-                        <TextInput 
-                            style={styles.inputComIcone} 
-                            placeholder="Senha" 
-                            placeholderTextColor={theme.colors.textLight} 
-                            secureTextEntry={!showSenha} 
-                            onChangeText={setSenha} 
+                        <TextInput
+                            style={styles.inputComIcone}
+                            placeholder="Senha"
+                            placeholderTextColor={theme.colors.textLight}
+                            secureTextEntry={!showSenha}
+                            onChangeText={setSenha}
                             onFocus={() => setFocado('senha')}
                             onBlur={() => setFocado(null)}
                             value={senha}
@@ -244,9 +244,9 @@ export default function Signup() {
                             textContentType="newPassword"
                             selectionColor={theme.colors.primary}
                         />
-                        <TouchableOpacity 
-                            onPress={() => setShowSenha(!showSenha)} 
-                            style={styles.eyeIcon} 
+                        <TouchableOpacity
+                            onPress={() => setShowSenha(!showSenha)}
+                            style={styles.eyeIcon}
                             activeOpacity={0.7}
                             hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                         >
@@ -256,12 +256,12 @@ export default function Signup() {
 
                     <View style={[styles.inputContainer, isFocado('confirmaSenha') && styles.inputFocused]}>
                         <Ionicons name="lock-closed-outline" size={22} color={isFocado('confirmaSenha') ? theme.colors.primary : theme.colors.textLight} style={styles.inputIcon} />
-                        <TextInput 
-                            style={styles.inputComIcone} 
-                            placeholder="Confirmar Senha" 
-                            placeholderTextColor={theme.colors.textLight} 
-                            secureTextEntry={!showConfirmaSenha} 
-                            onChangeText={setConfirmaSenha} 
+                        <TextInput
+                            style={styles.inputComIcone}
+                            placeholder="Confirmar Senha"
+                            placeholderTextColor={theme.colors.textLight}
+                            secureTextEntry={!showConfirmaSenha}
+                            onChangeText={setConfirmaSenha}
                             onFocus={() => setFocado('confirmaSenha')}
                             onBlur={() => setFocado(null)}
                             value={confirmaSenha}
@@ -269,9 +269,9 @@ export default function Signup() {
                             textContentType="newPassword"
                             selectionColor={theme.colors.primary}
                         />
-                        <TouchableOpacity 
-                            onPress={() => setShowConfirmaSenha(!showConfirmaSenha)} 
-                            style={styles.eyeIcon} 
+                        <TouchableOpacity
+                            onPress={() => setShowConfirmaSenha(!showConfirmaSenha)}
+                            style={styles.eyeIcon}
                             activeOpacity={0.7}
                             hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                         >
@@ -285,10 +285,10 @@ export default function Signup() {
                             O endereço será configurado posteriormente no seu perfil.
                         </Text>
                     </View>
-                    
-                    <TouchableOpacity 
-                        style={[styles.buttonSubmit, loading && styles.buttonDisabled]} 
-                        onPress={handleCadastro} 
+
+                    <TouchableOpacity
+                        style={[styles.buttonSubmit, loading && styles.buttonDisabled]}
+                        onPress={handleCadastro}
                         disabled={loading}
                         activeOpacity={0.85}
                     >
