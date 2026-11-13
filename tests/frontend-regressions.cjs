@@ -1083,3 +1083,40 @@ test('geocoding metadata preserves the difference between streets and numbered a
     assert.equal(results[0].precisao,'aproximada');
     assert.equal(results[1].precisao,'endereco');
 });
+
+
+test('seats require a positive integer and invalid values never make a request', async () => {
+    let calls=0;
+    const service=load('src/services/turmas.ts',{'../config/api':{apiRequest:async()=>{calls++;},apiFetch:async()=>{calls++;}}});
+    for (const text of ['', '0', '-1', '1.5', '1e2', '2147483648', 'NaN']) assert.throws(()=>service.lerAssentos(text));
+    assert.equal(service.lerAssentos('12'),12);
+    for(const capacity of [0,-1,1.5,NaN,Infinity,'12',null]) {
+        await assert.rejects(service.criarTurma('1','A','Noite',capacity));
+        await assert.rejects(service.atualizarTurma('7','A','Noite',capacity));
+    }
+    assert.equal(calls,0);
+});
+
+test('different turmas persist their own seat counts and edits target only the chosen turma', async () => {
+    const requests=[];
+    const service=load('src/services/turmas.ts',{'../config/api':{
+        apiRequest:async(path,options)=>{requests.push({path,body:JSON.parse(options.body)}); return {id:requests.length,...JSON.parse(options.body)};},
+        apiFetch:async(path,options)=>{requests.push({path,body:JSON.parse(options.body)}); return new Response(null,{status:204});}
+    }});
+    const a=await service.criarTurma('1','A','Noite',12), b=await service.criarTurma('1','B','Manhã',18);
+    assert.equal(a.capacidade,12);assert.equal(b.capacidade,18);
+    await service.atualizarTurma(a.id,'A','Noite',15);
+    assert.equal(requests[2].path,'/turmas/1'); assert.equal(requests[2].body.capacidade,15); assert.equal(b.capacidade,18);
+});
+
+test('occupancy reads authenticated API values and distinguishes legacy unconfigured capacity', async () => {
+    let data={capacidade:12,ocupados:9,disponiveis:3,configurada:true};
+    const paths=[];
+    const service=load('src/services/turmas.ts',{'../config/api':{apiRequest:async path=>{paths.push(path);return data;}}});
+    assert.equal((await service.consultarVagasTurma(7)).disponiveis,3);
+    assert.equal(paths[0],'/turmas/7/vagas');
+    data={capacidade:null,ocupados:9,disponiveis:null,configurada:false};
+    assert.equal((await service.consultarVagasTurma(7)).disponiveis,null);
+    data={capacidade:12,ocupados:9,disponiveis:10,configurada:true};
+    await assert.rejects(service.consultarVagasTurma(7),/inconsistente/);
+});

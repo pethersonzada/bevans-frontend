@@ -20,6 +20,7 @@ export function parseTurma(value: unknown): Turma {
         return value;
     };
     return {
+        capacidade: data.capacidade == null ? null : validarAssentos(data.capacidade),
         id, nome: text('nome'), turno: text('turno') || '', codigoConvite: text('codigoConvite'), codigo: text('codigo'),
         origemNome: text('origemNome'), destinoNome: text('destinoNome'),
         origemLatitude: coordinate('origemLatitude'), origemLongitude: coordinate('origemLongitude'),
@@ -41,16 +42,17 @@ export async function buscarTurmaMotorista(userId: string | number, turmaId: str
     return turma;
 }
 
-export async function criarTurma(userId: string, nome: string, turno: string): Promise<Turma> {
+export async function criarTurma(userId: string, nome: string, turno: string, capacidade: number): Promise<Turma> {
     return parseTurma(await apiRequest<unknown>('/turmas', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nome: nome.trim(), turno: turno.trim(), motorista: { id: identifier(userId) } }),
+        body: JSON.stringify({ nome: nome.trim(), turno: turno.trim(), motorista: { id: identifier(userId) }, capacidade: validarAssentos(capacidade) }),
     }));
 }
 
-export async function atualizarTurma(id: string | number, nome: string, turno: string): Promise<void> {
+export async function atualizarTurma(id: string | number, nome: string, turno: string, capacidade?: number): Promise<void> {
+    if (capacidade !== undefined) validarAssentos(capacidade);
     const response = await apiFetch(`/turmas/${identifier(id)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nome: nome.trim(), turno: turno.trim() }) });
+        body: JSON.stringify({ nome: nome.trim(), turno: turno.trim(), ...(capacidade === undefined ? {} : { capacidade }) }) });
     if (!response.ok) throw await readApiError(response);
 }
 
@@ -87,4 +89,30 @@ export async function salvarPontoTurma(userId: string, turmaId: string, tipo: 'O
         throw new Error('O servidor não confirmou as coordenadas salvas. Reabra o mapa e tente novamente.');
     }
     return turma;
+}
+
+
+export function validarAssentos(value: unknown): number {
+    if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0 || value > 2147483647) {
+        throw new Error('Informe uma quantidade inteira e positiva de assentos.');
+    }
+    return value;
+}
+
+export function lerAssentos(texto: string): number {
+    if (!/^[1-9]\d*$/.test(texto.trim())) throw new Error('Informe uma quantidade inteira e positiva de assentos.');
+    return validarAssentos(Number(texto));
+}
+
+export type VagasTurma = { capacidade: number | null; ocupados: number; disponiveis: number | null; configurada: boolean };
+export async function consultarVagasTurma(turmaId: string | number): Promise<VagasTurma> {
+    const value = await apiRequest<unknown>(`/turmas/${identifier(turmaId)}/vagas`);
+    if (!value || typeof value !== 'object') throw new Error('Resposta de vagas inválida.');
+    const v = value as VagasTurma;
+    if (!Number.isSafeInteger(v.ocupados) || v.ocupados < 0 || typeof v.configurada !== 'boolean') throw new Error('Resposta de vagas inválida.');
+    if (v.configurada) {
+        validarAssentos(v.capacidade);
+        if (v.disponiveis !== Math.max(0, v.capacidade! - v.ocupados)) throw new Error('Resposta de vagas inconsistente.');
+    } else if (v.capacidade !== null || v.disponiveis !== null) throw new Error('Resposta de vagas inválida.');
+    return v;
 }

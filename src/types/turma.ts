@@ -2,6 +2,7 @@ export type Turma = {
     id: number;
     nome?: string;
     turno: string;
+    capacidade?: number | null;
     codigoConvite?: string;
     codigo?: string;
     origemNome?: string;

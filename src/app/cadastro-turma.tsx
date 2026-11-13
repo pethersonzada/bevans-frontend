@@ -16,7 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { errorMessage } from '../config/api';
-import { criarTurma, buscarTurmaMotorista, atualizarTurma } from '../services/turmas';
+import { criarTurma, buscarTurmaMotorista, atualizarTurma, lerAssentos } from '../services/turmas';
 import { globalStyles } from '../styles/globalStyles';
 import { theme } from '../styles/theme';
 import { useAuth } from '../contexts/AuthContext';
@@ -31,6 +31,7 @@ export default function CadastroTurma() {
 
     const [nome, setNome] = useState('');
     const [turno, setTurno] = useState('');
+    const [capacidade, setCapacidade] = useState('');
     const [origemNome, setOrigemNome] = useState('');
     const [destinoNome, setDestinoNome] = useState('');
     const [turmaCriadaId, setTurmaCriadaId] = useState<number | null>(null);
@@ -48,7 +49,7 @@ export default function CadastroTurma() {
         }
 
         try {
-            const novaTurma = await criarTurma(user.id, nome, turno);
+            const novaTurma = await criarTurma(user.id, nome, turno, lerAssentos(capacidade));
             setTurmaCriadaId(novaTurma.id);
             return novaTurma.id;
         } catch (e) {
@@ -175,7 +176,7 @@ export default function CadastroTurma() {
                 return;
             }
 
-            await atualizarTurma(turmaCriadaId, nome, turno);
+            await atualizarTurma(turmaCriadaId, nome, turno, lerAssentos(capacidade));
 
             const confirmada = await buscarTurmaSalva(turmaCriadaId);
 
@@ -246,6 +247,13 @@ export default function CadastroTurma() {
                         value={turno}
                         onChangeText={setTurno}
                     />
+                </View>
+
+                <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Quantidade de assentos</Text>
+                    <TextInput accessibilityLabel="Quantidade de assentos" style={globalStyles.input} value={capacidade}
+                        keyboardType="number-pad" placeholder="Ex: 12" placeholderTextColor={theme.colors.textLight}
+                        onChangeText={valor => {  setCapacidade(valor); }} />
                 </View>
 
                 <View style={styles.inputGroup}>

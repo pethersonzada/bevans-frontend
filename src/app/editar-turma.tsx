@@ -1,7 +1,7 @@
 import { useAppAlert } from '../contexts/AppAlertContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     
@@ -16,7 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { errorMessage } from '../config/api';
-import { buscarTurmaMotorista, atualizarTurma, excluirTurma } from '../services/turmas';
+import { buscarTurmaMotorista, atualizarTurma, excluirTurma, consultarVagasTurma, lerAssentos } from '../services/turmas';
 import { globalStyles } from '../styles/globalStyles';
 import { theme } from '../styles/theme';
 import { useAuth } from '../contexts/AuthContext';
@@ -39,6 +39,14 @@ export default function EditarTurma() {
 
     const [nome, setNome] = useState(nomeAtual || '');
     const [turno, setTurno] = useState(turnoAtual || '');
+    const [capacidade, setCapacidade] = useState('');
+    const [ocupados, setOcupados] = useState<number | null>(null);
+    const capacidadeEditada = useRef(false);
+    const pedidoCarga = useRef(0);
+    const escrita = useRef(false);
+    const contexto = user.id + ':' + id;
+    const contextoAtual = useRef(contexto);
+    if (contextoAtual.current !== contexto) { capacidadeEditada.current = false; contextoAtual.current = contexto; }
     const [origemNome, setOrigemNome] = useState(origemAtual || '');
     const [destinoNome, setDestinoNome] = useState(destinoAtual || '');
     const [loadingDados, setLoadingDados] = useState(false);
@@ -48,29 +56,36 @@ export default function EditarTurma() {
 
     useFocusEffect(useCallback(() => {
         if (id && sessaoValida) buscarDetalhesTurma();
+        return () => { pedidoCarga.current++; };
     }, [id, user.id, sessaoValida]));
 
     async function buscarDetalhesTurma() {
+        const pedido = ++pedidoCarga.current;
+        const contextoPedido = contexto;
         setLoadingDados(true);
         setErroCarga(null);
         try {
             const motoristaId = user.id;
             if (!sessaoValida || !motoristaId) return;
-            const turmaAtual = await buscarTurmaMotorista(motoristaId, id);
+            const [turmaAtual, vagas] = await Promise.all([buscarTurmaMotorista(motoristaId, id), consultarVagasTurma(id)]);
+            if (pedido !== pedidoCarga.current || contextoPedido !== contextoAtual.current) return;
+            if (!capacidadeEditada.current) setCapacidade(turmaAtual.capacidade == null ? '' : String(turmaAtual.capacidade));
+            setOcupados(vagas.ocupados);
             if (!nome) setNome(turmaAtual.nome || '');
             if (!turno) setTurno(turmaAtual.turno || '');
             setOrigemNome(turmaAtual.origemNome || '');
             setDestinoNome(turmaAtual.destinoNome || '');
         } catch (e) {
+            if (pedido !== pedidoCarga.current || contextoPedido !== contextoAtual.current) return;
             setErroCarga(errorMessage(e));
             console.log("Erro ao buscar detalhes da turma", e);
         } finally {
-            setLoadingDados(false);
+            if (pedido === pedidoCarga.current && contextoPedido === contextoAtual.current) setLoadingDados(false);
         }
     }
 
     async function handleSalvarEdicao() {
-        if (!sessaoValida || erroCarga || loadingDados || salvando || excluindo) return;
+        if (escrita.current || !sessaoValida || erroCarga || loadingDados || salvando || excluindo) return;
         if (!nome.trim() || !turno.trim()) {
             Alert.alert("Atenção", "Preencha o nome e o turno.");
             return;
@@ -81,16 +96,26 @@ export default function EditarTurma() {
             return;
         }
 
+        escrita.current = true;
+        const contextoPedido = contexto;
         setSalvando(true);
         try {
-            await atualizarTurma(id, nome, turno);
+            const assentos = lerAssentos(capacidade);
+            if (ocupados != null && assentos < ocupados) throw new Error('A capacidade não pode ser menor que os passageiros aprovados (' + ocupados + ').');
+            await atualizarTurma(id, nome, turno, assentos);
+            const vagas = await consultarVagasTurma(id);
+            if (contextoAtual.current !== contextoPedido) return;
+            if (vagas.capacidade !== assentos) throw new Error('O servidor não confirmou a capacidade salva. Atualize os dados da turma.');
+            setOcupados(vagas.ocupados);
             Alert.alert('Sucesso', 'Turma atualizada com sucesso!', [
                 { text: 'OK', onPress: () => router.back() }
             ]);
         } catch (error) {
+            if (contextoAtual.current !== contextoPedido) return;
             Alert.alert("Erro", errorMessage(error));
         } finally {
-            setSalvando(false);
+            escrita.current = false;
+            if (contextoAtual.current === contextoPedido) setSalvando(false);
         }
     }
 
@@ -113,6 +138,9 @@ export default function EditarTurma() {
     async function handleExcluirTurma() {
         if (!id || !sessaoValida || erroCarga || loadingDados || salvando || excluindo) return;
 
+        if (escrita.current) return;
+        escrita.current = true;
+        const contextoPedido = contexto;
         setExcluindo(true);
         try {
             await excluirTurma(id);
@@ -122,7 +150,8 @@ export default function EditarTurma() {
         } catch (error) {
             Alert.alert("Erro", errorMessage(error));
         } finally {
-            setExcluindo(false);
+            escrita.current = false;
+            if (contextoAtual.current === contextoPedido) setExcluindo(false);
         }
     }
 
@@ -173,6 +202,15 @@ export default function EditarTurma() {
                     />
                 </View>
 
+                <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Quantidade de assentos</Text>
+                    <TextInput accessibilityLabel="Quantidade de assentos" style={styles.input} value={capacidade}
+                        keyboardType="number-pad" placeholder="Ex: 12" placeholderTextColor={theme.colors.textLight}
+                        onChangeText={valor => { capacidadeEditada.current = true; setCapacidade(valor); }} />
+                </View>
+
+                <Text style={styles.label}>{ocupados == null ? 'Carregando ocupação...' : ocupados + ' passageiros aprovados / ' + (capacidade || 'capacidade não configurada') + ' assentos'}</Text>
+                <Text style={styles.label}>{ocupados != null && /^[1-9]\d*$/.test(capacidade) ? Math.max(0, Number(capacidade) - ocupados) + ' vagas após salvar esta capacidade' : 'Defina a capacidade para consultar vagas.'}</Text>
                 <View style={styles.inputGroup}>
                     <Text style={styles.label}>Endereço de Saída (Origem)</Text>
                     <View style={styles.mapInputContainer}>
