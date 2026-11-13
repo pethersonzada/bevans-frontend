@@ -30,6 +30,8 @@ function RootLayoutNav() {
                 <Stack.Screen name="home-passageiro" />
             </Stack.Protected>
             <Stack.Protected guard={signedIn && user.tipo === 'MOTORISTA'}>
+                <Stack.Screen name="rotas-publicas" />
+                <Stack.Screen name="editar-rota-publica" />
                 <Stack.Screen name="home-motorista" />
                 <Stack.Screen name="cadastro-turma" />
                 <Stack.Screen name="editar-turma" />

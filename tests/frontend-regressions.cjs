@@ -1120,3 +1120,61 @@ test('occupancy reads authenticated API values and distinguishes legacy unconfig
     data={capacidade:12,ocupados:9,disponiveis:10,configurada:true};
     await assert.rejects(service.consultarVagasTurma(7),/inconsistente/);
 });
+
+
+function rotaPublicaFixture(extra={}) {
+    return {id:9,turmaId:7,nome:'Campus',cidade:'Caruaru',categoria:'UNIVERSITARIA',modo:'FIXA',origemNome:'Terminal',origemLatitude:-8.2,origemLongitude:-35.9,
+        destinoNome:'Campus',destinoLatitude:-8.3,destinoLongitude:-36,dias:['MONDAY'],horarioIda:'07:00',horarioVolta:null,descricao:null,regiao:null,campus:null,
+        publicada:false,ativa:true,vagas:{capacidade:12,ocupados:0,disponiveis:12,configurada:true},paradas:[],...extra};
+}
+test('public route parser only keeps permitted fields and rejects invalid coordinates and vacancies',()=>{
+    const service=load('src/services/rotasPublicas.ts',{'../config/api':{}});
+    const parsed=service.parseRotaPublica(rotaPublicaFixture({telefone:'private',passageiros:[{nome:'secret'}],gps:{latitude:-8}}));
+    assert.equal('telefone' in parsed,false);assert.equal('passageiros' in parsed,false);assert.equal('gps' in parsed,false);
+    assert.throws(()=>service.parseRotaPublica(rotaPublicaFixture({origemLatitude:NaN})));
+    assert.throws(()=>service.parseRotaPublica(rotaPublicaFixture({vagas:{capacidade:12,ocupados:2,disponiveis:12,configurada:true}})));
+});
+test('public route service rejects swapped stop order and verifies the coordinates before accepting success',async()=>{
+    const pontos=[{id:1,nome:'A',latitude:-8.21,longitude:-35.91,horario:null},{id:2,nome:'B',latitude:-8.22,longitude:-35.92,horario:null}];
+    let data=rotaPublicaFixture({paradas:pontos});const requests=[];
+    const service=load('src/services/rotasPublicas.ts',{'../config/api':{apiRequest:async(path,options)=>{requests.push({path,options});return data;}}});
+    await service.salvarParadasPublicas(9,pontos);assert.equal(requests[0].path,'/rotas-publicas/9/paradas');
+    data=rotaPublicaFixture({paradas:[pontos[1],pontos[0]]});await assert.rejects(service.salvarParadasPublicas(9,pontos),/não confirmou/);
+    data=rotaPublicaFixture({origemLatitude:-8.4});await assert.rejects(service.salvarRotaPublica(9,rotaPublicaFixture()),/não confirmou/);
+});
+test('public route service never sends invalid identity or unconfirmed geographic points',async()=>{
+    let calls=0;const service=load('src/services/rotasPublicas.ts',{'../config/api':{apiRequest:async()=>{calls++;}}});
+    await assert.rejects(service.buscarRotaPublica('../1'));
+    await assert.rejects(service.salvarRotaPublica(null,rotaPublicaFixture({destinoLatitude:NaN})));
+    await assert.rejects(service.salvarParadasPublicas(9,[{id:null,nome:'Rua',latitude:999,longitude:-35}]));
+    assert.equal(calls,0);
+});
+test('urban route editor keeps map choices in the draft and saves ordered stops through the API',async()=>{
+    const writes=[];const router={back(){},push(){}};let saved;
+    const render=componentHarness('src/app/editar-rota-publica.tsx','default',{
+        'expo-router':{useLocalSearchParams:()=>({turmaId:'7'}),useRouter:()=>router,useFocusEffect(){}},
+        'react-native':{StyleSheet:{create:x=>x},Text:'Text',View:'View',ScrollView:'Scroll',TextInput:'Input',TouchableOpacity:'Button'},
+        'react-native-safe-area-context':{useSafeAreaInsets:()=>({top:0,bottom:0})},
+        '../contexts/AuthContext':{useAuth:()=>({user:{id:'1',tipo:'MOTORISTA'},isLoading:false})},
+        '../components/AsyncState':{AsyncState:'AsyncState'},
+        '../components/EnderecoMapaPicker':{__esModule:true,default:'MapPicker'},
+        '../components/MapaPreviaPublica':{__esModule:true,default:'Preview'},
+        '../styles/globalStyles':{globalStyles:{}},
+        '../services/rotasPublicas':{
+            salvarRotaPublica:async(id,data)=>{writes.push({id,data});saved=rotaPublicaFixture(data);return saved;},
+            salvarParadasPublicas:async(id,paradas)=>{writes.push({id,paradas});return {...saved,paradas:paradas.map((p,i)=>({...p,id:i+1}))};},
+        },
+    });
+    const press=label=>elements(render({})).find(n=>n.props.accessibilityLabel===label).props.onPress();
+    const input=(label,value)=>elements(render({})).find(n=>n.props.accessibilityLabel===label).props.onChangeText(value);
+    input('Nome da rota','Campus');input('Cidade de operação','Caruaru');
+    for(const [label,nome,lat,lon] of [['Definir origem','Terminal',-8.2,-35.9],['Definir destino','Campus',-8.3,-36],['Adicionar parada no mapa','Parada',-8.25,-35.95]]){
+        press(label);assert.equal(elements(render({})).find(n=>n.props.accessibilityLabel==='Confirmar ponto').props.disabled,true);
+        elements(render({})).find(n=>n.type==='MapPicker').props.onChange({nome,latitude:lat,longitude:lon,precisao:'manual'});
+        press('Confirmar ponto');
+    }
+    input('Nome da parada 1','Ponto confirmado');press('Salvar rota e paradas');await new Promise(setImmediate);
+    assert.equal(writes.length,2);assert.equal(writes[0].data.origemNome,'Terminal');assert.equal(writes[1].paradas[0].nome,'Ponto confirmado');
+    assert.equal(elements(render({})).some(n=>n.props.children==='Rota e paradas salvas.'),true);
+    render.unmount();
+});

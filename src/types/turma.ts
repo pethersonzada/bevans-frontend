@@ -15,3 +15,5 @@ export type Turma = {
 
 export type PassageiroTurma = { id: number; nome: string; telefone?: string; status?: string };
 export type SolicitacaoTurma = { id: number; aluno?: PassageiroTurma };
+
+export type VagasTurma = { capacidade: number | null; ocupados: number; disponiveis: number | null; configurada: boolean };

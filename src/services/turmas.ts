@@ -1,5 +1,5 @@
 import { apiFetch, apiRequest, readApiError } from '../config/api';
-import type { Turma } from '../types/turma';
+import type { Turma, VagasTurma } from '../types/turma';
 
 function identifier(value: string | number): number {
     const parsed = Number(value);
@@ -104,7 +104,7 @@ export function lerAssentos(texto: string): number {
     return validarAssentos(Number(texto));
 }
 
-export type VagasTurma = { capacidade: number | null; ocupados: number; disponiveis: number | null; configurada: boolean };
+export type { VagasTurma } from '../types/turma';
 export async function consultarVagasTurma(turmaId: string | number): Promise<VagasTurma> {
     const value = await apiRequest<unknown>(`/turmas/${identifier(turmaId)}/vagas`);
     if (!value || typeof value !== 'object') throw new Error('Resposta de vagas inválida.');

@@ -330,6 +330,9 @@ export default function HomeMotorista() {
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
+                    <TouchableOpacity accessibilityRole="button" accessibilityLabel="Gerenciar Rotas Públicas" onPress={() => router.push('/rotas-publicas')} style={{padding:16}}>
+                        <Text>Rotas Públicas</Text>
+                    </TouchableOpacity>
                 {erroCarga && <AsyncState message={erroCarga} onRetry={refresh} />}
                 {viagemAtiva && <BannerRotaAtiva
                     onPress={() => {
