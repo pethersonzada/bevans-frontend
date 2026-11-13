@@ -14,7 +14,6 @@ import type {
   EnderecoEncontrado,
 } from '../services/enderecoSearch';
 import {
-  localizarNumero,
   pesquisarEnderecos,
 } from '../services/enderecoSearch';
 
@@ -28,10 +27,9 @@ type Props = {
 
 export default function EnderecoSearchInput({
   onSelecionar,
-  placeholder = 'Rua, número ou nome do local',
+  placeholder = 'Rua, número, bairro, cidade ou estabelecimento',
 }: Props) {
   const [texto, setTexto] = useState('');
-  const [numero, setNumero] = useState('');
   const [resultados, setResultados] =
     useState<EnderecoEncontrado[]>([]);
   const [base, setBase] =
@@ -41,15 +39,10 @@ export default function EnderecoSearchInput({
     useState<EnderecoEncontrado | null>(null);
 
   const [buscando, setBuscando] = useState(false);
-  const [resolvendo, setResolvendo] = useState(false);
   const [erro, setErro] = useState('');
   const [semResultados, setSemResultados] = useState(false);
   const [tentativa, setTentativa] = useState(0);
-  const numeroController = useRef<AbortController | null>(null);
-
-  const requisicaoId = useRef(0);
-  useEffect(() => () => { requisicaoId.current++; numeroController.current?.abort(); }, []);
-
+  const pesquisa = useRef<AbortController | null>(null);
   useEffect(() => {
     if (base) return;
 
@@ -62,6 +55,7 @@ export default function EnderecoSearchInput({
     }
 
     const controller = new AbortController();
+    pesquisa.current = controller;
 
     const timer = setTimeout(async () => {
       setBuscando(true);
@@ -101,13 +95,11 @@ export default function EnderecoSearchInput({
   }, [texto, base, tentativa]);
 
   function alterarTexto(valor: string) {
-    requisicaoId.current++;
-    numeroController.current?.abort();
-    setResolvendo(false);
+    pesquisa.current?.abort();
+    setBuscando(false);
     setSemResultados(false);
 
     setTexto(valor);
-    setNumero('');
     setBase(null);
     setSelecionado(null);
     setResultados([]);
@@ -116,89 +108,20 @@ export default function EnderecoSearchInput({
     onSelecionar(null);
   }
 
-  function alterarNumero(valor: string) {
-    requisicaoId.current++;
-    numeroController.current?.abort();
-    setResolvendo(false);
-
-    setNumero(valor);
-    setSelecionado(null);
-    setErro('');
-
-    onSelecionar(null);
-  }
-
   function selecionarResultado(item: EnderecoEncontrado) {
-    requisicaoId.current++;
-    numeroController.current?.abort();
-    setResolvendo(false);
+    pesquisa.current?.abort();
     setBuscando(false);
     setSemResultados(false);
 
     setBase(item);
     setTexto(item.nome);
-    setNumero(item.numero === 'S/N' ? '' : item.numero || '');
     setResultados([]);
     setErro('');
 
-    const pronto =
-      item.tipo === 'estabelecimento' ||
-      (!!item.numero && item.numero !== 'S/N');
-
-    if (pronto) {
-      setSelecionado(item);
-      onSelecionar(item);
-    } else {
-      setSelecionado(null);
-      onSelecionar(null);
-    }
-  }
-
-  async function confirmarNumero() {
-    if (!base) {
-      setErro('Selecione uma rua nas sugestões.');
-      return;
-    }
-
-    if (!numero.trim()) {
-      setErro('Informe o número do imóvel.');
-      return;
-    }
-
-    const id = ++requisicaoId.current;
-    numeroController.current?.abort();
-    const controller = new AbortController();
-    numeroController.current = controller;
-
-    setResolvendo(true);
-    setSelecionado(null);
-    setErro('');
-    onSelecionar(null);
-
-    try {
-      const encontrado = await localizarNumero(
-        base,
-        numero,
-        controller.signal
-      );
-
-      if (id !== requisicaoId.current) return;
-
-      setSelecionado(encontrado);
-      onSelecionar(encontrado);
-    } catch (e) {
-      if (id === requisicaoId.current) {
-        setErro(
-          e instanceof Error
-            ? e.message
-            : 'Número não localizado.'
-        );
-      }
-    } finally {
-      if (id === requisicaoId.current) {
-        setResolvendo(false);
-      }
-    }
+    // O picker recebe também resultados aproximados para centralizar o mapa.
+    // Apenas o picker decide quando o ponto pode ser salvo.
+    setSelecionado(item);
+    onSelecionar(item);
   }
 
   return (
@@ -211,6 +134,7 @@ export default function EnderecoSearchInput({
         />
 
         <TextInput
+          accessibilityLabel="Pesquisar endereço ou estabelecimento"
           style={styles.inputBusca}
           value={texto}
           onChangeText={alterarTexto}
@@ -248,6 +172,8 @@ export default function EnderecoSearchInput({
         <View style={styles.lista}>
           {resultados.map((item) => (
             <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={item.nome}
               key={item.id}
               style={styles.resultado}
               onPress={() => selecionarResultado(item)}
@@ -277,48 +203,6 @@ export default function EnderecoSearchInput({
         </Text>
       )}
 
-      {base && base.tipo !== 'estabelecimento' && (
-        <View style={styles.numeroLinha}>
-          <View style={styles.numeroCampo}>
-            <Text style={styles.label}>
-              Número do imóvel
-            </Text>
-
-            <TextInput
-              style={styles.inputNumero}
-              value={numero}
-              onChangeText={alterarNumero}
-              placeholder="Ex: 22"
-              placeholderTextColor={
-                theme.colors.map.textLight
-              }
-              autoCapitalize="characters"
-              maxLength={16}
-              editable={!resolvendo}
-            />
-          </View>
-
-          <TouchableOpacity
-            style={[
-              styles.buscarNumero,
-              resolvendo && styles.desativado,
-            ]}
-            disabled={resolvendo}
-            onPress={confirmarNumero}
-          >
-            {resolvendo ? (
-              <ActivityIndicator
-                color={theme.colors.map.text}
-              />
-            ) : (
-              <Text style={styles.botaoTexto}>
-                Localizar
-              </Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      )}
-
       {selecionado && (
         <View style={styles.confirmacao}>
           <Ionicons
@@ -327,7 +211,7 @@ export default function EnderecoSearchInput({
             color={theme.colors.success}
           />
           <Text style={styles.confirmacaoTexto}>
-            Localização selecionada
+            Resultado selecionado. Confira o ponto no mapa.
           </Text>
         </View>
       )}
@@ -392,53 +276,6 @@ const styles = StyleSheet.create({
     color: theme.colors.map.text,
     fontSize: theme.typography.size.small,
     flex: 1,
-  },
-
-  numeroLinha: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    marginTop: theme.spacing.sm,
-    gap: theme.spacing.sm,
-  },
-
-  numeroCampo: {
-    flex: 1,
-  },
-
-  label: {
-    color: theme.colors.map.textLight,
-    fontSize: theme.typography.size.small,
-    marginBottom: theme.spacing.xs,
-  },
-
-  inputNumero: {
-    minHeight: 45,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.map.border,
-    paddingHorizontal: theme.spacing.md,
-    color: theme.colors.map.text,
-    backgroundColor: theme.colors.map.input,
-    fontSize: theme.typography.size.regular,
-  },
-
-  buscarNumero: {
-    height: 45,
-    minWidth: 95,
-    backgroundColor: theme.colors.primary,
-    paddingHorizontal: theme.spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: theme.borderRadius.md,
-  },
-
-  botaoTexto: {
-    color: theme.colors.map.text,
-    fontWeight: theme.typography.weight.bold,
-  },
-
-  desativado: {
-    opacity: 0.45,
   },
 
   erro: {

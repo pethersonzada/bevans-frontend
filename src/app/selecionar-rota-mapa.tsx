@@ -2,7 +2,7 @@ import { useAppAlert } from '../contexts/AppAlertContext';
 
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import {
   ActivityIndicator,
@@ -21,12 +21,22 @@ import type {
   EnderecoEncontrado,
 } from '../services/enderecoSearch';
 
-import { apiFetch, errorMessage, readApiError, readApiJson } from '../config/api';
+import { errorMessage } from '../config/api';
+import { buscarTurmaMotorista, salvarPontoTurma } from '../services/turmas';
+import { useAuth } from '../contexts/AuthContext';
+import { AsyncState } from '../components/AsyncState';
 import { theme } from '../styles/theme';
 
 export default function SelecionarRotaMapa() {
     const Alert = useAppAlert();
   const router = useRouter();
+  const { user, isLoading } = useAuth();
+  const operacao = useRef(false);
+  const montada = useRef(true);
+  const [pontoSalvo, setPontoSalvo] = useState<{ latitude: number | null | undefined; longitude: number | null | undefined } | null>(null);
+  const [carregando, setCarregando] = useState(true);
+  const [erroCarga, setErroCarga] = useState('');
+  const [tentativa, setTentativa] = useState(0);
   const insets = useSafeAreaInsets();
 
   const { turmaId, tipo } = useLocalSearchParams<{
@@ -40,8 +50,34 @@ export default function SelecionarRotaMapa() {
   const [salvando, setSalvando] = useState(false);
 
   const origem = tipo === 'ORIGEM';
+  const contexto = user.id + ':' + turmaId + ':' + tipo;
+  const contextoAtual = useRef(contexto);
+  contextoAtual.current = contexto;
+
+  useEffect(() => { montada.current = true; return () => { montada.current = false; }; }, []);
+  useEffect(() => {
+    if (isLoading) return;
+    let ativo = true;
+    setCarregando(true);
+    setErroCarga('');
+    setEndereco(null);
+    setPontoSalvo(null);
+    if (!user.id || user.tipo !== 'MOTORISTA' || !['ORIGEM', 'DESTINO'].includes(tipo)) {
+      setErroCarga('Sessão ou ponto de rota inválido.');
+      setCarregando(false);
+      return;
+    }
+    buscarTurmaMotorista(user.id, turmaId).then(turma => {
+      if (!ativo) return;
+      setPontoSalvo(origem ? { latitude: turma.origemLatitude, longitude: turma.origemLongitude }
+        : { latitude: turma.destinoLatitude, longitude: turma.destinoLongitude });
+    }).catch(erro => { if (ativo) setErroCarga(errorMessage(erro)); })
+      .finally(() => { if (ativo) setCarregando(false); });
+    return () => { ativo = false; };
+  }, [isLoading, user.id, user.tipo, turmaId, tipo, origem, tentativa]);
 
   async function confirmar() {
+    if (operacao.current || carregando || isLoading || erroCarga || !user.id || user.tipo !== 'MOTORISTA') return;
     if (
       !endereco ||
       !turmaId ||
@@ -49,44 +85,18 @@ export default function SelecionarRotaMapa() {
     ) {
       Alert.alert(
         'Atenção',
-        'Selecione um endereço válido na busca.'
+        'Selecione ou marque um ponto válido no mapa.'
       );
       return;
     }
 
-    const dados = origem
-      ? {
-          origemNome: endereco.nome,
-          origemLatitude: endereco.latitude,
-          origemLongitude: endereco.longitude,
-        }
-      : {
-          destinoNome: endereco.nome,
-          destinoLatitude: endereco.latitude,
-          destinoLongitude: endereco.longitude,
-        };
-
+    const contextoPedido = contexto;
+    operacao.current = true;
     setSalvando(true);
 
     try {
-      const response = await apiFetch(
-        `/turmas/${turmaId}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(dados),
-        }
-      );
-
-      if (!response.ok) {
-        const mensagem = (await readApiError(response)).message;
-
-        throw new Error(
-          mensagem || `HTTP ${response.status}`
-        );
-      }
+      await salvarPontoTurma(user.id, turmaId, tipo, endereco);
+      if (!montada.current || contextoAtual.current !== contextoPedido) return;
 
       Alert.alert(
         'Sucesso',
@@ -94,11 +104,12 @@ export default function SelecionarRotaMapa() {
         [
           {
             text: 'OK',
-            onPress: () => router.back(),
+            onPress: () => { if (montada.current && contextoAtual.current === contextoPedido) router.back(); },
           },
         ]
       );
     } catch (e) {
+      if (!montada.current || contextoAtual.current !== contextoPedido) return;
       Alert.alert(
         'Erro ao salvar',
         e instanceof Error
@@ -106,7 +117,8 @@ export default function SelecionarRotaMapa() {
           : 'Falha de conexão.'
       );
     } finally {
-      setSalvando(false);
+      operacao.current = false;
+      if (montada.current) setSalvando(false);
     }
   }
 
@@ -145,10 +157,9 @@ export default function SelecionarRotaMapa() {
         </Text>
       </View>
 
-      <EnderecoMapaPicker
-        tipo={origem ? 'origem' : 'destino'}
-        onChange={setEndereco}
-      />
+      {carregando || isLoading ? <AsyncState loading title="Carregando ponto salvo..." /> : erroCarga ?
+        <AsyncState title="Não foi possível abrir o mapa" message={erroCarga} onRetry={() => setTentativa(value => value + 1)} /> :
+        <EnderecoMapaPicker key={turmaId + tipo} tipo={origem ? 'origem' : 'destino'} localizacaoInicial={pontoSalvo} onChange={setEndereco} />}
 
       <View
         style={[
@@ -165,7 +176,7 @@ export default function SelecionarRotaMapa() {
             (!endereco || salvando) &&
               styles.inativo,
           ]}
-          disabled={!endereco || salvando}
+          disabled={!endereco || salvando || carregando || !!erroCarga || isLoading}
           onPress={confirmar}
         >
           {salvando ? (

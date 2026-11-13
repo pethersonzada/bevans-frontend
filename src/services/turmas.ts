@@ -64,3 +64,27 @@ export async function regenerarCodigoTurma(id: number): Promise<Turma> {
     if (turma.id !== id || !turma.codigoConvite?.trim()) throw new Error('O servidor não confirmou o novo código desta turma.');
     return turma;
 }
+
+
+export async function salvarPontoTurma(userId: string, turmaId: string, tipo: 'ORIGEM' | 'DESTINO',
+    ponto: { nome: string; latitude: number; longitude: number }): Promise<Turma> {
+    const id = identifier(turmaId);
+    identifier(userId);
+    if (!['ORIGEM', 'DESTINO'].includes(tipo) || !ponto.nome.trim() ||
+        !Number.isFinite(ponto.latitude) || !Number.isFinite(ponto.longitude) ||
+        Math.abs(ponto.latitude) > 90 || Math.abs(ponto.longitude) > 180 ||
+        (ponto.latitude === 0 && ponto.longitude === 0)) throw new Error('Confirme um ponto válido no mapa.');
+    const prefixo = tipo === 'ORIGEM' ? 'origem' : 'destino';
+    const data = await apiRequest<unknown>(`/turmas/${id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [prefixo + 'Nome']: ponto.nome, [prefixo + 'Latitude']: ponto.latitude, [prefixo + 'Longitude']: ponto.longitude }),
+    });
+    const turma = data == null ? await buscarTurmaMotorista(userId, id) : parseTurma(data);
+    const lat = tipo === 'ORIGEM' ? turma.origemLatitude : turma.destinoLatitude;
+    const lon = tipo === 'ORIGEM' ? turma.origemLongitude : turma.destinoLongitude;
+    if (turma.id !== id || lat == null || lon == null ||
+        Math.abs(lat - ponto.latitude) > 0.0000001 || Math.abs(lon - ponto.longitude) > 0.0000001) {
+        throw new Error('O servidor não confirmou as coordenadas salvas. Reabra o mapa e tente novamente.');
+    }
+    return turma;
+}

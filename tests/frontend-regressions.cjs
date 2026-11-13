@@ -9,7 +9,7 @@ function load(file, mocks, globals = {}) {
     const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), {
         compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
     }).outputText;
-    vm.runInNewContext(code, { exports, Headers, Response, AbortController, setTimeout, clearTimeout, Error, require: name => {
+    vm.runInNewContext(code, { exports, process: { env: {} }, Headers, Response, AbortController, setTimeout, clearTimeout, Error, require: name => {
         if (!(name in mocks)) throw new Error(`Unexpected import: ${name}`);
         return mocks[name];
     }, ...globals });
@@ -978,4 +978,108 @@ test('navigation distinguishes blocked permission, rejected activation and a det
     const detached = navigationLocationHarness({ active: () => false });
     assert.equal(await detached.run(), false);
     assert.equal(detached.prompts(), 0);
+});
+
+
+test('address search uses one field and passes approximate streets to the map without requiring a house number', async () => {
+    const item = { id: 'street', nome: 'Rua Central', rua: 'Rua Central', numero: '', bairro: '', latitude: -8, longitude: -35, precisao: 'aproximada' };
+    const changes = [];
+    const render = componentHarness('src/components/EnderecoSearchInput.tsx', 'default', {
+        'react-native': { StyleSheet: { create: value => value }, Text: 'Text', TextInput: 'Input', View: 'View', TouchableOpacity: 'Button', ActivityIndicator: 'Spinner' },
+        './AsyncState': { AsyncState: 'AsyncState' },
+        '../services/enderecoSearch': { pesquisarEnderecos: async () => [item] },
+    });
+    const props = { onSelecionar: value => changes.push(value) };
+    elements(render(props)).find(n => n.type === 'Input').props.onChangeText('Rua Central');
+    render(props);
+    await new Promise(resolve => setTimeout(resolve, 480));
+    const tree = render(props);
+    elements(tree).find(n => n.props.accessibilityLabel === item.nome).props.onPress();
+    const selected = render(props);
+    assert.equal(elements(selected).filter(n => n.type === 'Input').length, 1);
+    assert.equal(changes.at(-1), item);
+    render.unmount();
+});
+
+function addressMapHarness(changes) {
+    const render = componentHarness('src/components/EnderecoMapaPicker.tsx', 'default', {
+        '@rnmapbox/maps': { __esModule: true, default: { MapView: 'Map', Camera: 'Camera', PointAnnotation: 'Pin', StyleURL: { Dark: 'dark' }, setAccessToken() {} } },
+        '../services/location': { getCurrentCoordinates: () => assert.fail('saved location must not request GPS') },
+        './EnderecoSearchInput': { __esModule: true, default: 'Search' },
+        './MapMarker': { __esModule: true, default: 'Marker' },
+    });
+    const props = { localizacaoInicial: { latitude: -8, longitude: -35 }, onChange: value => changes.push(value) };
+    return { render: () => render(props), unmount: () => render.unmount() };
+}
+
+test('street result never becomes a saved residential point until the user marks the map', () => {
+    const changes = [], h = addressMapHarness(changes);
+    const street = { id: 'street', nome: 'Rua Central', rua: 'Rua Central', numero: '', bairro: '', latitude: -8.1, longitude: -35.1, precisao: 'aproximada' };
+    elements(h.render()).find(n => n.type === 'Search').props.onSelecionar(street);
+    assert.equal(changes.at(-1), null);
+    elements(h.render()).find(n => n.type === 'Map').props.onPress({ geometry: { type: 'Point', coordinates: [-35.123, -8.456] } });
+    assert.equal(changes.at(-1).latitude, -8.456);
+    assert.equal(changes.at(-1).longitude, -35.123);
+    assert.equal(changes.at(-1).precisao, 'manual');
+    assert.equal(changes.at(-1).nome, street.nome);
+    const pin = elements(h.render()).find(n => n.type === 'Pin' && n.props.draggable);
+    pin.props.onDragEnd({ geometry: { coordinates: [-35.2, -8.3] } });
+    assert.equal(changes.at(-1).latitude, -8.3);
+    h.unmount();
+});
+
+test('clearing address invalidates selection; manual pin without search works and invalid coordinates are ignored', () => {
+    const changes = [], h = addressMapHarness(changes);
+    assert.equal(changes.length, 0);
+    elements(h.render()).find(n => n.type === 'Map').props.onPress({ geometry: { type: 'Point', coordinates: [-35.2, -8.3] } });
+    assert.equal(changes.at(-1).precisao, 'manual');
+    elements(h.render()).find(n => n.type === 'Search').props.onSelecionar(null);
+    assert.equal(changes.at(-1), null);
+    const count = changes.length;
+    elements(h.render()).find(n => n.type === 'Map').props.onPress({ geometry: { type: 'Point', coordinates: [999, NaN] } });
+    assert.equal(changes.length, count);
+    h.unmount();
+});
+
+
+test('map save verifies coordinates and rejects a success response for a different or incomplete turma', async () => {
+    let data = { id: 7, origemLatitude: -8, origemLongitude: -35 };
+    const requests = [];
+    const service = load('src/services/turmas.ts', { '../config/api': { apiRequest: async (path, options) => { requests.push({path, options}); return data; } } });
+    const point = { nome: 'Garagem', latitude: -8, longitude: -35 };
+    assert.equal((await service.salvarPontoTurma('1','7','ORIGEM',point)).id, 7);
+    assert.deepEqual(JSON.parse(requests[0].options.body), { origemNome: 'Garagem', origemLatitude: -8, origemLongitude: -35 });
+    for (const invalid of [{ id: 8, origemLatitude: -8, origemLongitude: -35 }, { id: 7 }, { id: 7, origemLatitude: -8.1, origemLongitude: -35 }]) {
+        data = invalid;
+        await assert.rejects(service.salvarPontoTurma('1','7','ORIGEM',point), /não confirmou/);
+    }
+});
+
+test('empty map save response is verified by reading the authorized driver list', async () => {
+    const paths = [];
+    const service = load('src/services/turmas.ts', { '../config/api': { apiRequest: async (path, options) => {
+        paths.push(path); return options ? null : [{ id: 7, destinoLatitude: -8.2, destinoLongitude: -35.3 }];
+    } } });
+    await service.salvarPontoTurma('1','7','DESTINO',{ nome: 'Campus', latitude: -8.2, longitude: -35.3 });
+    assert.deepEqual(paths, ['/turmas/7', '/turmas/motorista/1']);
+});
+
+test('invalid map points or identities never send a save request', async () => {
+    let calls=0;
+    const service=load('src/services/turmas.ts',{'../config/api':{apiRequest:async()=>{calls++;}}});
+    for (const point of [{nome:'Campus',latitude:NaN,longitude:-35},{nome:'Campus',latitude:-8,longitude:181},{nome:'',latitude:-8,longitude:-35}]) {
+        await assert.rejects(service.salvarPontoTurma('1','7','DESTINO',point));
+    }
+    await assert.rejects(service.salvarPontoTurma('null','7','DESTINO',{nome:'Campus',latitude:-8,longitude:-35}));
+    assert.equal(calls,0);
+});
+
+test('geocoding metadata preserves the difference between streets and numbered addresses', async () => {
+    const service=addressService(async()=>new Response(JSON.stringify({features:[
+        {id:'street',geometry:{coordinates:[-35,-8]},properties:{name:'Rua Central',feature_type:'street'}},
+        {id:'address',geometry:{coordinates:[-35.1,-8.1]},properties:{name:'Rua Central 12',feature_type:'address',address_number:'12'}}
+    ]})));
+    const results=await service.pesquisarEnderecos('Rua Central 12');
+    assert.equal(results[0].precisao,'aproximada');
+    assert.equal(results[1].precisao,'endereco');
 });

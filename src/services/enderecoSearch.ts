@@ -20,6 +20,7 @@ export type EnderecoEncontrado = {
   numero: string;
   bairro: string;
   tipo?: 'endereco' | 'estabelecimento';
+  precisao?: 'aproximada' | 'endereco' | 'manual';
 };
 
 type Feature = {
@@ -68,6 +69,7 @@ function converter(f: Feature, indice: number): EnderecoEncontrado | null {
     latitude, longitude, rua, numero,
     bairro: p.context?.neighborhood?.name || p.context?.locality?.name || '',
     tipo: 'endereco',
+    precisao: p.feature_type === 'address' && numero ? 'endereco' : 'aproximada',
   };
 }
 
@@ -140,6 +142,6 @@ async function pesquisarEstabelecimentos(termo: string, signal?: AbortSignal): P
     return [{ id: `poi:${p.place_id || i}`, nome: p.formatted || p.name || p.address_line1 || termo,
       latitude: p.lat!, longitude: p.lon!, rua: p.street || p.name || '',
       numero: p.housenumber || 'S/N', bairro: p.suburb || p.district || '',
-      tipo: 'estabelecimento' as const }];
+      precisao: 'aproximada' as const, tipo: 'estabelecimento' as const }];
   });
 }

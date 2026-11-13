@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Text,
   View,
+  TouchableOpacity,
 } from 'react-native';
 
 import EnderecoSearchInput from './EnderecoSearchInput';
@@ -91,6 +92,8 @@ export default function EnderecoMapaPicker({
   const [selecionado, setSelecionado] =
     useState<EnderecoEncontrado | null>(null);
 
+  const [candidato, setCandidato] = useState<EnderecoEncontrado | null>(null);
+
   const [carregandoGPS, setCarregandoGPS] =
     useState(!posicaoSalva);
 
@@ -125,8 +128,10 @@ export default function EnderecoMapaPicker({
   ) {
     selecionouRef.current = endereco !== null;
 
-    setSelecionado(endereco);
-    onChange(endereco);
+    setCandidato(endereco);
+    const confirmado = endereco?.precisao === 'endereco' || endereco?.precisao === 'manual' ? endereco : null;
+    setSelecionado(confirmado);
+    onChange(confirmado);
 
     if (endereco) {
       // Selecionou uma opção na pesquisa:
@@ -154,6 +159,19 @@ export default function EnderecoMapaPicker({
     }
   }
 
+  function marcarPonto(longitude: number, latitude: number) {
+    if (!coordenadasValidas(latitude, longitude)) return;
+    const base = candidato || selecionado;
+    const manual: EnderecoEncontrado = {
+      id: 'manual:' + longitude + ':' + latitude,
+      nome: base?.nome || 'Ponto marcado no mapa',
+      rua: base?.rua || 'Ponto marcado no mapa', numero: base?.numero || '', bairro: base?.bairro || '',
+      latitude, longitude, tipo: base?.tipo || 'endereco', precisao: 'manual',
+    };
+    atualizarEndereco(manual);
+  }
+
+  const posicaoCandidata = candidato ? coordenadasValidas(candidato.latitude, candidato.longitude) : null;
   const posicaoSelecionada = selecionado
     ? coordenadasValidas(
         selecionado.latitude,
@@ -163,6 +181,7 @@ export default function EnderecoMapaPicker({
 
   const centroMapa =
     posicaoSelecionada ||
+    posicaoCandidata ||
     posicaoSalva ||
     posicaoGPS;
 
@@ -170,6 +189,12 @@ export default function EnderecoMapaPicker({
     <View style={styles.container}>
       {centroMapa ? (
         <MapboxGL.MapView
+          onPress={event => {
+            if (event.geometry.type === 'Point') {
+              const [longitude, latitude] = event.geometry.coordinates;
+              marcarPonto(longitude, latitude);
+            }
+          }}
           style={styles.mapa}
           styleURL={MapboxGL.StyleURL.Dark}
           compassEnabled={false}
@@ -192,9 +217,19 @@ export default function EnderecoMapaPicker({
             </MapboxGL.PointAnnotation>
           )}
 
+          {posicaoCandidata && !selecionado && (
+            <MapboxGL.PointAnnotation id={`endereco-aproximado-${tipo}`} coordinate={posicaoCandidata}>
+              <MapMarker tipo={tipo} />
+            </MapboxGL.PointAnnotation>
+          )}
           {/* Pin do novo endereço selecionado */}
           {posicaoSelecionada && (
             <MapboxGL.PointAnnotation
+              draggable
+              onDragEnd={event => {
+                const [longitude, latitude] = event.geometry.coordinates;
+                marcarPonto(longitude, latitude);
+              }}
               id={`endereco-novo-${tipo}`}
               coordinate={posicaoSelecionada}
             >
@@ -233,6 +268,15 @@ export default function EnderecoMapaPicker({
       </View>
 
       <View style={styles.info}>
+        {candidato && !selecionado && (
+          <>
+            <Text style={styles.descricao}>Resultado aproximado. Toque no mapa para marcar o local exato ou confirme explicitamente o ponto mostrado.</Text>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Confirmar ponto mostrado no mapa"
+              onPress={() => marcarPonto(candidato.longitude, candidato.latitude)} style={styles.confirmar}>
+              <Text style={styles.titulo}>Confirmar este ponto</Text>
+            </TouchableOpacity>
+          </>
+        )}
         <Text style={styles.titulo}>
           {selecionado
             ? 'Nova localização selecionada'
@@ -248,7 +292,7 @@ export default function EnderecoMapaPicker({
             ? selecionado.nome
             : posicaoSalva
               ? 'O marcador mostra o endereço salvo. Pesquise outro endereço para alterá-lo.'
-              : 'Pesquise e selecione um endereço para posicionar o marcador.'}
+              : 'Pesquise um endereço ou toque no mapa para marcar o local exato. Arraste o marcador para ajustar.'}
         </Text>
       </View>
     </View>
@@ -256,6 +300,7 @@ export default function EnderecoMapaPicker({
 }
 
 const styles = StyleSheet.create({
+  confirmar: { minHeight: 48, justifyContent: 'center', padding: theme.spacing.sm },
   container: {
     flex: 1,
     minHeight: 320,
