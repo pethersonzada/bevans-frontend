@@ -24,7 +24,8 @@ export function errorMessage(error: unknown, fallback = 'Não foi possível conc
 
 export async function readApiError(response: Response): Promise<ApiError> {
     const text = await response.text();
-    let message = `Não foi possível concluir a operação (HTTP ${response.status}).`;
+    const messages:Record<number,string>={403:'Você não tem permissão para esta operação.',404:'O recurso não está disponível para sua conta.',409:'Os dados mudaram ou há vínculos que impedem esta alteração. Atualize e tente novamente.',503:'O serviço está temporariamente indisponível. Tente novamente em instantes.'};
+    let message = messages[response.status] || `Não foi possível concluir a operação (HTTP ${response.status}).`;
     try {
         const body = JSON.parse(text);
         const detail = body?.erro || body?.message;

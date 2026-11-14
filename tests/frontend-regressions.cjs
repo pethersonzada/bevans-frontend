@@ -780,12 +780,14 @@ test('retry can synchronize an email already changed in Firebase without changin
 });
 
 test('account deletion invokes only the backend, which owns Firebase deletion', async () => {
-    const account = accountHarness();
-    await account.excluirContaServidor('25');
+    const account = accountHarness({status:202});
+    assert.equal(await account.excluirContaServidor('25'),'pendente');
     assert.equal(account.requests.length, 1);
     assert.equal(account.requests[0].path, '/usuarios/25');
     assert.equal(account.requests[0].method, 'DELETE');
     assert.equal(account.firebaseChanges.length, 0);
+    await assert.rejects(accountHarness({status:409}).excluirContaServidor('25'));
+    await assert.rejects(accountHarness({status:200}).excluirContaServidor('25'), /não confirmou/);
 });
 
 test('a late code-regeneration response cannot replace a newly selected turma', async () => {
@@ -1159,6 +1161,7 @@ test('urban route editor keeps map choices in the draft and saves ordered stops 
         '../components/AsyncState':{AsyncState:'AsyncState'},
         '../components/EnderecoMapaPicker':{__esModule:true,default:'MapPicker'},
         '../components/MapaPreviaPublica':{__esModule:true,default:'Preview'},
+        '../components/PedidosRota':{PedidosRota:'Pedidos'},
         '../styles/globalStyles':{globalStyles:{}},
         '../services/rotasPublicas':{
             salvarRotaPublica:async(id,data)=>{writes.push({id,data});saved=rotaPublicaFixture(data);return saved;},

@@ -71,9 +71,11 @@ export async function alterarEmailConta(userId: string, email: string, password:
     }
 }
 
-export async function excluirContaServidor(userId: string): Promise<void> {
+export async function excluirContaServidor(userId: string): Promise<'pendente'> {
     if (!/^[1-9]\d*$/.test(userId)) throw new Error('Conta inválida. Entre novamente.');
     const response = await apiFetch(`/usuarios/${userId}`, { method: 'DELETE' });
     if (!response.ok) throw await readApiError(response);
+    if (response.status !== 202) throw new Error('O servidor não confirmou o processamento da exclusão. Atualize sua sessão antes de tentar novamente.');
+    return 'pendente';
     // Firebase deletion is owned by UsuarioService; only clear the local session afterwards.
 }
