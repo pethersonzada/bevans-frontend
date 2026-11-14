@@ -9,6 +9,7 @@ import { AsyncState } from '../components/AsyncState';
 import EnderecoMapaPicker from '../components/EnderecoMapaPicker';
 import { errorMessage } from '../config/api';
 import { globalStyles as s } from '../styles/globalStyles';
+import { GestaoExcursao } from '../components/GestaoExcursao';
 
 export default function EditarExcursao() {
     const {id}=useLocalSearchParams<{id?:string}>();const {user}=useAuth();const router=useRouter();
@@ -21,6 +22,7 @@ export default function EditarExcursao() {
         {error?<AsyncState message={error} onRetry={reload}/>:id&&!data?<AsyncState loading/>:<Editor key={`${id||'nova'}:${data?.excursao.versao??0}`} excursao={data?.excursao} onSaved={newId=>{if(!id)router.replace({pathname:'/editar-excursao',params:{id:String(newId)}});else reload();}}/>}
         {data?.execucoes.map(e=><View key={e.id} style={s.card}><Text>{e.sentido} · {e.estado}</Text><Button title="Controle de embarque" onPress={()=>router.push({pathname:'/controle-viagem',params:{tipo:'EXCURSAO',id:String(e.id)}})}/>
             {e.estado==='EM_ANDAMENTO'&&<AsyncAction title="Finalizar execução" action={async()=>{await finalizarExcursao(data.excursao.id,e.id);reload();}}/>}</View>)}
+        {data&&<GestaoExcursao key={data.excursao.id} id={data.excursao.id}/>}
     </ScrollView></SafeAreaView>;
 }
 function AsyncAction({title,action}:{title:string;action:()=>Promise<void>}) {
@@ -30,15 +32,17 @@ function AsyncAction({title,action}:{title:string;action:()=>Promise<void>}) {
 function Editor({excursao:e,onSaved}:{excursao?:Excursao;onSaved:(id:number)=>void}) {
     const [titulo,setTitulo]=useState(e?.titulo||''),[partida,setPartida]=useState(e?.partidaEm||''),[retorno,setRetorno]=useState(e?.retornoEm||''),[capacidade,setCapacidade]=useState(String(e?.capacidade||''));
     const [destino,setDestino]=useState<{nome:string;latitude:number;longitude:number}|null>(e?{nome:e.destinoNome,latitude:e.destinoLatitude,longitude:e.destinoLongitude}:null);
+    const [origem,setOrigem]=useState<{nome:string;latitude:number;longitude:number}|null>(e?.origemNome&&e.origemLatitude!=null&&e.origemLongitude!=null?{nome:e.origemNome,latitude:e.origemLatitude,longitude:e.origemLongitude}:null);
     const [modo,setModo]=useState<Excursao['modoColeta']>(e?.modoColeta||'PORTA_A_PORTA');const [paradas,setParadas]=useState<ParadaExcursao[]>(e?.paradas||[]);
     const [novoPonto,setNovoPonto]=useState<{nome:string;latitude:number;longitude:number}|null>(null),[expira,setExpira]=useState('');
     const [confirmarCancelamento,setConfirmarCancelamento]=useState(false);
-    const dados:DadosExcursao={titulo,destinoNome:destino?.nome||'',destinoLatitude:destino?.latitude??NaN,destinoLongitude:destino?.longitude??NaN,origemNome:e?.origemNome??null,origemLatitude:e?.origemLatitude??null,origemLongitude:e?.origemLongitude??null,partidaEm:partida,retornoEm:retorno||null,capacidade:Number(capacidade),versao:e?.versao};
+    const dados:DadosExcursao={titulo,destinoNome:destino?.nome||'',destinoLatitude:destino?.latitude??NaN,destinoLongitude:destino?.longitude??NaN,origemNome:origem?.nome??null,origemLatitude:origem?.latitude??null,origemLongitude:origem?.longitude??null,partidaEm:partida,retornoEm:retorno||null,capacidade:Number(capacidade),versao:e?.versao};
     const salvar=async()=>{if(!destino||!titulo.trim()||!Number.isInteger(Number(capacidade))||Number(capacidade)<1||!Number.isFinite(Date.parse(partida)))throw new Error('Informe título, destino confirmado, partida ISO com fuso e capacidade positiva.');const r=await salvarExcursao(e?.id??null,dados);onSaved(r.id);};
     return <>
         {e&&<Text>{e.estado} · versão {e.versao}</Text>}
         <TextInput style={s.input} accessibilityLabel="Título da excursão" placeholder="Título" value={titulo} onChangeText={setTitulo}/>
         <Text>Destino: {destino?.nome||'confirme no mapa'}</Text><EnderecoMapaPicker localizacaoInicial={destino} onChange={setDestino}/>
+        <Text>Origem operacional opcional: {origem?.nome||'não configurada'}</Text><EnderecoMapaPicker localizacaoInicial={origem} onChange={setOrigem}/><Button title="Remover origem operacional" onPress={()=>setOrigem(null)}/>
         <TextInput style={s.input} accessibilityLabel="Partida ISO com fuso" placeholder="Partida: AAAA-MM-DDTHH:mm:ss-03:00" value={partida} onChangeText={setPartida}/>
         <TextInput style={s.input} accessibilityLabel="Retorno opcional ISO com fuso" placeholder="Retorno opcional" value={retorno} onChangeText={setRetorno}/>
         <TextInput style={s.input} accessibilityLabel="Capacidade" placeholder="Lugares" keyboardType="number-pad" value={capacidade} onChangeText={setCapacidade}/>

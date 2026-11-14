@@ -16,13 +16,15 @@ export async function buscarExcursao(id:string,signal?:AbortSignal) {
     const r=excursao(await apiRequest<Excursao>(`/excursoes/${recursoId(id)}`,{signal}));if(r.id!==Number(id))throw new Error('Excursão divergente.');return r;
 }
 export async function salvarExcursao(id:number|null,dados:DadosExcursao) {
-    return excursao(await apiRequest<Excursao>(id?`/excursoes/${recursoId(id)}`:'/excursoes',{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(dados)}));
+    const r=excursao(await apiRequest<Excursao>(id?`/excursoes/${recursoId(id)}`:'/excursoes',{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(dados)}));
+    if(id&&r.id!==id)throw new Error('O servidor retornou outra excursão.');return r;
 }
 export async function acaoExcursao(id:number,acao:'publicacao'|'cancelamento',versao:number) {
     return excursao(await apiRequest<Excursao>(`/excursoes/${recursoId(id)}/${acao}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({versao})}));
 }
 export async function salvarColetaExcursao(id:number,modo:Excursao['modoColeta'],versao:number,paradas:ParadaExcursao[]) {
-    return excursao(await apiRequest<Excursao>(`/excursoes/${recursoId(id)}/coleta`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({modo,versao,paradas:paradas.map(p=>({...p,pontoConfirmado:true}))})}));
+    const r=excursao(await apiRequest<Excursao>(`/excursoes/${recursoId(id)}/coleta`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({modo,versao,paradas:paradas.map(p=>({...p,pontoConfirmado:true}))})}));
+    if(r.id!==id||r.modoColeta!==modo||r.paradas.length!==paradas.length||paradas.some((p,i)=>{const s=r.paradas[i];return (p.id!=null&&p.id!==s.id)||p.nome!==s.nome||p.latitude!==s.latitude||p.longitude!==s.longitude;}))throw new Error('O servidor não confirmou o modo e a ordem das paradas.');return r;
 }
 export async function listarExecucoes(id:number,signal?:AbortSignal) {
     const r=await apiRequest<ExecucaoExcursao[]>(`/excursoes/${recursoId(id)}/execucoes`,{signal});if(!Array.isArray(r))throw new Error('Execuções indisponíveis.');return r;
@@ -42,4 +44,13 @@ export function linkConvite(base:string|undefined,token:string) {
     if(!base)throw new Error('A página HTTPS de convites do webapp ainda não está configurada.');
     const url=new URL(base);if(url.protocol!=='https:' || url.username || url.password || url.search || url.hash)throw new Error('Configure uma página HTTPS de convites sem parâmetros.');
     url.hash=token;return url.toString();
+}
+export type InscritoExcursao={id:number;nome:string;estado:string;paradaId:number|null;nomePonto:string|null};
+export async function participantesExcursao(id:number,pagina:number,signal?:AbortSignal){return paginaValida(await apiRequest<Pagina<InscritoExcursao>>(`/excursoes/${recursoId(id)}/inscricoes?pagina=${pagina}&tamanho=20`,{signal}));}
+export async function confirmarParticipante(id:number,inscricaoId:number){return apiRequest(`/excursoes/${recursoId(id)}/inscricoes/${recursoId(inscricaoId)}/confirmacao`,{method:'PUT'});}
+export async function convitesExcursao(id:number,signal?:AbortSignal){const r=await apiRequest<{id:number;expiraEm:string;revogadoEm:string|null}[]>(`/excursoes/${recursoId(id)}/convites`,{signal});if(!Array.isArray(r))throw new Error('Convites indisponíveis.');return r;}
+export async function revogarConviteExcursao(id:number,conviteId:number){return apiRequest(`/excursoes/${recursoId(id)}/convites/${recursoId(conviteId)}`,{method:'DELETE'});}
+export async function planejarExcursao(id:number,sentido:'IDA'|'VOLTA',otimizar:boolean){
+    const r=await apiRequest<{paradaId:number|null;nome:string;latitude:number;longitude:number}[]>(`/excursoes/${recursoId(id)}/planejamento?sentido=${sentido}&otimizar=${otimizar}`,{method:'POST'});
+    if(!Array.isArray(r))throw new Error('Roteiro indisponível.');return r;
 }
