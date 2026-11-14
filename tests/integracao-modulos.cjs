@@ -96,3 +96,8 @@ test('excursion collection requires the returned order and does not silently acc
     const m=load('src/services/excursoes.ts',{'./catalogo':catalogo(),'../config/api':{apiRequest:async(path,options)=>{body=JSON.parse(options.body);return {id:7,titulo:'Evento',versao:2,modoColeta:'MULTIPLAS_PARADAS',paradas:[...paradas].reverse()};}}});
     await assert.rejects(m.salvarColetaExcursao(7,'MULTIPLAS_PARADAS',1,paradas),/ordem/);assert.equal(body.paradas[0].pontoConfirmado,true);assert.equal(body.versao,1);
 });
+test('GPS publishing throttles a fast native watcher and never queues skipped samples',async()=>{
+    let now=10000;const points=[];const m=load('src/services/telemetria.ts',{'./viagens':{enviarPosicaoVan:async(id,latitude)=>points.push({id,latitude})}},{Date:{now:()=>now},AbortController});
+    const context={userId:'25',turmaId:7,online:true,active:true,mounted:true};const sender=m.createPositionSender('25',()=>context);
+    assert.equal(await sender.send({latitude:1,longitude:2}),true);now+=2000;assert.equal(await sender.send({latitude:3,longitude:4}),false);now+=4000;assert.equal(await sender.send({latitude:5,longitude:6}),true);assert.deepEqual(points,[{id:7,latitude:1},{id:7,latitude:5}]);
+});

@@ -6,11 +6,16 @@ type Point = { latitude: number; longitude: number; precisao?:number;observadoEm
 // This endpoint stores current position, not history. Offline points are never queued.
 export function createPositionSender(ownerId: string, context: () => Context) {
     let current: AbortController | null = null;
+    let lastAttempt=0;
+    let lastTurma:number|null=null;
     return {
         async send(point: Point): Promise<boolean> {
             const snapshot = context();
             if (!snapshot.mounted || !snapshot.online || !snapshot.active || !snapshot.turmaId ||
                 snapshot.userId !== ownerId || current) return false;
+            const now=Date.now();
+            if(lastTurma===snapshot.turmaId&&now-lastAttempt<5000)return false;
+            lastAttempt=now;lastTurma=snapshot.turmaId;
             const controller = new AbortController();
             current = controller;
             try {
