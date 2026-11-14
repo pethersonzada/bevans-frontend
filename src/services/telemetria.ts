@@ -1,7 +1,7 @@
 import { enviarPosicaoVan } from './viagens';
 
 type Context = { userId: string | null; turmaId: number | null; online: boolean; active: boolean; mounted: boolean };
-type Point = { latitude: number; longitude: number };
+type Point = { latitude: number; longitude: number; precisao?:number;observadoEm?:string };
 
 // This endpoint stores current position, not history. Offline points are never queued.
 export function createPositionSender(ownerId: string, context: () => Context) {
@@ -14,7 +14,8 @@ export function createPositionSender(ownerId: string, context: () => Context) {
             const controller = new AbortController();
             current = controller;
             try {
-                await enviarPosicaoVan(snapshot.turmaId, point.latitude, point.longitude, controller.signal);
+                await enviarPosicaoVan(snapshot.turmaId, point.latitude, point.longitude, controller.signal,
+                    point.precisao!=null&&point.observadoEm?{precisao:point.precisao,observadoEm:point.observadoEm}:undefined);
                 const latest = context();
                 return !controller.signal.aborted && latest.mounted && latest.online && latest.active && latest.userId === ownerId &&
                     latest.turmaId === snapshot.turmaId;

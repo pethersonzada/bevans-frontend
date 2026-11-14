@@ -16,6 +16,8 @@ import { theme } from '../../styles/theme';
 import type { EnderecoPresenca, ConfirmacaoPresenca } from '../../types/presenca';
 
 type Props = {
+    usaParadasIda?: boolean;
+    usaParadasVolta?: boolean;
     confirmacao: ConfirmacaoPresenca | null;
     enderecos: EnderecoPresenca[];
     salvando?: boolean;
@@ -53,6 +55,8 @@ export function SeletorPresenca({
     enderecos,
     salvando = false,
     onRegistrar,
+    usaParadasIda = false,
+    usaParadasVolta = false,
 }: Props) {
     const Alert = useAppAlert();
     const [editando, setEditando] = useState(false);
@@ -89,7 +93,7 @@ export function SeletorPresenca({
             return;
         }
 
-        if (precisaIda(status) && !enderecoIda) {
+        if (precisaIda(status) && !usaParadasIda && !enderecoIda) {
             Alert.alert(
                 'Atenção',
                 'Selecione o endereço de embarque da ida.'
@@ -97,7 +101,7 @@ export function SeletorPresenca({
             return;
         }
 
-        if (precisaVolta(status) && !enderecoVolta) {
+        if (precisaVolta(status) && !usaParadasVolta && !enderecoVolta) {
             Alert.alert(
                 'Atenção',
                 'Selecione o endereço de desembarque da volta.'
@@ -107,8 +111,8 @@ export function SeletorPresenca({
 
         const sucesso = await onRegistrar(
             status,
-            precisaIda(status) ? enderecoIda! : undefined,
-            precisaVolta(status) ? enderecoVolta! : undefined
+            precisaIda(status) && !usaParadasIda ? enderecoIda! : undefined,
+            precisaVolta(status) && !usaParadasVolta ? enderecoVolta! : undefined
         );
 
         if (sucesso) {
@@ -311,7 +315,8 @@ export function SeletorPresenca({
                         })}
                     </View>
 
-                    {precisaIda(status) &&
+                    {usaParadasIda && precisaIda(status) && <Text>Ida pela parada escolhida na turma.</Text>}
+                    {precisaIda(status) && !usaParadasIda &&
                         renderEndereco(
                             'ida',
                             'Onde a van busca você?',
@@ -319,7 +324,8 @@ export function SeletorPresenca({
                             setEnderecoIda
                         )}
 
-                    {precisaVolta(status) &&
+                    {usaParadasVolta && precisaVolta(status) && <Text>Volta pela parada escolhida na turma.</Text>}
+                    {precisaVolta(status) && !usaParadasVolta &&
                         renderEndereco(
                             'volta',
                             'Onde a van deixa você?',

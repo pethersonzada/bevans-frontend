@@ -390,6 +390,7 @@ export default function HomeMotorista() {
                     }}
                 />
 
+                {turmaSelecionada&&<AtalhosTurma key={turmaSelecionada.id} turmaId={turmaSelecionada.id}/>}
                 <PainelTurmaSelecionada
                     turma={turmaSelecionada}
                     onAtualizarTurma={(tAtualizada) => { turmaSelecionadaRef.current = tAtualizada; setTurmaSelecionada(tAtualizada); }}
@@ -458,9 +459,6 @@ export default function HomeMotorista() {
                                     <View key={item.id} style={styles.itemRowCard}>
                                         <View style={styles.flexOne}>
                                             <Text style={styles.nomeAluno}>{item.aluno?.nome}</Text>
-                                            <Text style={styles.telAluno}>
-                                                {item.aluno?.telefone || 'Sem telefone'}
-                                            </Text>
                                         </View>
                                         <View style={styles.actionsPendenteRow}>
                                             {analisando === item.id && <ActivityIndicator accessibilityLabel="Analisando solicitação" color={theme.colors.primary} />}
@@ -623,3 +621,4 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
 });
+import { AtalhosTurma } from '../components/AtalhosTurma';

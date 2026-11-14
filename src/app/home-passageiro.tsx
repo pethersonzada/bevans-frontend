@@ -1,12 +1,14 @@
 import { useAppAlert } from '../contexts/AppAlertContext';
+import { AtalhosTurma } from '../components/AtalhosTurma';
 import { Ionicons } from '@expo/vector-icons';
 import { getCurrentCoordinates } from '../services/location';
-import { useRouter } from 'expo-router';
+import { useFocusEffect,useRouter } from 'expo-router';
 import { useHomeRefresh } from '../hooks/useHomeRefresh';
 import { useFocusedPolling } from '../hooks/useFocusedPolling';
 import { fetchMinhaConfirmacao, fetchPassengerRadar } from '../services/passageiroHome';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+    AppState,
     
     ScrollView,
     RefreshControl,
@@ -25,10 +27,7 @@ import { theme } from '../styles/theme';
 
 import { CardTurmaPassageiro } from '../components/cards/CardTurmaPassageiro';
 import { MapaRadarPassageiro } from '../components/passageiro/MapaRadarPassageiro';
-import {
-    SeletorPresenca,
-
-} from '../components/passageiro/SeletorPresenca';
+import { PresencaTurma } from '../components/passageiro/PresencaTurma';
 import type { ConfirmacaoPresenca } from '../types/presenca';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -68,6 +67,12 @@ export default function HomePassageiro() {
 
     const [minhaLocalizacao, setMinhaLocalizacao] = useState<Coordenadas | null>(null);
     const [posicaoVan, setPosicaoVan] = useState<Coordenadas | null>(null);
+    const gpsExpiryTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
+    useFocusEffect(useCallback(()=>{
+        const clear=()=>{if(gpsExpiryTimer.current)clearTimeout(gpsExpiryTimer.current);setPosicaoVan(null);setStatusGps('AGUARDANDO');};
+        const subscription=AppState.addEventListener('change',state=>{if(state!=='active')clear();});
+        return()=>{subscription.remove();clear();};
+    },[]));
     const [statusViagem, setStatusViagem] = useState('INATIVA');
     const [statusGps, setStatusGps] = useState('GARAGEM');
 
@@ -215,10 +220,12 @@ export default function HomePassageiro() {
             if (signal.aborted || turmaSelecionadaRef.current !== turmaId) return;
             setStatusViagem(radar.status);
             setStatusGps(radar.gps);
+            if(gpsExpiryTimer.current)clearTimeout(gpsExpiryTimer.current);
+            if(radar.position)gpsExpiryTimer.current=setTimeout(()=>{setPosicaoVan(null);setStatusGps('AGUARDANDO');},Math.max(0,radar.position.expiresAt-Date.now()));
             setPosicaoVan(previous => previous?.latitude === radar.position?.latitude && previous?.longitude === radar.position?.longitude ? previous : radar.position);
 
         } catch (error) {
-            if (!signal.aborted) setStatusGps('AGUARDANDO');
+            if (!signal.aborted) {setStatusGps('AGUARDANDO');setPosicaoVan(null);}
         }
     }, 10000, pollingKey);
 
@@ -533,7 +540,9 @@ export default function HomePassageiro() {
                             </View>
                         )}
 
-                        <SeletorPresenca
+                        {turmaSelecionadaId&&<AtalhosTurma key={turmaSelecionadaId} turmaId={turmaSelecionadaId}/>}
+                        <PresencaTurma
+                            turmaId={turmaSelecionadaId}
                             key={turmaSelecionadaId ?? 'sem-turma'}
                             confirmacao={confirmacao}
                             enderecos={enderecos}

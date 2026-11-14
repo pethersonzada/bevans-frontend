@@ -606,7 +606,7 @@ export default function Mapa() {
         return unsubscribe;
     }, []);
 
-    async function enviarLocalizacao(ponto: LatLng) {
+    async function enviarLocalizacao(ponto: LatLng & {precisao?:number;observadoEm?:string}) {
         return publisherRef.current?.send(ponto) ?? false;
     }
 
@@ -808,11 +808,6 @@ export default function Mapa() {
                         accuracy: Location.Accuracy.High,
                     }), { timeoutMs: 20000 });
 
-                console.log('GPS INICIAL:', {
-                    latitude: locAtual.coords.latitude,
-                    longitude: locAtual.coords.longitude,
-                    precisao: locAtual.coords.accuracy,
-                });
 
                 if (validCoordinates(locAtual.coords.latitude, locAtual.coords.longitude)) {
                     posicaoInicial = {
@@ -1038,7 +1033,7 @@ export default function Mapa() {
                         // A proximidade do GPS não confirma embarque.
                         // A confirmação será implementada com persistência no backend.
 
-                        enviarLocalizacao(pontoBruto)
+                        enviarLocalizacao({...pontoBruto,precisao:loc.coords.accuracy??undefined,observadoEm:new Date(loc.timestamp).toISOString()})
                             .then(enviado => {
                                 if (ativo && enviado) {
                                     setErroRede(null);
@@ -1156,18 +1151,6 @@ export default function Mapa() {
             viagemAtivaRef.current = turmaIdAtiva === Number(turmaAtual.id);
             setViagemAtiva(viagemAtivaRef.current);
 
-            // DIAGNÓSTICO DAS COORDENADAS
-            console.log('DIAGNÓSTICO TURMA:', {
-                id: turmaAtual.id,
-                nome: turmaAtual.nome,
-                origemNome: turmaAtual.origemNome,
-                origemLatitude: turmaAtual.origemLatitude,
-                origemLongitude: turmaAtual.origemLongitude,
-                destinoNome: turmaAtual.destinoNome,
-                destinoLatitude: turmaAtual.destinoLatitude,
-                destinoLongitude: turmaAtual.destinoLongitude,
-            });
-
             setTurmaIdAtual(turmaAtual.id);
             turmaIdRef.current = turmaAtual.id;
 
@@ -1226,11 +1209,6 @@ export default function Mapa() {
                 `${API_URL}/rota/otimizar` +
                 `?sentido=${direcaoUsada}&turmaId=${turmaAtual.id}`;
 
-            console.log(
-                'Buscando rota otimizada:',
-                urlOtimizar
-            );
-
             const resPassageiros = await fetchComTimeout(
                 urlOtimizar,
                 {
@@ -1250,22 +1228,10 @@ export default function Mapa() {
                     // Mantém a resposta original.
                 }
 
-                console.error('ERRO OTIMIZAÇÃO:', {
-                    turmaId: turmaAtual.id,
-                    sentido: direcaoUsada,
-                    status: resPassageiros.status,
-                    mensagem,
-                });
-
                 throw new Error(`Falha na otimização: ${mensagem}`);
             }
 
             const lista = await readApiJson<any>(resPassageiros);
-
-            console.log(
-                'Passageiros retornados pelo otimizar:',
-                lista
-            );
 
             if (!Array.isArray(lista)) {
                 throw new Error(
@@ -1306,10 +1272,6 @@ export default function Mapa() {
                 CACHE_KEYS.rota(Number(turmaAtual.id), direcaoUsada), rotaCarregada
             );
         } catch (e) {
-            console.log(
-                'Erro em carregarGaragemERota:',
-                e
-            );
 
             const idCache = turmaIdRef.current;
             if (idCache !== null) {
