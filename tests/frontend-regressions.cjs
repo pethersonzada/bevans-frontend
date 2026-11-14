@@ -1162,6 +1162,7 @@ test('urban route editor keeps map choices in the draft and saves ordered stops 
         '../components/EnderecoMapaPicker':{__esModule:true,default:'MapPicker'},
         '../components/MapaPreviaPublica':{__esModule:true,default:'Preview'},
         '../components/PedidosRota':{PedidosRota:'Pedidos'},
+        '../services/viagens':{iniciarViagem:async()=>{}},
         '../styles/globalStyles':{globalStyles:{}},
         '../services/rotasPublicas':{
             salvarRotaPublica:async(id,data)=>{writes.push({id,data});saved=rotaPublicaFixture(data);return saved;},
