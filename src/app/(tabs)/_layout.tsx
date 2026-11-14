@@ -7,7 +7,7 @@ export default function TabLayout() {
     const insets = useSafeAreaInsets();
     
     return (
-        <Tabs screenOptions={{ 
+        <Tabs backBehavior="history" screenOptions={{ 
             headerShown: false,
             tabBarActiveTintColor: theme.colors.primary,
             tabBarInactiveTintColor: theme.colors.textLight,
@@ -27,6 +27,10 @@ export default function TabLayout() {
                     tabBarIcon: ({color, size}) => <Ionicons name="home" size={size} color={color} /> 
                 }} 
             />
+            <Tabs.Screen name="rotas" options={{ title: 'Rotas', tabBarAccessibilityLabel: 'Rotas públicas',
+                tabBarIcon: ({ color, size }) => <Ionicons name="bus-outline" size={size} color={color} /> }} />
+            <Tabs.Screen name="excursoes" options={{ title: 'Excursões',
+                tabBarIcon: ({ color, size }) => <Ionicons name="compass-outline" size={size} color={color} /> }} />
             <Tabs.Screen 
                 name="perfil" 
                 options={{ 

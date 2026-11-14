@@ -23,6 +23,8 @@ function RootLayoutNav() {
             </Stack.Protected>
             <Stack.Protected guard={signedIn}>
                 <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="detalhe-rota" />
+                <Stack.Screen name="controle-viagem" />
                 <Stack.Screen name="gerenciar-enderecos" />
                 <Stack.Screen name="cadastro-endereco" />
                 <Stack.Screen name="editar-endereco" />
@@ -30,6 +32,7 @@ function RootLayoutNav() {
                 <Stack.Screen name="home-passageiro" />
             </Stack.Protected>
             <Stack.Protected guard={signedIn && user.tipo === 'MOTORISTA'}>
+                <Stack.Screen name="editar-excursao" />
                 <Stack.Screen name="rotas-publicas" />
                 <Stack.Screen name="editar-rota-publica" />
                 <Stack.Screen name="home-motorista" />
