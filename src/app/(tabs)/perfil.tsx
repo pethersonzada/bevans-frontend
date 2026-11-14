@@ -170,6 +170,7 @@ export default function Perfil() {
             }
 
             await excluirContaServidor(user.id);
+            Alert.alert('Solicitação registrada', 'A exclusão da identidade de acesso está pendente de processamento. Sua sessão será encerrada.');
             await signOut();
             limparModais();
             router.replace('/login');
@@ -188,6 +189,8 @@ export default function Perfil() {
 
     return (
         <View style={globalStyles.container}>
+            <Pressable accessibilityRole="button" onPress={()=>router.push('/notificacoes')}><Text>Preferências de notificações</Text></Pressable>
+            {user.tipo==='MOTORISTA'&&<Pressable accessibilityRole="button" onPress={()=>router.push('/contato-comercial')}><Text>Configurar contato comercial protegido</Text></Pressable>}
             <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
             <ScrollView

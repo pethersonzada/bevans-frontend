@@ -4,6 +4,7 @@ import { StatusBar, View, Button } from 'react-native';
 import { AsyncState } from '../components/AsyncState';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import { AberturaPush } from '../components/AberturaPush';
 
 function RootLayoutNav() {
     const { user, isLoading, sessionError, retrySession, signOut } = useAuth();
@@ -16,7 +17,7 @@ function RootLayoutNav() {
     );
     const signedIn = Boolean(user.id);
     return (
-        <Stack screenOptions={{ headerShown: false }}>
+        <><AberturaPush/><Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
             <Stack.Protected guard={!signedIn}>
                 <Stack.Screen name="(auth)" />
@@ -25,6 +26,8 @@ function RootLayoutNav() {
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="detalhe-rota" />
                 <Stack.Screen name="controle-viagem" />
+                <Stack.Screen name="notificacoes" />
+                <Stack.Screen name="coleta-privada" />
                 <Stack.Screen name="gerenciar-enderecos" />
                 <Stack.Screen name="cadastro-endereco" />
                 <Stack.Screen name="editar-endereco" />
@@ -33,6 +36,7 @@ function RootLayoutNav() {
             </Stack.Protected>
             <Stack.Protected guard={signedIn && user.tipo === 'MOTORISTA'}>
                 <Stack.Screen name="editar-excursao" />
+                <Stack.Screen name="contato-comercial" />
                 <Stack.Screen name="rotas-publicas" />
                 <Stack.Screen name="editar-rota-publica" />
                 <Stack.Screen name="home-motorista" />
@@ -41,7 +45,7 @@ function RootLayoutNav() {
                 <Stack.Screen name="selecionar-rota-mapa" />
                 <Stack.Screen name="mapa" />
             </Stack.Protected>
-        </Stack>
+        </Stack></>
     );
 }
 

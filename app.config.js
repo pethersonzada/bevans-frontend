@@ -26,7 +26,8 @@ export default {
         monochromeImage: "./assets/images/android-icon-monochrome.png"
       },
       predictiveBackGestureEnabled: false,
-      usesCleartextTraffic: true
+      usesCleartextTraffic: !process.env.EXPO_PUBLIC_APP_ENV || process.env.EXPO_PUBLIC_APP_ENV === 'development',
+      ...(process.env.GOOGLE_SERVICES_JSON ? {googleServicesFile:process.env.GOOGLE_SERVICES_JSON} : {})
     },
     web: {
       bundler: "metro",
@@ -35,6 +36,7 @@ export default {
     },
     plugins: [
       "expo-router",
+      "expo-notifications",
       "expo-font",
       "@react-native-community/datetimepicker",
       "expo-secure-store",

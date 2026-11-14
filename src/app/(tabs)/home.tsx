@@ -2,6 +2,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import HomeMotorista from '../home-motorista';
 import HomePassageiro from '../home-passageiro';
+import { AtalhoNotificacoes } from '../../components/AtalhoNotificacoes';
 
 export default function HomeTab() {
     const { user, isLoading } = useAuth();
@@ -14,5 +15,5 @@ export default function HomeTab() {
         );
     }
 
-    return user.tipo === 'MOTORISTA' ? <HomeMotorista /> : <HomePassageiro />;
+    return <View style={{flex:1}}><AtalhoNotificacoes />{user.tipo === 'MOTORISTA' ? <HomeMotorista /> : <HomePassageiro />}</View>;
 }

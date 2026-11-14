@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { errorMessage, onSessionExpired } from '../config/api';
+import { apiFetch, errorMessage, onSessionExpired } from '../config/api';
 import { auth } from '../config/firebase';
 import { EMPTY_USER, SESSION_KEYS, fetchSessionUser, type SessionUser } from '../services/session';
 
@@ -18,6 +18,7 @@ const AuthContext = createContext<AuthContextData | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<SessionUser>(EMPTY_USER);
+    const currentUserRef=useRef(user);currentUserRef.current=user;
     const [isLoading, setIsLoading] = useState(true);
     const [sessionError, setSessionError] = useState<string | null>(null);
     const [retry, setRetry] = useState(0);
@@ -30,10 +31,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const signOut = useCallback(async () => {
+        const owner=currentUserRef.current.id;
         revision.current++;
         setUser(EMPTY_USER);
         setSessionError(null);
         setIsLoading(false);
+        if(owner&&auth.currentUser){
+            // Revoke while the ID token still belongs to this account. On network
+            // failure retain the installation ID for a later explicit retry.
+            try{const storageKey=`@bevans:push:${owner}`;const [[,installation]]=await AsyncStorage.multiGet([storageKey]);
+                if(installation&&/^[A-Za-z0-9_-]{16,128}$/.test(installation)){
+                    const response=await apiFetch(`/notificacoes/dispositivos/${installation}`,{method:'DELETE',timeoutMs:5000});
+                    if(response.ok)await AsyncStorage.multiRemove([storageKey]);
+                }
+            }catch{/* Offline logout remains available; revocation is not reported as successful. */}
+        }
         const results = await Promise.allSettled([
             firebaseSignOut(auth),
             persist(() => AsyncStorage.multiRemove(SESSION_KEYS)),
