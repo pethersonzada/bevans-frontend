@@ -51,14 +51,16 @@ Não foi criado tema dinâmico; o tema existente foi preservado.
 | `0fffad3` | Reservas, convites e prévias de excursões |
 | `6765738` | Rascunhos, encerramento de push e testes de integração |
 | `e05a95d` | Início autorizado de viagens pela área de rotas |
+| `875c5f9` | Limite de envio GPS, teste de frequência e relatório |
 
-O commit deste relatório é identificado no histórico local pelo título.
+O ajuste final de acesso individual de excursões é identificado no histórico
+local pelo título `Respeitando acesso individual de excursões pelo fluxo web`.
 Ao encerrar esta entrega,
-`main` fica 12 commits à frente de `origin/main`: três preservados e nove novos.
+`main` fica 13 commits à frente de `origin/main`: três preservados e dez novos.
 
 ## Testes e revisão
 
-- `npm run check`: arquitetura aprovada, TypeScript aprovado e **90 testes aprovados**.
+- `npm run check`: arquitetura aprovada, TypeScript aprovado e **91 testes aprovados**.
 - `tests/frontend-regressions.cjs` preservado e ampliado para o contrato de exclusão.
 - `tests/integracao-modulos.cjs`: tabs, catálogo/filtros, favoritos, pedido por
   data/sentido, convites seguros, operação/versionamento, isolamento de ambientes,

@@ -23,7 +23,7 @@ export default function ControleViagem() {
     return <SafeAreaView style={{flex:1}}><ScrollView contentContainerStyle={{padding:16,gap:12}}>
         <Button title="Voltar" onPress={()=>router.back()}/><Text style={s.title}>Controle da viagem</Text>
         <Text>{tipo} · execução {id}</Text><Text>Presença planejada e GPS não confirmam embarque.</Text>
-        <RastreamentoViagem key={`${tipo}:${id}`} tipo={tipo} id={id} motorista={motorista}/>
+        {(tipo==='VIAGEM'||motorista)&&<RastreamentoViagem key={`${tipo}:${id}`} tipo={tipo} id={id} motorista={motorista}/>}
         <Text accessibilityLiveRegion="polite">{feedback}</Text>
         {error?<AsyncState message={error} onRetry={reload}/>:!data?<AsyncState loading/>:<>
             {'contadores'in data&&<Text>{data.sentido} · Esperados {data.contadores.esperados} · Aguardando {data.contadores.aguardando} · Na van {data.contadores.naVan} · Não embarcaram {data.contadores.naoEmbarcaram} · Desembarcados {data.contadores.desembarcados}</Text>}

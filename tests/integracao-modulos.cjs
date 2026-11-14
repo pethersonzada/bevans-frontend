@@ -101,3 +101,8 @@ test('GPS publishing throttles a fast native watcher and never queues skipped sa
     const context={userId:'25',turmaId:7,online:true,active:true,mounted:true};const sender=m.createPositionSender('25',()=>context);
     assert.equal(await sender.send({latitude:1,longitude:2}),true);now+=2000;assert.equal(await sender.send({latitude:3,longitude:4}),false);now+=4000;assert.equal(await sender.send({latitude:5,longitude:6}),true);assert.deepEqual(points,[{id:7,latitude:1},{id:7,latitude:5}]);
 });
+test('Firebase passenger never calls an invented own-excursion operation endpoint',async()=>{
+    const m=load('src/services/operacoes.ts',{'./catalogo':catalogo(),'../config/api':{apiRequest:()=>assert.fail('anonymous excursion credential belongs to the web flow')}});
+    await assert.rejects(m.consultarOperacao('EXCURSAO','7',false),/credencial individual/);
+    await assert.rejects(m.alterarEstadoOperacional('EXCURSAO','7',{id:1,versao:0},false,'EMBARCADO'),/página da sua inscrição/);
+});
