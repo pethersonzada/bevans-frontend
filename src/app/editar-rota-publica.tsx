@@ -10,6 +10,7 @@ import type { EnderecoEncontrado } from '../services/enderecoSearch';
 import { buscarRotaPublica, salvarRotaPublica, salvarParadasPublicas, publicarRota, planejarRotaPublica } from '../services/rotasPublicas';
 import type { RotaPublica, RotaPublicaDados, ParadaPublica, PontoPublico, DiaRota } from '../types/rotaPublica';
 import { errorMessage } from '../config/api';
+import { PedidosRota } from '../components/PedidosRota';
 import { globalStyles as s } from '../styles/globalStyles';
 
 const dias: [DiaRota,string][]=[['MONDAY','Seg'],['TUESDAY','Ter'],['WEDNESDAY','Qua'],['THURSDAY','Qui'],['FRIDAY','Sex'],['SATURDAY','Sáb'],['SUNDAY','Dom']];
@@ -103,6 +104,7 @@ export default function EditarRotaPublica() {
         {pontos.every(p=>Number.isFinite(p.latitude)&&Number.isFinite(p.longitude))&&<MapaPreviaPublica pontos={previa.length?previa:pontos}/>}
         {button('Salvar rota e paradas',()=>void salvar())}
         {salva&&<>
+            <PedidosRota key={salva.id} rotaId={salva.id}/>
             <Text>{salva.vagas.ocupados} aprovados / {salva.vagas.capacidade??'capacidade não configurada'} assentos · {salva.vagas.disponiveis??'—'} vagas</Text>
             {button('Editar assentos da turma',()=>router.push({pathname:'/editar-turma',params:{id:String(dados.turmaId)}}),dirty)}
             <Text>{salva.publicada?'Publicada':'Não publicada'}</Text>

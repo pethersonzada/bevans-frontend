@@ -3,7 +3,7 @@ import { useLocalSearchParams,useRouter } from 'expo-router';
 import { ScrollView,Text,Button,TextInput,View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { buscarRotaPublica } from '../services/rotasPublicas';
-import { meusEmbarques,solicitarEmbarque } from '../services/embarques';
+import { meusEmbarques,solicitarEmbarque,solicitarVagaRota } from '../services/embarques';
 import { useRemoteResource } from '../hooks/useRemoteResource';
 import { AsyncState } from '../components/AsyncState';
 import EnderecoMapaPicker from '../components/EnderecoMapaPicker';
@@ -11,6 +11,7 @@ import MapaPreviaPublica from '../components/MapaPreviaPublica';
 import type { EnderecoEncontrado } from '../services/enderecoSearch';
 import { errorMessage } from '../config/api';
 import { globalStyles as s } from '../styles/globalStyles';
+import { ContatoProtegido } from '../components/ContatoProtegido';
 
 export default function DetalheRota() {
     const {id}=useLocalSearchParams<{id:string}>();const router=useRouter();
@@ -27,9 +28,11 @@ export default function DetalheRota() {
         <Button title="Voltar" onPress={()=>router.back()}/>
         {error?<AsyncState message={error} onRetry={reload}/>:!data?<AsyncState loading/>:<>
             <Text style={s.title}>{data.rota.nome}</Text><Text>{data.rota.cidade} · {data.rota.modo} · {data.rota.destinoNome}</Text>
+            <ContatoProtegido key={data.rota.id} tipo="rotas-publicas" id={data.rota.id}/>
             <Text>{data.rota.dias.join(', ')} · Ida {data.rota.horarioIda||'—'} · Volta {data.rota.horarioVolta||'—'}</Text>
             <MapaPreviaPublica pontos={data.rota.paradas.map(p=>({...p,paradaId:p.id}))}/>
             <Text accessibilityRole="header">Solicitar embarque</Text>
+            <Button title="Solicitar vínculo com esta rota" disabled={busy} onPress={()=>{if(pending.current)return;pending.current=true;setBusy(true);void solicitarVagaRota(data.rota.id).then(r=>{setFeedback(`Vínculo ${r.status}.`);reload();}).catch(e=>setFeedback(errorMessage(e))).finally(()=>{pending.current=false;setBusy(false);});}}/>
             <TextInput style={s.input} accessibilityLabel="Data da viagem no formato AAAA-MM-DD" placeholder="AAAA-MM-DD" value={dataOperacao} onChangeText={setData}/>
             <Button title={`Sentido: ${sentido}`} onPress={()=>setSentido(sentido==='IDA'?'VOLTA':'IDA')}/>
             {data.rota.paradas.map(p=><Button key={p.id} title={`${parada===p.id?'✓ ':''}${p.nome} ${p.horario||''}`} onPress={()=>{setParada(p.id);setPonto(null);}}/>)}
