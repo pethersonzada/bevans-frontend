@@ -173,7 +173,7 @@ export default function Perfil() {
             Alert.alert('Solicitação registrada', 'A exclusão da identidade de acesso está pendente de processamento. Sua sessão será encerrada.');
             await signOut();
             limparModais();
-            router.replace('/login');
+            router.replace({pathname:'/login',params:{exclusao:'pendente'}});
         } catch (error: any) {
             console.error(error);
             if (error?.code === 'auth/requires-recent-login') {
@@ -189,8 +189,6 @@ export default function Perfil() {
 
     return (
         <View style={globalStyles.container}>
-            <Pressable accessibilityRole="button" onPress={()=>router.push('/notificacoes')}><Text>Preferências de notificações</Text></Pressable>
-            {user.tipo==='MOTORISTA'&&<Pressable accessibilityRole="button" onPress={()=>router.push('/contato-comercial')}><Text>Configurar contato comercial protegido</Text></Pressable>}
             <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
             <ScrollView
@@ -203,6 +201,8 @@ export default function Perfil() {
                 ]}
             >
                 {/* Header com Avatar */}
+                <Pressable style={{minHeight:48,justifyContent:'center'}} accessibilityRole="button" onPress={()=>router.push('/notificacoes')}><Text>Preferências de notificações</Text></Pressable>
+                {user.tipo==='MOTORISTA'&&<Pressable style={{minHeight:48,justifyContent:'center'}} accessibilityRole="button" onPress={()=>router.push('/contato-comercial')}><Text>Configurar contato comercial protegido</Text></Pressable>}
                 <View style={styles.profileHeader}>
                     <View style={styles.avatarContainer}>
                         <Text style={styles.avatarText}>{inicial}</Text>

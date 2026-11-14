@@ -14,17 +14,21 @@ import { apiRequest } from '../config/api';
 export default function ColetaPrivadaScreen(){
     const {turmaId}=useLocalSearchParams<{turmaId:string}>();const {user}=useAuth();const router=useRouter();
     const [sentido,setSentido]=useState<'IDA'|'VOLTA'>('IDA'),[enderecoConsulta,setEnderecoConsulta]=useState('');
+    const [editorRevision,setEditorRevision]=useState(0);
     const enderecos=useRemoteResource(user.tipo!=='MOTORISTA'?'meus-enderecos-coleta':false,async signal=>{const r=await apiRequest<{id:number;apelido:string;rua:string}[]>(`/enderecos/usuario/${user.id}`,{signal});if(!Array.isArray(r))throw new Error('Não foi possível consultar seus endereços.');return r;});
     const {data,error,reload}=useRemoteResource(`coleta:${turmaId}:${sentido}:${enderecoConsulta}`,signal=>consultarColetaPrivada(turmaId,sentido,enderecoConsulta,signal));
     return <SafeAreaView style={{flex:1}}><ScrollView contentContainerStyle={{padding:16,gap:12}} keyboardShouldPersistTaps="handled"><Button title="Voltar" onPress={()=>router.back()}/><Text style={s.title}>Paradas da turma</Text>
         <Button title={`Sentido: ${sentido}`} onPress={()=>{setSentido(sentido==='IDA'?'VOLTA':'IDA');setEnderecoConsulta('');}}/>
         {user.tipo!=='MOTORISTA'&&<><Button title="Gerenciar meus endereços" onPress={()=>router.push('/gerenciar-enderecos')}/><Text>Escolha seu endereço para sugerir a parada mais próxima:</Text>{enderecos.error?<AsyncState message={enderecos.error} onRetry={enderecos.reload}/>:enderecos.data?.map(e=><Button key={e.id} title={`${enderecoConsulta===String(e.id)?'✓ ':''}${e.apelido||e.rua}`} onPress={()=>setEnderecoConsulta(String(e.id))}/>)}</>}
-        {error?<AsyncState message={error} onRetry={reload}/>:!data?<AsyncState loading/>:<Coleta key={`${turmaId}:${sentido}:${data.versao}:${data.escolhidaId}`} data={data} motorista={user.tipo==='MOTORISTA'} reload={reload}/>}
+        <Button title="Recarregar e descartar alterações das paradas" onPress={()=>{setEditorRevision(v=>v+1);reload();}}/>
+        {error?<AsyncState message={error} onRetry={reload}/>:!data?<AsyncState loading/>:<Coleta key={`${turmaId}:${sentido}:${editorRevision}`} data={data} motorista={user.tipo==='MOTORISTA'} reload={()=>{setEditorRevision(v=>v+1);reload();}}/>}
     </ScrollView></SafeAreaView>;
 }
 function Coleta({data,motorista,reload}:{data:ColetaPrivada;motorista:boolean;reload:()=>void}){
     const router=useRouter();const [modo,setModo]=useState(data.modo),[paradas,setParadas]=useState(data.paradas),[feedback,setFeedback]=useState(''),[busy,setBusy]=useState(false),[confirmar,setConfirmar]=useState(false);
     const [ponto,setPonto]=useState<{nome:string;latitude:number;longitude:number}|null>(null);const pending=useRef(false);
+    const [reposicionar,setReposicionar]=useState<number|null>(null);
+    const [versaoBase]=useState(data.versao);
     const run=async(task:()=>Promise<unknown>)=>{if(pending.current)return;pending.current=true;setBusy(true);setFeedback('');try{await task();reload();}catch(e){setFeedback(errorMessage(e));}finally{pending.current=false;setBusy(false);}};
     return <><Text>{data.modo} · {data.viagemId?'Viagem ativa':'Viagem ainda não iniciada'}</Text><Text accessibilityLiveRegion="polite">{feedback}</Text>
         <MapaPreviaPublica pontos={data.paradas.map(p=>({...p,paradaId:p.id}))}/>
@@ -38,7 +42,10 @@ function Coleta({data,motorista,reload}:{data:ColetaPrivada;motorista:boolean;re
                 {paradas.map((p,i)=><View key={p.id??`nova-${i}`} style={s.card}><TextInput accessibilityLabel={`Nome da parada ${i+1}`} value={p.nome} onChangeText={nome=>setParadas(paradas.map((v,j)=>i===j?{...v,nome}:v))}/><Button title="Mover para cima" disabled={i===0} onPress={()=>{const next:ParadaPrivada[]=[...paradas];[next[i-1],next[i]]=[next[i],next[i-1]];setParadas(next);}}/><Button title="Remover" onPress={()=>setParadas(paradas.filter((_,j)=>j!==i))}/></View>)}
             </>}
             <Text>Alterações podem conflitar com escolhas e presenças futuras. O servidor preserva vínculos incompatíveis.</Text>
-            <Button title={confirmar?'Confirmar e salvar configuração':'Revisar alteração da coleta'} disabled={busy||!!data.viagemId} onPress={()=>{if(!confirmar){setConfirmar(true);return;}void run(()=>salvarColetaPrivada(String(data.turmaId),data.sentido,data.versao,modo,paradas));}}/>
+            {modo==='PARADAS_DEFINIDAS'&&paradas.map((p,i)=><Button key={`reposicionar-${i}`} title={`Reposicionar ${p.nome}`} disabled={!!data.viagemId} onPress={()=>setReposicionar(i)}/>)}
+            {reposicionar!=null&&<><Text>Confirme o novo ponto da parada</Text><EnderecoMapaPicker onChange={ponto=>{if(ponto){setParadas(paradas.map((p,i)=>i===reposicionar?{...p,latitude:ponto.latitude,longitude:ponto.longitude}:p));setReposicionar(null);}}}/><Button title="Cancelar reposicionamento" onPress={()=>setReposicionar(null)}/></>}
+            {data.versao!==versaoBase&&<Text>A configuração mudou em outro dispositivo. Seu rascunho foi preservado; recarregue para revisar a versão atual.</Text>}
+            <Button title={confirmar?'Confirmar e salvar configuração':'Revisar alteração da coleta'} disabled={busy||!!data.viagemId} onPress={()=>{if(!confirmar){setConfirmar(true);return;}void run(()=>salvarColetaPrivada(String(data.turmaId),data.sentido,versaoBase,modo,paradas));}}/>
         </>}
     </>;
 }

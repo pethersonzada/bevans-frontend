@@ -1,5 +1,5 @@
 import { useAppAlert } from '../../contexts/AppAlertContext';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams,useRouter } from 'expo-router';
 import { sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/auth';
 import { useCallback, useRef, useState } from 'react';
 import {
@@ -26,6 +26,7 @@ import { theme } from '../../styles/theme';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function Login() {
+    const {exclusao}=useLocalSearchParams<{exclusao?:string}>();
     const Alert = useAppAlert();
     const router = useRouter();
     const insets = useSafeAreaInsets();
@@ -122,6 +123,7 @@ export default function Login() {
                 </View>
 
                 <View style={styles.formCard}>
+                    {exclusao==='pendente'&&<Text accessibilityLiveRegion="polite">Solicitação de exclusão registrada. A exclusão da identidade de acesso ainda está pendente de processamento.</Text>}
                     <FormFeedback message={erroFormulario} />
                     <FormLogin 
                         email={email} 

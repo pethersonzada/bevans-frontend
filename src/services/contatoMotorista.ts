@@ -5,7 +5,8 @@ export async function consultarContatoComercial(signal?:AbortSignal){
     const r=await apiRequest<ContatoComercial>('/motorista/contato',{signal});if(!r||typeof r.habilitado!=='boolean'||!Number.isInteger(r.versao))throw new Error('Contato comercial inválido.');return r;
 }
 export async function salvarContatoComercial(dados:ContatoComercial&{aceiteDivulgacao:boolean}){
-    return apiRequest<ContatoComercial>('/motorista/contato',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(dados)});
+    const r=await apiRequest<ContatoComercial>('/motorista/contato',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(dados)});
+    if(!r||r.habilitado!==dados.habilitado||!Number.isInteger(r.versao))throw new Error('A configuração do contato não foi confirmada.');return r;
 }
 export async function contatoAutorizado(tipo:'turmas'|'rotas-publicas',id:number){
     const r=await apiRequest<{waMe:string;telefoneComercial:string}>(`/${tipo}/${recursoId(id)}/contato-motorista`);

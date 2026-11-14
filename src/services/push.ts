@@ -11,10 +11,12 @@ export async function ativarPushAndroid(userId:string,isCurrent:()=>boolean) {
     if(token.type!=='android'||typeof token.data!=='string')throw new Error('Token FCM indisponível.');
     const stored=await AsyncStorage.getItem(key(userId));const instalacaoId=stored||`bevans_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     if(!isCurrent())throw new Error('A sessão mudou.');
-    await registrarDispositivo(instalacaoId,token.data);await AsyncStorage.setItem(key(userId),instalacaoId);
+    await AsyncStorage.setItem(key(userId),instalacaoId);
+    if(!isCurrent())throw new Error('A sessão mudou.');
+    await registrarDispositivo(instalacaoId,token.data);
     if(!isCurrent()){await revogarDispositivo(instalacaoId);throw new Error('A sessão mudou.');}return instalacaoId;
 }
 export async function desativarPush(userId:string) {
     const id=await AsyncStorage.getItem(key(userId));if(!id)return;
-    await revogarDispositivo(id);await AsyncStorage.removeItem(key(userId));
+    await revogarDispositivo(id);await Notifications.unregisterForNotificationsAsync();await AsyncStorage.removeItem(key(userId));
 }

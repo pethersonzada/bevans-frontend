@@ -41,8 +41,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // failure retain the installation ID for a later explicit retry.
             try{const storageKey=`@bevans:push:${owner}`;const [[,installation]]=await AsyncStorage.multiGet([storageKey]);
                 if(installation&&/^[A-Za-z0-9_-]{16,128}$/.test(installation)){
-                    const response=await apiFetch(`/notificacoes/dispositivos/${installation}`,{method:'DELETE',timeoutMs:5000});
-                    if(response.ok)await AsyncStorage.multiRemove([storageKey]);
+                    try{const response=await apiFetch(`/notificacoes/dispositivos/${installation}`,{method:'DELETE',timeoutMs:5000});
+                        if(response.ok)await AsyncStorage.multiRemove([storageKey]);
+                    }finally{const notifications=await import('expo-notifications');await notifications.unregisterForNotificationsAsync();}
                 }
             }catch{/* Offline logout remains available; revocation is not reported as successful. */}
         }

@@ -446,6 +446,7 @@ export default function Mapa() {
         );
 
         try {
+            if(!API_URL && !url.startsWith('https://api.mapbox.com/'))throw new Error('O endereço do servidor não está configurado.');
             if (API_URL && url.startsWith(API_URL + '/')) {
                 return await apiFetch(url.slice(API_URL.length), {
                     ...options, signal: controller.signal, timeoutMs,

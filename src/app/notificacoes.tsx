@@ -1,4 +1,4 @@
-import { useRef,useState } from 'react';
+import { useEffect,useRef,useState } from 'react';
 import { useLocalSearchParams,useRouter } from 'expo-router';
 import { Button,ScrollView,Switch,Text,View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,6 +15,8 @@ export default function Notificacoes(){
     const {data,error,reload}=useRemoteResource(`notificacoes:${page}`,async signal=>{const [avisos,prefs]=await Promise.all([listarNotificacoes(page,signal),preferenciasNotificacao(signal)]);return {avisos,prefs};});
     const run=async(task:()=>Promise<void>)=>{if(pending.current)return;pending.current=true;setBusy(true);setFeedback('');try{await task();reload();}catch(e){setFeedback(errorMessage(e));}finally{pending.current=false;setBusy(false);}};
     const open=(n:Notificacao)=>void run(async()=>{await lerNotificacao(n.id);router.push(destinoNotificacao(n));});
+    const opened=useRef('');
+    useEffect(()=>{if(destino.data&&notificacaoId&&opened.current!==notificacaoId&&!pending.current){opened.current=notificacaoId;open(destino.data);}},[destino.data,notificacaoId]);
     const prefer=(prefs:PreferenciasNotificacao)=>void run(()=>salvarPreferenciasNotificacao(prefs));
     return <SafeAreaView style={{flex:1}}><ScrollView contentContainerStyle={{padding:16,gap:12}}><Button title="Voltar" onPress={()=>router.back()}/><Text style={s.title}>Notificações</Text><PreferenciaPush/><Text accessibilityLiveRegion="polite">{feedback}</Text>
         {error?<AsyncState message={error} onRetry={reload}/>:!data?<AsyncState loading/>:<>
