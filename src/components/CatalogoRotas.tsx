@@ -1,6 +1,7 @@
+import { RemoteLoading, Screen, Section, ActionButton as Button, Field, Choice, Pagination, ui } from './ui/Primitives';
 import { useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { ScrollView, Text, TextInput, Button, View, Switch } from 'react-native';
+import { ScrollView, Text, TextInput, View, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import { useFocusedPolling } from '../hooks/useFocusedPolling';
@@ -28,25 +29,24 @@ export function CatalogoRotas() {
         try { await alterarFavorito(r.id, !r.favorita); setRetry(v=>v+1); }
         catch(e) { setError(errorMessage(e)); } finally { pending.current=false; setBusy(null); }
     };
-    return <SafeAreaView edges={['top','left','right']} style={{flex:1}}><ScrollView contentContainerStyle={{padding:16,gap:12}} keyboardShouldPersistTaps="handled">
-        <Text style={s.title} accessibilityRole="header">Rotas públicas</Text>
-        <TextInput accessibilityLabel="Cidade de operação" placeholder="Cidade de operação" style={s.input} maxLength={160} value={draft.cidade} onChangeText={cidade=>setDraft({...draft,cidade})}/>
-        <TextInput accessibilityLabel="Destino" placeholder="Destino" style={s.input} maxLength={160} value={draft.destino} onChangeText={destino=>setDraft({...draft,destino})}/>
-        <View style={{gap:8}}>{['','ESCOLAR','UNIVERSITARIA','OUTROS'].map(categoria=><Button key={categoria} title={`${draft.categoria===categoria?'✓ ':''}${categoria||'Todas as categorias'}`} onPress={()=>setDraft({...draft,categoria})}/>)}</View>
-        <Text>Somente favoritas</Text><Switch accessibilityLabel="Somente favoritas" value={draft.somenteFavoritas} onValueChange={somenteFavoritas=>setDraft({...draft,somenteFavoritas})}/>
-        <Button title="Pesquisar" onPress={()=>{setPage(0);setFilters({...draft});setRetry(v=>v+1);}}/>
-        {error ? <AsyncState message={error} onRetry={()=>setRetry(v=>v+1)}/> : !data ? <AsyncState loading/> : <>
+    return <Screen tabs title="Rotas públicas" subtitle="Encontre um serviço para o seu trajeto.">
+        <Section title="Encontre sua rota">
+        <Field label="Cidade" accessibilityLabel="Cidade de operação" placeholder="Cidade de operação" maxLength={160} value={draft.cidade} onChangeText={cidade=>setDraft({...draft,cidade})}/>
+        <Field label="Destino" placeholder="Para onde você vai?" maxLength={160} value={draft.destino} onChangeText={destino=>setDraft({...draft,destino})}/>
+        <View style={{gap:8}}>{['','ESCOLAR','UNIVERSITARIA','OUTROS'].map(categoria=><Choice key={categoria} selected={draft.categoria===categoria} label={categoria==='ESCOLAR'?'Escolar':categoria==='UNIVERSITARIA'?'Universitária':categoria==='OUTROS'?'Outros':'Todas as categorias'} onPress={()=>setDraft({...draft,categoria})}/>)}</View>
+        <Text style={ui.body}>Somente favoritas</Text><Switch accessibilityLabel="Somente favoritas" value={draft.somenteFavoritas} onValueChange={somenteFavoritas=>setDraft({...draft,somenteFavoritas})}/>
+        <Button variant="primary" icon="search-outline" title="Pesquisar" onPress={()=>{setPage(0);setFilters({...draft});setRetry(v=>v+1);}}/></Section>
+        {error ? <AsyncState message={error} onRetry={()=>setRetry(v=>v+1)}/> : !data ? <RemoteLoading/> : <>
             {!data.itens.length && <AsyncState status="empty" title="Nenhuma rota encontrada"/>}
-            {data.itens.map(r=><View key={r.id} style={s.card}>
-                <Text accessibilityRole="header">{r.nome} · {r.cidade}</Text><Text>{r.destino} · {r.modo}</Text>
-                <Text>{r.motoristaNome} · Ida {r.horarioIda||'não informada'} · Volta {r.horarioVolta||'não informada'}</Text>
-                <Text>{r.vagas.disponiveis ?? '—'} vagas disponíveis</Text>
+            {data.itens.map(r=><Section key={r.id} title={r.nome} description={r.cidade}>
+                <Text style={ui.body}>{r.destino} · {r.modo==='FIXA'?'Trajeto fixo':'Trajeto flexível'}</Text>
+                <Text style={ui.body}>{r.motoristaNome} · Ida {r.horarioIda||'não informada'} · Volta {r.horarioVolta||'não informada'}</Text>
+                <Text style={ui.body}>{r.vagas.disponiveis ?? '—'} vagas disponíveis</Text>
                 <Button title="Ver rota e solicitar vaga" onPress={()=>router.push({pathname:'/detalhe-rota',params:{id:String(r.id)}})}/>
                 <Button title={busy===r.id?'Salvando…':r.favorita?'Remover dos favoritos':'Favoritar'} disabled={busy!==null} onPress={()=>void favorite(r)}/>
-            </View>)}
-            <Text>Página {page+1} de {Math.max(1,data.totalPaginas)}</Text>
-            <Button title="Anterior" disabled={page===0} onPress={()=>setPage(v=>v-1)}/>
-            <Button title="Próxima" disabled={page+1>=data.totalPaginas} onPress={()=>setPage(v=>v+1)}/>
+            </Section>)}
+
+            <Pagination page={page} pages={data.totalPaginas} onChange={setPage}/>
         </>}
-    </ScrollView></SafeAreaView>;
+    </Screen>;
 }

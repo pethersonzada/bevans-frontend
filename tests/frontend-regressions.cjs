@@ -1161,7 +1161,7 @@ test('public route service never sends invalid identity or unconfirmed geographi
 });
 test('urban route editor keeps map choices in the draft and saves ordered stops through the API',async()=>{
     const writes=[];const router={back(){},push(){}};let saved;
-    const render=componentHarness('src/app/editar-rota-publica.tsx','default',{
+    const render=componentHarness('src/app/editar-rota-publica.tsx','default',{'../components/ui/Primitives':require('./helpers/ui.cjs'),'../services/turmas':{},
         'expo-router':{useLocalSearchParams:()=>({turmaId:'7'}),useRouter:()=>router,useFocusEffect(){}},
         'react-native':{StyleSheet:{create:x=>x},Text:'Text',View:'View',ScrollView:'Scroll',TextInput:'Input',TouchableOpacity:'Button'},
         'react-native-safe-area-context':{useSafeAreaInsets:()=>({top:0,bottom:0})},
@@ -1177,11 +1177,11 @@ test('urban route editor keeps map choices in the draft and saves ordered stops 
             salvarParadasPublicas:async(id,paradas)=>{writes.push({id,paradas});return {...saved,paradas:paradas.map((p,i)=>({...p,id:i+1}))};},
         },
     });
-    const press=label=>elements(render({})).find(n=>n.props.accessibilityLabel===label).props.onPress();
+    const press=label=>elements(render({})).find(n=>(n.props.accessibilityLabel===label||n.props.title===label)).props.onPress();
     const input=(label,value)=>elements(render({})).find(n=>n.props.accessibilityLabel===label).props.onChangeText(value);
     input('Nome da rota','Campus');input('Cidade de operação','Caruaru');
     for(const [label,nome,lat,lon] of [['Definir origem','Terminal',-8.2,-35.9],['Definir destino','Campus',-8.3,-36],['Adicionar parada no mapa','Parada',-8.25,-35.95]]){
-        press(label);assert.equal(elements(render({})).find(n=>n.props.accessibilityLabel==='Confirmar ponto').props.disabled,true);
+        press(label);assert.equal(elements(render({})).find(n=>(n.props.accessibilityLabel==='Confirmar ponto'||n.props.title==='Confirmar ponto')).props.disabled,true);
         elements(render({})).find(n=>n.type==='MapPicker').props.onChange({nome,latitude:lat,longitude:lon,precisao:'manual'});
         press('Confirmar ponto');
     }
