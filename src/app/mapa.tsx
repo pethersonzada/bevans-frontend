@@ -26,7 +26,8 @@ import { validCoordinates } from '../services/location';
 import { ensureNavigationLocation, NavigationLocationError } from '../services/navigationLocation';
 import { encerrarViagem } from '../services/viagens';
 import { buscarRotaPublica, listarMinhasRotas } from '../services/rotasPublicas';
-import { montarParadasPublicas, type ParadaPublicaNavegacao } from '../services/roteiroNavegacao';
+import { montarParadasDefinidas, type ParadaPublicaNavegacao } from '../services/roteiroNavegacao';
+import { consultarColetaPrivada } from '../services/coletaPrivada';
 import { createPositionSender } from '../services/telemetria';
 import { theme } from '../styles/theme';
 import { useAuth } from '../contexts/AuthContext';
@@ -1089,8 +1090,8 @@ export default function Mapa() {
         let destinoCarregado: LatLng | null = null;
 
         let rotaCarregada: PassageiroRota[] = [];
-        let paradasPublicas: ParadaPublicaNavegacao[] = [];
-        let modalidadePublica = false;
+        let paradasObrigatorias: ParadaPublicaNavegacao[] = [];
+        let possuiParadasDefinidas = false;
 
         try {
             if (!user?.id) {
@@ -1216,12 +1217,24 @@ export default function Mapa() {
                 : (await listarMinhasRotas()).find(r => r.turmaId === Number(turmaAtual.id));
             if (rotaPublica) {
                 if (rotaPublica.turmaId !== Number(turmaAtual.id)) throw new Error('A rota pública não pertence à turma da viagem.');
-                modalidadePublica = true;
+                possuiParadasDefinidas = true;
                 garagemCarregada = { latitude: rotaPublica.origemLatitude, longitude: rotaPublica.origemLongitude };
                 destinoCarregado = { latitude: rotaPublica.destinoLatitude, longitude: rotaPublica.destinoLongitude };
-                paradasPublicas = rotaPublica.paradas.map(p => ({
+                paradasObrigatorias = rotaPublica.paradas.map(p => ({
                     id: Number(p.id), nome: p.nome, latitude: p.latitude, longitude: p.longitude,
                 }));
+            } else {
+                // Turmas privadas podem usar pontos definidos pelo motorista.
+                // PORTA_A_PORTA continua usando os endereços confirmados no snapshot.
+                const coleta = await consultarColetaPrivada(
+                    String(turmaAtual.id), direcaoUsada.toUpperCase(), ''
+                );
+                if (coleta.modo === 'PARADAS_DEFINIDAS') {
+                    possuiParadasDefinidas = true;
+                    paradasObrigatorias = [...coleta.paradas]
+                        .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))
+                        .map(p => ({ id: Number(p.id), nome: p.nome, latitude: p.latitude, longitude: p.longitude }));
+                }
             }
 
             const urlOtimizar =
@@ -1282,9 +1295,9 @@ export default function Mapa() {
 
             // O snapshot traz os embarques aprovados; a rota pública também
             // exige as paradas cadastradas, mesmo quando ainda não há reserva.
-            if (modalidadePublica) {
-                rotaCarregada = montarParadasPublicas(
-                    rotaCarregada, paradasPublicas, direcaoUsada.toUpperCase() as 'IDA' | 'VOLTA'
+            if (possuiParadasDefinidas) {
+                rotaCarregada = montarParadasDefinidas(
+                    rotaCarregada, paradasObrigatorias, direcaoUsada.toUpperCase() as 'IDA' | 'VOLTA'
                 );
             }
 
