@@ -1,15 +1,33 @@
-import { useEffect,useRef,useState } from 'react';
-import { Button,Text,View,AppState } from 'react-native';
-import * as Notifications from 'expo-notifications';
-import { useIsFocused } from 'expo-router/react-navigation';
+import { useEffect, useRef, useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
-import { ativarPushAndroid,desativarPush } from '../services/push';
-import { registrarDispositivo } from '../services/notificacoes';
+import { ativarPushAndroid, desativarPush } from '../services/push';
 import { errorMessage } from '../config/api';
-export function PreferenciaPush(){const {user}=useAuth();const focused=useIsFocused();const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[id,setId]=useState('');
-    const current=useRef(user.id);current.current=user.id;const pending=useRef(false);
-    useEffect(()=>()=>{current.current=null;},[]);
-    useEffect(()=>{if(!focused||!user.id||!id)return;const subscription=Notifications.addPushTokenListener(token=>{if(token.type==='android'&&typeof token.data==='string'&&current.current===user.id&&AppState.currentState==='active')void registrarDispositivo(id,token.data).catch(()=>setMessage('Não foi possível renovar o token. Ative novamente para tentar.'));});return()=>subscription.remove();},[focused,user.id,id]);
-    const run=async(activate:boolean)=>{if(!user.id||pending.current)return;pending.current=true;setBusy(true);const owner=user.id;try{if(activate){setId(await ativarPushAndroid(owner,()=>current.current===owner));setMessage('Dispositivo registrado. O recebimento depende do FCM no ambiente de testes.');}else{await desativarPush(owner);setId('');setMessage('Dispositivo revogado.');}}catch(e){setMessage(errorMessage(e));}finally{pending.current=false;setBusy(false);}};
-    return <View><Button title="Permitir e registrar push Android" disabled={busy} onPress={()=>void run(true)}/><Button title="Revogar push deste dispositivo" disabled={busy} onPress={()=>void run(false)}/><Text accessibilityLiveRegion="polite">{message}</Text></View>;
+import { theme } from '../styles/theme';
+
+export function PreferenciaPush() {
+    const { user } = useAuth();
+    return user.id ? <PushControls key={user.id} owner={user.id} /> : null;
+}
+function PushControls({ owner }: { owner: string }) {
+    const [busy, setBusy] = useState(false), [message, setMessage] = useState('');
+    const mounted = useRef(true), pending = useRef(false);
+    useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+    const run = async (activate: boolean) => {
+        if (pending.current) return;
+        pending.current = true; setBusy(true); setMessage('');
+        try {
+            if (activate) await ativarPushAndroid(owner, () => mounted.current);
+            else await desativarPush(owner);
+            if (mounted.current) setMessage(activate ? 'Dispositivo registrado. O recebimento depende do serviço de notificações; não é uma confirmação de entrega.' : 'Dispositivo revogado e token Android invalidado.');
+        } catch (e) { if (mounted.current) setMessage(errorMessage(e)); }
+        finally { pending.current = false; if (mounted.current) setBusy(false); }
+    };
+    return <View style={{ gap: 8 }}>
+        <Text>A central funciona mesmo sem permitir notificações no aparelho.</Text>
+        {[['Permitir notificações Android', true], ['Revogar notificações deste aparelho', false]].map(([label, activate]) => <Pressable key={String(label)} accessibilityRole="button" accessibilityState={{ disabled: busy, busy }} disabled={busy} onPress={() => void run(Boolean(activate))} style={{ minHeight: 48, padding: 12, borderRadius: 8, backgroundColor: theme.colors.primary, justifyContent: 'center', opacity: busy ? 0.5 : 1 }}>
+            <Text style={{ color: '#fff', textAlign: 'center' }}>{busy ? 'Aguarde…' : label}</Text>
+        </Pressable>)}
+        <Text accessibilityLiveRegion="polite">{message}</Text>
+    </View>;
 }

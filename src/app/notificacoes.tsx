@@ -1,32 +1,69 @@
-import { useEffect,useRef,useState } from 'react';
-import { useLocalSearchParams,useRouter } from 'expo-router';
-import { Button,ScrollView,Switch,Text,View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../contexts/AuthContext';
 import { useRemoteResource } from '../hooks/useRemoteResource';
-import { localizarNotificacao,listarNotificacoes,lerNotificacao,preferenciasNotificacao,salvarPreferenciasNotificacao,destinoNotificacao,type PreferenciasNotificacao,type Notificacao } from '../services/notificacoes';
+import { useNotificacoesRevision } from '../hooks/useNotificacoesRevision';
+import { localizarNotificacao, listarNotificacoes, lerNotificacao, preferenciasNotificacao, salvarPreferenciasNotificacao, destinoAutorizadoNotificacao, mensagemErroNotificacao, type PreferenciasNotificacao, type Notificacao } from '../services/notificacoes';
 import { AsyncState } from '../components/AsyncState';
-import { errorMessage } from '../config/api';
 import { globalStyles as s } from '../styles/globalStyles';
+import { theme } from '../styles/theme';
 import { PreferenciaPush } from '../components/PreferenciaPush';
-export default function Notificacoes(){
-    const {notificacaoId}=useLocalSearchParams<{notificacaoId?:string}>();
-    const destino=useRemoteResource(notificacaoId?`push:${notificacaoId}`:false,signal=>localizarNotificacao(notificacaoId!,signal));
-    const router=useRouter();const [page,setPage]=useState(0),[feedback,setFeedback]=useState(''),[busy,setBusy]=useState(false);const pending=useRef(false);
-    const {data,error,reload}=useRemoteResource(`notificacoes:${page}`,async signal=>{const [avisos,prefs]=await Promise.all([listarNotificacoes(page,signal),preferenciasNotificacao(signal)]);return {avisos,prefs};});
-    const run=async(task:()=>Promise<void>)=>{if(pending.current)return;pending.current=true;setBusy(true);setFeedback('');try{await task();reload();}catch(e){setFeedback(errorMessage(e));}finally{pending.current=false;setBusy(false);}};
-    const open=(n:Notificacao)=>void run(async()=>{await lerNotificacao(n.id);router.push(destinoNotificacao(n));});
-    const opened=useRef('');
-    useEffect(()=>{if(destino.data&&notificacaoId&&opened.current!==notificacaoId&&!pending.current){opened.current=notificacaoId;open(destino.data);}},[destino.data,notificacaoId]);
-    const prefer=(prefs:PreferenciasNotificacao)=>void run(()=>salvarPreferenciasNotificacao(prefs));
-    return <SafeAreaView style={{flex:1}}><ScrollView contentContainerStyle={{padding:16,gap:12}}><Button title="Voltar" onPress={()=>router.back()}/><Text style={s.title}>Notificações</Text><PreferenciaPush/><Text accessibilityLiveRegion="polite">{feedback}</Text>
-        {error?<AsyncState message={error} onRetry={reload}/>:!data?<AsyncState loading/>:<>
-            {notificacaoId&&(destino.error?<AsyncState message={destino.error} onRetry={destino.reload}/>:destino.data?<Button title={`Abrir viagem: ${destino.data.titulo}`} disabled={busy} onPress={()=>open(destino.data!)}/>:<AsyncState loading title="Localizando aviso autorizado"/>)}
-            <Text>Push operacional</Text><Switch accessibilityLabel="Push operacional" disabled={busy} value={data.prefs.pushOperacional} onValueChange={pushOperacional=>prefer({...data.prefs,pushOperacional})}/>
-            <Text>Push informativo</Text><Switch accessibilityLabel="Push informativo" disabled={busy} value={data.prefs.pushInformativo} onValueChange={pushInformativo=>prefer({...data.prefs,pushInformativo})}/>
-            <Text>As preferências não removem os avisos operacionais desta central.</Text>
-            {!data.avisos.itens.length&&<AsyncState status="empty" title="Nenhuma notificação"/>}
-            {data.avisos.itens.map(n=><View key={n.id} style={s.card}><Text>{n.lidaEm?'Lida':'Não lida'} · {n.contextoTipo}</Text><Text accessibilityRole="header">{n.titulo}</Text><Text>{n.mensagem}</Text><Button title="Abrir contexto" disabled={busy} onPress={()=>open(n)}/>{!n.lidaEm&&<Button title="Marcar como lida" disabled={busy} onPress={()=>void run(()=>lerNotificacao(n.id))}/>}</View>)}
-            <Button title="Anterior" disabled={page===0} onPress={()=>setPage(v=>v-1)}/><Button title="Próxima" disabled={page+1>=data.avisos.totalPaginas} onPress={()=>setPage(v=>v+1)}/>
+
+export default function Notificacoes() {
+    const { notificacaoId } = useLocalSearchParams<{ notificacaoId?: string }>();
+    const { user } = useAuth();
+    return <Central key={user.id} motorista={user.tipo === 'MOTORISTA'} notificacaoId={notificacaoId} />;
+}
+const contextos: Record<string, string> = { VIAGEM: 'Viagem', EXCURSAO: 'Excursão', EXECUCAO_EXCURSAO: 'Viagem de excursão', ROTA_PUBLICA: 'Rota pública', TURMA: 'Turma', EMBARQUE: 'Pedido de embarque', SOLICITACAO_VAGA: 'Solicitação de vaga' };
+function Central({ motorista, notificacaoId }: { motorista: boolean; notificacaoId?: string }) {
+    const router = useRouter(), revision = useNotificacoesRevision();
+    const [page, setPage] = useState(0), [feedback, setFeedback] = useState(''), [busy, setBusy] = useState(false);
+    const pending = useRef(false), mounted = useRef(true), opened = useRef('');
+    useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+    const avisos = useRemoteResource(`notificacoes:${page}:${revision}`, async signal => {
+        try { return await listarNotificacoes(page, signal); } catch (e) { throw new Error(mensagemErroNotificacao(e)); }
+    });
+    const prefs = useRemoteResource('notificacoes:preferencias', preferenciasNotificacao);
+    const destino = useRemoteResource(notificacaoId ? `push:${notificacaoId}` : false, async signal => {
+        try { return await localizarNotificacao(notificacaoId!, signal); } catch (e) { throw new Error(mensagemErroNotificacao(e)); }
+    });
+    const run = async (task: () => Promise<void>) => {
+        if (pending.current) return;
+        pending.current = true; setBusy(true); setFeedback('');
+        try { await task(); } catch (e) { if (mounted.current) setFeedback(mensagemErroNotificacao(e)); }
+        finally { pending.current = false; if (mounted.current) { avisos.reload(); setBusy(false); } }
+    };
+    const open = (n: Notificacao) => void run(async () => {
+        const target = await destinoAutorizadoNotificacao(n, motorista);
+        if (!mounted.current) return;
+        await lerNotificacao(n.id);
+        if (mounted.current) router.push(target);
+    });
+    useEffect(() => {
+        if (destino.data && notificacaoId && opened.current !== notificacaoId && !pending.current) { opened.current = notificacaoId; open(destino.data); }
+    }, [destino.data, notificacaoId]);
+    const prefer = (value: PreferenciasNotificacao) => void run(async () => { await salvarPreferenciasNotificacao(value); if (mounted.current) prefs.reload(); });
+    const button = (title: string, action: () => void, disabled = false) => <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy || disabled, busy }} disabled={busy || disabled} onPress={action} style={{ minHeight: 48, padding: 12, borderRadius: 8, backgroundColor: theme.colors.primary, justifyContent: 'center', opacity: busy || disabled ? 0.5 : 1 }}><Text style={{ color: '#fff', textAlign: 'center' }}>{title}</Text></Pressable>;
+    return <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}><ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
+        {button('Voltar', () => router.back())}<Text style={s.title} accessibilityRole="header">Notificações</Text>
+        <PreferenciaPush /><Text accessibilityLiveRegion="polite">{feedback}</Text>
+        {notificacaoId && (destino.error ? <AsyncState message={destino.error} onRetry={destino.reload} /> : destino.data ? button(`Abrir aviso: ${destino.data.titulo}`, () => open(destino.data!)) : <AsyncState loading title="Localizando seu aviso" />)}
+        <Text accessibilityRole="header">Preferências da conta</Text>
+        {prefs.error ? <AsyncState message={prefs.error} onRetry={prefs.reload} /> : !prefs.data ? <AsyncState loading title="Carregando preferências" /> : <>
+            <Text>Avisos de viagem</Text><Switch accessibilityLabel="Avisos de viagem" disabled={busy} value={prefs.data.pushOperacional} onValueChange={pushOperacional => prefer({ ...prefs.data!, pushOperacional })} />
+            <Text>Avisos informativos</Text><Switch accessibilityLabel="Avisos informativos" disabled={busy} value={prefs.data.pushInformativo} onValueChange={pushInformativo => prefer({ ...prefs.data!, pushInformativo })} />
+        </>}
+        <Text>As preferências de envio não removem o histórico da central.</Text>
+        {avisos.error ? <AsyncState message={avisos.error} onRetry={avisos.reload} /> : !avisos.data ? <AsyncState loading /> : <>
+            {!avisos.data.itens.length && <AsyncState status="empty" title="Nenhuma notificação" />}
+            {avisos.data.itens.map(n => <View key={n.id} style={[s.card, { gap: 8 }]}>
+                <Text>{n.lidaEm ? 'Lida' : 'Não lida'} · {contextos[n.contextoTipo] || 'Aviso'}</Text><Text accessibilityRole="header" style={{ fontWeight: '700' }}>{n.titulo}</Text><Text>{n.mensagem}</Text>
+                <Text>{new Date(n.criadaEm).toLocaleString('pt-BR')}</Text>
+                {button('Abrir aviso', () => open(n))}{!n.lidaEm && button('Marcar como lida', () => void run(() => lerNotificacao(n.id)))}
+            </View>)}
+            {button('Anterior', () => setPage(v => v - 1), page === 0)}{button('Próxima', () => setPage(v => v + 1), page + 1 >= avisos.data.totalPaginas)}
         </>}
     </ScrollView></SafeAreaView>;
 }
