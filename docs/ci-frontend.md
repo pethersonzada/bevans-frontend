@@ -11,6 +11,9 @@ $env:EXPO_OFFLINE = '1'
 npm run bundle:android
 ```
 
+Use um terminal separado para essa verificação ou remova `EXPO_NO_DOTENV` e
+`EXPO_OFFLINE` da sessão antes de voltar ao desenvolvimento normal com `.env`.
+
 O workflow `.github/workflows/frontend.yml` executa em push para `main` e PRs
 destinados à `main`. Instala o lockfile com `npm ci`, usa cache do npm associado
 ao lockfile e interrompe ao falhar arquitetura, TypeScript, testes ou exportação.
