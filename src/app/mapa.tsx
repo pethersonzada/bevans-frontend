@@ -25,7 +25,7 @@ import { withDeadline } from '../services/asyncOperation';
 import { validCoordinates } from '../services/location';
 import { ensureNavigationLocation, NavigationLocationError } from '../services/navigationLocation';
 import { encerrarViagem } from '../services/viagens';
-import { buscarRotaPublica } from '../services/rotasPublicas';
+import { buscarRotaPublica, listarMinhasRotas } from '../services/rotasPublicas';
 import { montarParadasPublicas, type ParadaPublicaNavegacao } from '../services/roteiroNavegacao';
 import { createPositionSender } from '../services/telemetria';
 import { theme } from '../styles/theme';
@@ -1090,6 +1090,7 @@ export default function Mapa() {
 
         let rotaCarregada: PassageiroRota[] = [];
         let paradasPublicas: ParadaPublicaNavegacao[] = [];
+        let modalidadePublica = false;
 
         try {
             if (!user?.id) {
@@ -1210,9 +1211,12 @@ export default function Mapa() {
             };
 
             // Rotas públicas compartilham o mapa, mas possuem origem e destino próprios.
-            if (rotaId) {
-                const rotaPublica = await buscarRotaPublica(rotaId);
+            const rotaPublica = rotaId
+                ? await buscarRotaPublica(rotaId)
+                : (await listarMinhasRotas()).find(r => r.turmaId === Number(turmaAtual.id));
+            if (rotaPublica) {
                 if (rotaPublica.turmaId !== Number(turmaAtual.id)) throw new Error('A rota pública não pertence à turma da viagem.');
+                modalidadePublica = true;
                 garagemCarregada = { latitude: rotaPublica.origemLatitude, longitude: rotaPublica.origemLongitude };
                 destinoCarregado = { latitude: rotaPublica.destinoLatitude, longitude: rotaPublica.destinoLongitude };
                 paradasPublicas = rotaPublica.paradas.map(p => ({
@@ -1278,7 +1282,7 @@ export default function Mapa() {
 
             // O snapshot traz os embarques aprovados; a rota pública também
             // exige as paradas cadastradas, mesmo quando ainda não há reserva.
-            if (rotaId) {
+            if (modalidadePublica) {
                 rotaCarregada = montarParadasPublicas(
                     rotaCarregada, paradasPublicas, direcaoUsada.toUpperCase() as 'IDA' | 'VOLTA'
                 );
