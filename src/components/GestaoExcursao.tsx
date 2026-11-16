@@ -49,7 +49,7 @@ export function GestaoExcursao({id,secao='participantes',origemConfigurada=true,
             {onConfigurarOrigem&&<Button title="Configurar ponto de saída" onPress={onConfigurarOrigem} disabled={busy}/>}</>}
         {executados.includes(sentido)&&<Text style={trip.body}>Este trecho já possui execução. O roteiro exibido será o snapshot salvo; não é possível reotimizar uma viagem iniciada.</Text>}
         <Button title={executados.includes(sentido)?"Ver roteiro da execução":"Ver sequência dos pontos"} disabled={busy} onPress={()=>void run(async()=>{setPontos([]);setPontos(await planejarExcursao(id,sentido,false));})}/>
-        {!executados.includes(sentido)&&<Button title="Otimizar ordem dos pontos" disabled={busy||!origemConfigurada} onPress={()=>void run(async()=>{setPontos([]);setPontos(await planejarExcursao(id,sentido,true));})}/>}
+        {!executados.includes(sentido)&&<Button title="Otimizar prévia dos pontos" disabled={busy||!origemConfigurada} onPress={()=>void run(async()=>{setPontos([]);setPontos(await planejarExcursao(id,sentido,true));})}/>}
         {!!pontos.length&&<><MapaPreviaPublica pontos={pontos}/><Text style={trip.caption}>Roteiro consultado no servidor. Nenhuma parada foi alterada.</Text></>}</>}
     </Section>;
 }
