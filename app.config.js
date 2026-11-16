@@ -1,4 +1,7 @@
-import 'dotenv/config';
+import { config as loadDotEnv } from 'dotenv';
+
+// Expo's CI flag must also apply to this explicit configuration loader.
+if (process.env.EXPO_NO_DOTENV !== '1') loadDotEnv({ quiet: true });
 
 export default {
   expo: {

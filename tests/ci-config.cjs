@@ -1,0 +1,5 @@
+const {test}=require('node:test'),assert=require('node:assert/strict');
+const fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
+function config(env){let loads=0;const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync('app.config.js','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{exports,process:{env},require:name=>{assert.equal(name,'dotenv');return {config:()=>{loads++;}};}});return {loads,expo:exports.default.expo};}
+test('credential-free CI config never explicitly loads dotenv',()=>{const r=config({EXPO_NO_DOTENV:'1'});assert.equal(r.loads,0);assert.equal(r.expo.android.googleServicesFile,undefined);assert.equal(r.expo.plugins.find(p=>Array.isArray(p)&&p[0]==='expo-notifications')[1].defaultChannel,'operacional');});
+test('normal local configuration preserves dotenv loading and HTTPS release behavior',()=>{assert.equal(config({}).loads,1);assert.equal(config({EXPO_PUBLIC_APP_ENV:'staging'}).expo.android.usesCleartextTraffic,false);assert.equal(config({EXPO_PUBLIC_APP_ENV:'production'}).expo.android.usesCleartextTraffic,false);});
