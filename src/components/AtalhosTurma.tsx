@@ -1,8 +1,8 @@
-import { View, Text } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useRemoteResource } from '../hooks/useRemoteResource';
+import { Text, View } from 'react-native';
 import { apiRequest } from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useRemoteResource } from '../hooks/useRemoteResource';
 import { ContatoProtegido } from './ContatoProtegido';
 import { MenuRow, ui } from './ui/Primitives';
 export function AtalhosTurma({turmaId}:{turmaId:number}) {

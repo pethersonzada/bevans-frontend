@@ -1,41 +1,39 @@
-import { MenuRow } from '../components/ui/Primitives';
-import { useAppAlert } from '../contexts/AppAlertContext';
-import { AppModal as Modal } from '../components/AppModal';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useHomeRefresh } from '../hooks/useHomeRefresh';
-import { iniciarViagem, reiniciarViagem, consultarEstadoViagem, TrocaViagemError } from '../services/viagens';
-import { fetchTurmasMotorista, fetchPassageirosTurma, fetchSolicitacoesTurma } from '../services/motoristaHome';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     AppState,
-    
-    
+
+
     Pressable,
-    ScrollView,
     RefreshControl,
+    ScrollView,
     StatusBar,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
+import { AppModal as Modal } from '../components/AppModal';
+import { useAppAlert } from '../contexts/AppAlertContext';
+import { useHomeRefresh } from '../hooks/useHomeRefresh';
+import { fetchPassageirosTurma, fetchSolicitacoesTurma, fetchTurmasMotorista } from '../services/motoristaHome';
+import { consultarEstadoViagem, iniciarViagem, reiniciarViagem, TrocaViagemError } from '../services/viagens';
 
-import { ApiError, apiFetch, errorMessage, readApiError, readApiJson } from '../config/api';
 import { AsyncState } from '../components/AsyncState';
-import { theme } from '../styles/theme';
+import { apiFetch, errorMessage, readApiJson } from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
+import { theme } from '../styles/theme';
 
 import { BannerRotaAtiva } from '../components/banners/BannerRotaAtiva';
 import { CardsTurmasMotorista } from '../components/cards/CardsTurmasMotorista';
 import { BotoesAcaoMotorista } from '../components/motorista/BotoesAcaoMotorista';
 import { HeaderMotorista } from '../components/motorista/HeaderMotorista';
-import { ListaPassageirosAprovados } from '../components/motorista/ListaPassageirosAprovados';
 import { PainelTurmaSelecionada } from '../components/motorista/PainelTurmaSelecionada';
 
-import type { Turma, PassageiroTurma as Aluno, SolicitacaoTurma as VinculoPendente } from '../types/turma';
+import type { PassageiroTurma as Aluno, Turma, SolicitacaoTurma as VinculoPendente } from '../types/turma';
 
 export default function HomeMotorista() {
     const Alert = useAppAlert();
@@ -60,6 +58,7 @@ export default function HomeMotorista() {
     const [viagemAtiva, setViagemAtiva] = useState(false);
 
     const [modalNotificacoesVisible, setModalNotificacoesVisible] = useState(false);
+    const [mostrarPassageiros, setMostrarPassageiros] = useState(false);
     const [analisando, setAnalisando] = useState<number | null>(null);
     const analisePendente = useRef(false);
     const inicioPendente = useRef(false);
@@ -337,6 +336,7 @@ export default function HomeMotorista() {
     }
 
     return (
+
         <View style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
@@ -370,6 +370,7 @@ export default function HomeMotorista() {
                         setPassageiros([]);
                         setAlunosPendentes([]);
                         setViagemAtiva(false);
+                        setMostrarPassageiros(false);
 
                         if (user?.id) {
                             const chaveTurma =
@@ -400,42 +401,142 @@ export default function HomeMotorista() {
                     }}
                 />
 
-                {turmaSelecionada&&<AtalhosTurma key={turmaSelecionada.id} turmaId={turmaSelecionada.id}/>}
-                <MenuRow title={`Solicitações de entrada (${alunosPendentes.length})`} description="Revise os pedidos para suas turmas." icon="people-outline" onPress={()=>setModalNotificacoesVisible(true)} />
-                <PainelTurmaSelecionada
-                    turma={turmaSelecionada}
-                    onAtualizarTurma={(tAtualizada) => { turmaSelecionadaRef.current = tAtualizada; setTurmaSelecionada(tAtualizada); }}
-                />
 
-                {turmaSelecionada && (
+                {turmaSelecionada ? (
                     <>
-                        <View style={[
-                            styles.badgeStatus,
-                            { backgroundColor: todosResponderam ? theme.colors.success : theme.colors.primary }
-                        ]}>
-                            <Text style={styles.badgeTitle}>
-                                {todosResponderam ? "PRONTO!" : "COLETANDO..."}
-                            </Text>
-                            <Text style={styles.badgeSubtitle}>
-                                {turmaSelecionada.nome} ({totalRespostas}/{totalPassageiros} responderam)
-                            </Text>
+                        <View style={styles.sectionHeader}>
+                            <View style={styles.sectionHeaderText}>
+                                <Text style={styles.eyebrow}>TURMA ATUAL</Text>
+                                <Text style={styles.sectionTitle}>Visão geral</Text>
+                            </View>
+                            <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel="Abrir configurações da turma"
+                                style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
+                                onPress={() => router.push({
+                                    pathname: '/configuracoes-turma',
+                                    params: { turmaId: String(turmaSelecionada.id) },
+                                })}
+                            >
+                                <Ionicons name="settings-outline" size={20} color={theme.colors.text} />
+                            </Pressable>
                         </View>
 
-                        <BotoesAcaoMotorista
-                            viagemAtiva={viagemAtiva}
-                            todosResponderam={todosResponderam}
-                            onIniciarRota={iniciarRota}
+                        <PainelTurmaSelecionada
+                            turma={turmaSelecionada}
+                            onAtualizarTurma={(tAtualizada) => {
+                                turmaSelecionadaRef.current = tAtualizada;
+                                setTurmaSelecionada(tAtualizada);
+                            }}
                         />
-                    </>
-                )}
 
-                {turmaSelecionada && <ListaPassageirosAprovados
-                    passageiros={passageiros}
-                    loading={carregandoPassageiros}
-                    error={erroPassageiros}
-                    onRetry={() => buscarPassageirosPorTurma(turmaSelecionada.id)}
-                    onRemoverAluno={removerAluno}
-                />}
+                        <View style={styles.operationCard}>
+                            <View style={styles.operationTop}>
+                                <View style={[styles.statusDot, { backgroundColor: viagemAtiva ? theme.colors.success : theme.colors.primary }]} />
+                                <Text style={styles.operationStatus}>{viagemAtiva ? 'Viagem em andamento' : 'Próxima viagem'}</Text>
+                            </View>
+                            <Text style={styles.operationTitle}>
+                                {todosResponderam ? 'Presenças confirmadas' : 'Aguardando confirmações'}
+                            </Text>
+                            <Text style={styles.operationDetail}>
+                                {carregandoPassageiros
+                                    ? 'Atualizando confirmações...'
+                                    : erroPassageiros
+                                        ? 'Não foi possível atualizar as confirmações.'
+                                        : `${totalRespostas} de ${totalPassageiros} passageiros responderam`}
+                            </Text>
+                            <View style={styles.progressTrack} accessibilityLabel={`${totalRespostas} de ${totalPassageiros} confirmações`}>
+                                <View style={[styles.progressFill, { width: `${totalPassageiros ? Math.min(100, (totalRespostas / totalPassageiros) * 100) : 0}%` }]} />
+                            </View>
+                            <BotoesAcaoMotorista
+                                viagemAtiva={viagemAtiva}
+                                todosResponderam={todosResponderam}
+                                onIniciarRota={iniciarRota}
+                            />
+                        </View>
+
+                        <View style={styles.sectionHeader}>
+                            <View style={styles.sectionHeaderText}>
+                                <Text style={styles.eyebrow}>GESTÃO</Text>
+                                <Text style={styles.sectionTitle}>Pessoas</Text>
+                            </View>
+                        </View>
+                        <View style={styles.listCard}>
+                            <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel={`Ver solicitações de entrada, ${alunosPendentes.length} pendentes`}
+                                style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
+                                onPress={() => setModalNotificacoesVisible(true)}
+                            >
+                                <View style={styles.menuIcon}><Ionicons name="person-add-outline" size={21} color={theme.colors.primary} /></View>
+                                <View style={styles.menuCopy}>
+                                    <Text style={styles.menuTitle}>Solicitações de entrada</Text>
+                                    <Text style={styles.menuSubtitle}>{carregandoPendentes ? 'Atualizando...' : erroPendentes ? 'Falha ao carregar. Toque para tentar novamente.' : alunosPendentes.length === 0 ? 'Nenhuma solicitação pendente' : `${alunosPendentes.length} aguardando análise`}</Text>
+                                </View>
+                                {alunosPendentes.length > 0 && <View style={styles.countPill}><Text style={styles.countPillText}>{alunosPendentes.length}</Text></View>}
+                                <Ionicons name="chevron-forward" size={18} color={theme.colors.textLight} />
+                            </Pressable>
+                            <View style={styles.rowDivider} />
+                            <Pressable
+                                accessibilityRole="button"
+                                accessibilityState={{ expanded: mostrarPassageiros }}
+                                accessibilityLabel={`${mostrarPassageiros ? 'Ocultar' : 'Mostrar'} passageiros da turma`}
+                                style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
+                                onPress={() => setMostrarPassageiros(v => !v)}
+                            >
+                                <View style={styles.menuIcon}><Ionicons name="people-outline" size={21} color={theme.colors.primary} /></View>
+                                <View style={styles.menuCopy}>
+                                    <Text style={styles.menuTitle}>Passageiros</Text>
+                                    <Text style={styles.menuSubtitle}>{carregandoPassageiros ? 'Atualizando...' : erroPassageiros ? 'Erro ao carregar lista' : `${totalPassageiros} na turma`}</Text>
+                                </View>
+                                <Ionicons name={mostrarPassageiros ? 'chevron-up' : 'chevron-down'} size={18} color={theme.colors.textLight} />
+                            </Pressable>
+                            {mostrarPassageiros && (
+                            <View style={styles.expandedList}>
+                                <View style={styles.passengerListHeading}>
+                                    <Text style={styles.passengerListTitle}>Passageiros de {turmaSelecionada.nome}</Text>
+                                    <Text style={styles.passengerListCount}>Turma selecionada</Text>
+                                </View>
+                                {carregandoPassageiros && <AsyncState loading title="Carregando passageiros..." />}
+                                {!carregandoPassageiros && erroPassageiros && (
+                                    <AsyncState message={erroPassageiros} onRetry={() => buscarPassageirosPorTurma(turmaSelecionada.id)} />
+                                )}
+                                {!carregandoPassageiros && !erroPassageiros && passageiros.length === 0 && (
+                                    <AsyncState status="empty" title="Nenhum passageiro vinculado" message="Os passageiros aprovados desta turma aparecerão aqui." />
+                                )}
+                                {!carregandoPassageiros && !erroPassageiros && passageiros.map(p => (
+                                    <View key={p.id} style={styles.passengerRow}>
+                                        <View style={styles.passengerAvatar}>
+                                            <Text style={styles.passengerInitials}>{p.nome?.trim().charAt(0).toUpperCase() || 'P'}</Text>
+                                        </View>
+                                        <View style={styles.passengerInfo}>
+                                            <Text style={styles.passengerName}>{p.nome?.trim() || 'Passageiro sem nome'}</Text>
+                                            <Text style={styles.passengerStatus}>
+                                                {p.status ? `Confirmou: ${p.status}` : 'Aguardando resposta'}
+                                            </Text>
+                                        </View>
+                                        <Pressable
+                                            accessibilityRole="button"
+                                            accessibilityLabel={`Remover ${p.nome || 'passageiro'} da turma`}
+                                            onPress={() => removerAluno(p.id, p.nome)}
+                                            hitSlop={8}
+                                            style={styles.passengerRemove}
+                                        >
+                                            <Ionicons name="trash-outline" size={19} color={theme.colors.danger} />
+                                        </Pressable>
+                                    </View>
+                                ))}
+                            </View>
+                            )}
+                        </View>
+                    </>
+                ) : (
+                    <View style={styles.emptyCard}>
+                        <Ionicons name="people-outline" size={28} color={theme.colors.primary} />
+                        <Text style={styles.emptyTitle}>Nenhuma turma selecionada</Text>
+                        <Text style={styles.emptyDescription}>Selecione uma turma acima para gerenciar viagens, solicitações e passageiros.</Text>
+                    </View>
+                )}
             </ScrollView>
 
             <Modal
@@ -511,6 +612,44 @@ export default function HomeMotorista() {
 }
 
 const styles = StyleSheet.create({
+    sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: theme.spacing.sm },
+    sectionHeaderText: { flex: 1, gap: 3 },
+    eyebrow: { color: theme.colors.textLight, fontSize: 11, fontWeight: '700', letterSpacing: 1.2 },
+    sectionTitle: { color: theme.colors.text, fontSize: 21, fontWeight: '700' },
+    iconButton: { minWidth: 48, minHeight: 48, borderRadius: 14, backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border, justifyContent: 'center', alignItems: 'center' },
+    pressed: { opacity: 0.65 },
+    operationCard: { backgroundColor: theme.colors.surface, borderRadius: 20, padding: theme.spacing.lg, borderWidth: 1, borderColor: theme.colors.border, gap: theme.spacing.sm },
+    operationTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    statusDot: { height: 9, width: 9, borderRadius: 5 },
+    operationStatus: { color: theme.colors.textLight, fontSize: 13, fontWeight: '600' },
+    operationTitle: { color: theme.colors.text, fontSize: 20, fontWeight: '700' },
+    operationDetail: { color: theme.colors.textLight, fontSize: 14, lineHeight: 20 },
+    progressTrack: { height: 6, borderRadius: 6, backgroundColor: theme.colors.border, overflow: 'hidden', marginBottom: theme.spacing.sm },
+    progressFill: { height: '100%', borderRadius: 6, backgroundColor: theme.colors.primary },
+    listCard: { backgroundColor: theme.colors.surface, borderRadius: 18, borderWidth: 1, borderColor: theme.colors.border, overflow: 'hidden' },
+    menuItem: { minHeight: 76, flexDirection: 'row', alignItems: 'center', paddingHorizontal: theme.spacing.md, paddingVertical: 12, gap: 12 },
+    menuIcon: { width: 42, height: 42, borderRadius: 13, backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center' },
+    menuCopy: { flex: 1, gap: 4 },
+    menuTitle: { color: theme.colors.text, fontSize: 15, fontWeight: '700' },
+    menuSubtitle: { color: theme.colors.textLight, fontSize: 12, lineHeight: 17 },
+    countPill: { borderRadius: 12, backgroundColor: theme.colors.primary, minWidth: 24, minHeight: 24, paddingHorizontal: 6, justifyContent: 'center', alignItems: 'center' },
+    countPillText: { color: theme.colors.surface, fontSize: 12, fontWeight: '700' },
+    rowDivider: { height: 1, marginLeft: 70, backgroundColor: theme.colors.border },
+    expandedList: { paddingBottom: 8, backgroundColor: theme.colors.surface },
+    passengerListHeading: { paddingHorizontal: theme.spacing.md, paddingTop: 12, paddingBottom: 10, gap: 3, borderTopWidth: 1, borderTopColor: theme.colors.border },
+    passengerListTitle: { color: theme.colors.text, fontWeight: '700', fontSize: 15 },
+    passengerListCount: { color: theme.colors.textLight, fontSize: 12 },
+    passengerRow: { backgroundColor: theme.colors.surface, paddingHorizontal: theme.spacing.md, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 72, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border },
+    passengerAvatar: { backgroundColor: theme.colors.background, borderRadius: 22, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+    passengerInitials: { color: theme.colors.primary, fontWeight: '700', fontSize: 16 },
+    passengerInfo: { flex: 1, gap: 4 },
+    passengerName: { color: theme.colors.text, fontWeight: '700', fontSize: 14 },
+    passengerStatus: { color: theme.colors.textLight, fontSize: 12 },
+    passengerRemove: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+    emptyCard: { padding: theme.spacing.xl, backgroundColor: theme.colors.surface, borderRadius: 18, alignItems: 'center', gap: 10 },
+    emptyTitle: { fontWeight: '700', fontSize: 17, color: theme.colors.text },
+    emptyDescription: { textAlign: 'center', color: theme.colors.textLight, lineHeight: 20 },
+
     container: {
         flex: 1,
         backgroundColor: theme.colors.background,
@@ -632,4 +771,3 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
 });
-import { AtalhosTurma } from '../components/AtalhosTurma';
