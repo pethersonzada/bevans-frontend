@@ -311,6 +311,7 @@ export default function EnderecoMapaPicker({
       <View style={styles.busca}>
         <EnderecoSearchInput
           onSelecionar={atualizarEndereco}
+          proximidade={centroMapa ? { latitude: centroMapa[1], longitude: centroMapa[0] } : undefined}
         />
       </View>
 
