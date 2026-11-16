@@ -35,7 +35,10 @@ async function invalidateNative() {
 }
 async function prepareNative(id: string) {
     const previous = await AsyncStorage.getItem(nativeOwnerKey);
-    if ((previous && previous !== id) || await AsyncStorage.getItem(pendingNativeKey)) await invalidateNative();
+    // Older app versions saved only per-user installation IDs. Rotate their
+    // unscoped native token before restoring any account, including after upgrade.
+    const legacy = !previous && (await AsyncStorage.getAllKeys()).some(value => /^@bevans:push:[1-9]\d*$/.test(value));
+    if (legacy || (previous && previous !== id) || await AsyncStorage.getItem(pendingNativeKey)) await invalidateNative();
 }
 export async function prepararSessaoPush(id: string) {
     definirSessaoPush(id);
@@ -50,7 +53,9 @@ async function register(id: string, epoch: number, isCurrent: () => boolean) {
     assertCurrent(id, epoch, isCurrent);
     await prepareNative(id);
     assertCurrent(id, epoch, isCurrent);
-    const token = await Notifications.getDevicePushTokenAsync();
+    let token: Awaited<ReturnType<typeof Notifications.getDevicePushTokenAsync>>;
+    try { token = await Notifications.getDevicePushTokenAsync(); }
+    catch { throw new Error('Não foi possível obter o token Android. Confira a configuração nativa e tente novamente.'); }
     assertCurrent(id, epoch, isCurrent);
     if (token.type !== 'android' || typeof token.data !== 'string' || !token.data.trim()) throw new Error('Token FCM indisponível. Confira a configuração Android e tente novamente.');
     const stored = await AsyncStorage.getItem(key(id));
@@ -83,7 +88,10 @@ export async function ativarPushAndroid(id: string, isCurrent: () => boolean): P
         await Notifications.setNotificationChannelAsync('operacional', { name: 'Viagens', importance: Notifications.AndroidImportance.DEFAULT, lockscreenVisibility: Notifications.AndroidNotificationVisibility?.PRIVATE });
         const permission = await Notifications.requestPermissionsAsync();
         assertCurrent(id, epoch, isCurrent);
-        if (permission.status !== 'granted') throw new Error('Push não autorizado. A central de notificações continua disponível.');
+        if (permission.status !== 'granted') {
+            if(await AsyncStorage.getItem(consentKey(id))==='true') { await AsyncStorage.removeItem(consentKey(id)); await revoke(id); }
+            throw new Error('Push não autorizado. A central de notificações continua disponível.');
+        }
         await AsyncStorage.setItem(consentKey(id), 'true');
         return register(id, epoch, isCurrent);
     });
@@ -100,7 +108,7 @@ export function renovarPushAndroid(id: string, isCurrent: () => boolean): Promis
         if (await AsyncStorage.getItem(consentKey(id)) !== 'true') return null;
         const permission = await Notifications.getPermissionsAsync();
         assertCurrent(id, epoch, isCurrent);
-        if (permission.status !== 'granted') return null;
+        if (permission.status !== 'granted') { await AsyncStorage.removeItem(consentKey(id)); await revoke(id); return null; }
         // Read the native current token, rather than trust an old queued event.
         return register(id, epoch, isCurrent);
     });

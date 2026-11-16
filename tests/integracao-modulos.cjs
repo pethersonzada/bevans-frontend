@@ -72,7 +72,7 @@ test('commercial contact accepts only the validated server WhatsApp link',async(
 });
 test('FCM permission denial never registers a token and iOS APNS is not sent as FCM',async()=>{
     let registrations=0,tokenCalls=0;const platform={OS:'android'};
-    const m=load('src/services/push.ts',{'@react-native-async-storage/async-storage':{__esModule:true,default:{}},'react-native':{Platform:platform},'expo-notifications':{AndroidImportance:{DEFAULT:3},setNotificationChannelAsync:async()=>{},requestPermissionsAsync:async()=>({status:'denied'}),getDevicePushTokenAsync:async()=>{tokenCalls++;}},'./notificacoes':{registrarDispositivo:async()=>registrations++}});
+    const m=load('src/services/push.ts',{'@react-native-async-storage/async-storage':{__esModule:true,default:{getItem:async()=>null}},'react-native':{Platform:platform},'expo-notifications':{AndroidImportance:{DEFAULT:3},setNotificationChannelAsync:async()=>{},requestPermissionsAsync:async()=>({status:'denied'}),getDevicePushTokenAsync:async()=>{tokenCalls++;}},'./notificacoes':{registrarDispositivo:async()=>registrations++}});
     await assert.rejects(m.ativarPushAndroid('25',()=>true),/não autorizado/);assert.equal(tokenCalls,0);assert.equal(registrations,0);platform.OS='ios';await assert.rejects(m.ativarPushAndroid('25',()=>true),/iOS/);
 });
 test('resource hook discards late results after account changes and cancellations',async()=>{
@@ -83,7 +83,7 @@ test('resource hook discards late results after account changes and cancellation
 });
 test('Android push registration persists an account-specific installation and revocation invalidates the native token',async()=>{
     const storage=new Map(),calls=[];
-    const m=load('src/services/push.ts',{'@react-native-async-storage/async-storage':{__esModule:true,default:{getItem:async k=>storage.get(k)||null,setItem:async(k,v)=>storage.set(k,v),removeItem:async k=>storage.delete(k)}},'react-native':{Platform:{OS:'android'}},'expo-notifications':{AndroidImportance:{DEFAULT:3},setNotificationChannelAsync:async()=>{},requestPermissionsAsync:async()=>({status:'granted'}),getDevicePushTokenAsync:async()=>({type:'android',data:'synthetic-fcm'}),unregisterForNotificationsAsync:async()=>calls.push('delete-native-token')},'./notificacoes':{registrarDispositivo:async(id,token)=>calls.push({id,token}),revogarDispositivo:async id=>calls.push({revoke:id})}});
+    const m=load('src/services/push.ts',{'@react-native-async-storage/async-storage':{__esModule:true,default:{getAllKeys:async()=>[...storage.keys()],getItem:async k=>storage.get(k)||null,setItem:async(k,v)=>storage.set(k,v),removeItem:async k=>storage.delete(k)}},'react-native':{Platform:{OS:'android'}},'expo-notifications':{AndroidImportance:{DEFAULT:3},setNotificationChannelAsync:async()=>{},requestPermissionsAsync:async()=>({status:'granted'}),getDevicePushTokenAsync:async()=>({type:'android',data:'synthetic-fcm'}),unregisterForNotificationsAsync:async()=>calls.push('delete-native-token')},'./notificacoes':{registrarDispositivo:async(id,token)=>calls.push({id,token}),revogarDispositivo:async id=>calls.push({revoke:id})}});
     const id=await m.ativarPushAndroid('25',()=>true);assert.equal(storage.get('@bevans:push:25'),id);assert.equal(calls[0].token,'synthetic-fcm');await m.desativarPush('25');assert.equal(calls[1].revoke,id);assert.equal(calls[2],'delete-native-token');assert.equal(storage.size,0);
 });
 test('passenger excursions never call the driver listing endpoint or display other participants',()=>{

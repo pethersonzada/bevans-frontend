@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { AppState, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
+import NetInfo from '@react-native-community/netinfo';
 import { useAuth } from '../contexts/AuthContext';
 import { renovarPushAndroid } from '../services/push';
 import { criarAberturaPush } from '../services/aberturaPush';
@@ -28,10 +29,11 @@ export function AberturaPush() {
         const receivedSubscription = Notifications.addNotificationReceivedListener(() => { if (active) avisarNotificacoesChanged(); });
         const tokenSubscription = Notifications.addPushTokenListener(renew);
         const stateSubscription = AppState.addEventListener('change', state => { if (state === 'active') renew(); });
+        const unsubscribeNetwork=NetInfo.addEventListener(state=>{if(state.isConnected===true&&state.isInternetReachable!==false)renew();});
         if (changedAccount) void Notifications.clearLastNotificationResponseAsync().catch(() => {});
         else void Notifications.getLastNotificationResponseAsync().then(onResponse).catch(() => {});
         renew();
-        return () => { active = false; responseSubscription.remove(); receivedSubscription.remove(); tokenSubscription.remove(); stateSubscription.remove(); };
+        return () => { active = false; responseSubscription.remove(); receivedSubscription.remove(); tokenSubscription.remove(); stateSubscription.remove(); unsubscribeNetwork(); };
     }, [user.id, router]);
     return null;
 }

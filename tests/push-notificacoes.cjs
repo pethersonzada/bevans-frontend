@@ -12,7 +12,7 @@ function harness(){
         getDevicePushTokenAsync:async()=>{events.push({getToken:true});return state.tokenGate?await state.tokenGate:{type:'android',data:state.token};},
         unregisterForNotificationsAsync:async()=>{events.push({deleteNative:true});if(state.deleteFailure)throw Error('native failure');state.token+='-rotated';},
         clearLastNotificationResponseAsync:async()=>{},dismissAllNotificationsAsync:async()=>{}};
-    const service=load('src/services/push.ts',{'react-native':{Platform:{OS:'android'}},'expo-notifications':native,'@react-native-async-storage/async-storage':{__esModule:true,default:{getItem:async k=>storage.get(k)||null,setItem:async(k,v)=>storage.set(k,v),removeItem:async k=>storage.delete(k)}},'./notificacoes':{
+    const service=load('src/services/push.ts',{'react-native':{Platform:{OS:'android'}},'expo-notifications':native,'@react-native-async-storage/async-storage':{__esModule:true,default:{getAllKeys:async()=>[...storage.keys()],getItem:async k=>storage.get(k)||null,setItem:async(k,v)=>storage.set(k,v),removeItem:async k=>storage.delete(k)}},'./notificacoes':{
         registrarDispositivo:async(id,token)=>{events.push({register:id,token});if(state.registerGate)await state.registerGate;if(state.registerFailure)throw Error('offline');},
         revogarDispositivo:async id=>{events.push({revoke:id});if(state.revokeFailure)throw Error('offline');}
     }});
@@ -39,6 +39,12 @@ test('token renewal updates the same installation without prompting or duplicati
 });
 test('late revoke and logout from a previous account cannot delete the new native token',async()=>{
     const h=harness();await h.service.prepararSessaoPush('25');await h.service.ativarPushAndroid('25',()=>true);await h.service.encerrarSessaoPush('25');await h.service.prepararSessaoPush('26');const current=await h.service.ativarPushAndroid('26',()=>true);const deletions=h.events.filter(e=>e.deleteNative).length;await assert.rejects(h.service.desativarPush('25'),/conta atual não foi alterada/);await assert.rejects(h.service.encerrarSessaoPush('25'),/conta atual não foi alterada/);assert.equal(h.events.filter(e=>e.deleteNative).length,deletions);assert.equal(h.storage.get('@bevans:push:26'),current);
+});
+test('legacy installations rotate the unscoped token before exposing a different account',async()=>{
+    const h=harness();h.storage.set('@bevans:push:25','legacy_installation_123456');await h.service.prepararSessaoPush('26');assert.ok(h.events.some(e=>e.deleteNative));await h.service.ativarPushAndroid('26',()=>true);assert.notEqual(h.events.find(e=>e.register).token,'synthetic-native-A');
+});
+test('revoked Android permission removes consent and revokes an existing device without another prompt',async()=>{
+    const h=harness();await h.service.prepararSessaoPush('25');await h.service.ativarPushAndroid('25',()=>true);const prompts=h.state.prompts;h.state.permission='denied';await h.service.renovarPushAndroid('25',()=>true);assert.equal(h.state.prompts,prompts);assert.ok(h.events.some(e=>e.revoke));assert.equal(h.storage.get('@bevans:push:consentimento:25'),undefined);
 });
 test('permission denial, invalid token and offline registration never report a successful registration',async()=>{
     const denied=harness();denied.state.permission='denied';await assert.rejects(denied.service.ativarPushAndroid('25',()=>true),/não autorizado/);assert.equal(denied.events.filter(e=>e.register).length,0);
