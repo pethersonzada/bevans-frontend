@@ -6,6 +6,8 @@ import { theme } from '../../styles/theme';
 import { ActionButton } from '../ui/Primitives';
 import MapaPreviaPublica from '../MapaPreviaPublica';
 import type { Excursao } from '../../services/excursoes';
+import { useNomesExcursao } from './useNomesExcursao';
+import { nomeLocalExibicao } from '../../services/enderecoReversoExcursao';
 type Icon = ComponentProps<typeof Ionicons>['name'];
 export const estadosViagem: Record<string,string> = { RASCUNHO:'Em planejamento', PUBLICADA:'Publicada', CANCELADA:'Cancelada', CONCLUIDA:'Concluída' };
 export function dataViagem(iso:string, options:Intl.DateTimeFormatOptions = { day:'numeric', month:'short' }) {
@@ -22,17 +24,20 @@ export function PaginaViagem({ title, children, onBack, action, footer, tabs=fal
 export function CabecalhoViagem({ eyebrow, title, subtitle }: { eyebrow?:string;title:string;subtitle?:string }) {
     return <View style={{gap:10}}>{eyebrow&&<Text style={trip.eyebrow}>{eyebrow}</Text>}<Text accessibilityRole="header" style={trip.heading}>{title}</Text>{subtitle&&<Text style={trip.muted}>{subtitle}</Text>}</View>;
 }
-export function CartaoViagem({e,onPress,emAndamento=false}:{e:Excursao;onPress:()=>void;emAndamento?:boolean}) {
+export function CartaoViagem({e:original,onPress,emAndamento=false}:{e:Excursao;onPress:()=>void;emAndamento?:boolean}) {
+    const {exibicao:e,consultando,consultados}=useNomesExcursao(original,false);
     return <Pressable accessibilityRole="button" accessibilityLabel={`${e.destinoNome}. ${e.titulo}. ${estadosViagem[e.estado]||e.estado}. Ver viagem`} onPress={onPress} style={({pressed})=>[trip.travelCard,pressed&&{opacity:0.85}]}>
         <View style={trip.cardTop}><View style={trip.dateBadge}><Text style={trip.day}>{dataViagem(e.partidaEm,{day:'2-digit'})}</Text><Text style={trip.month}>{dataViagem(e.partidaEm,{month:'short'})}</Text><Text style={trip.caption}>{dataViagem(e.partidaEm,{year:'numeric'})}</Text></View><View style={{flex:1,gap:6}}><Text style={trip.status}>{emAndamento?'Em viagem':estadosViagem[e.estado]||e.estado}</Text><Text accessibilityRole="header" style={trip.cardDestination}>{e.destinoNome}</Text><Text style={trip.muted}>{e.titulo}</Text></View></View>
         <View style={trip.cardFacts}><DadoViagem icon="time-outline" text={horaViagem(e.partidaEm)}/><DadoViagem icon="people-outline" text={`${e.capacidade} lugares no total`}/></View>
         {e.origemNome&&<DadoViagem icon="navigate-outline" text={`Saída de ${e.origemNome}`}/>}
+        {consultando&&<Text style={trip.caption}>Consultando endereço do local…</Text>}
+        {consultados>0&&<Text style={trip.caption}>Endereço consultado pelas coordenadas</Text>}
         <View style={trip.cardLink}><Text style={trip.link}>{e.estado==='RASCUNHO'?'Continuar planejamento':'Ver viagem'}</Text><Ionicons name="arrow-forward" size={20} color={theme.colors.primary}/></View>
     </Pressable>;
 }
 export function DadoViagem({icon,text}:{icon:Icon;text:string}) { return <View style={{flexDirection:'row',alignItems:'center',gap:8,flexShrink:1}}><Ionicons name={icon} size={18} color={theme.colors.textLight}/><Text style={[trip.body,{flexShrink:1}]}>{text}</Text></View>; }
 export function DestinoHero({destino,titulo,estado}:{destino:string;titulo:string;estado?:string}) {
-    return <View style={trip.hero}><View style={trip.heroTop}><View style={trip.heroIcon}><Ionicons name="compass-outline" size={34} color="#fff"/></View>{estado&&<Text style={trip.heroStatus}>{estadosViagem[estado]||estado}</Text>}</View><Text style={trip.heroEyebrow}>NOSSO DESTINO</Text><Text accessibilityRole="header" style={trip.heroTitle}>{destino}</Text><Text style={trip.heroSubtitle}>{titulo}</Text></View>;
+    return <View style={trip.hero}><View style={trip.heroTop}><View style={trip.heroIcon}><Ionicons name="compass-outline" size={34} color="#fff"/></View>{estado&&<Text style={trip.heroStatus}>{estadosViagem[estado]||estado}</Text>}</View><Text style={trip.heroEyebrow}>NOSSO DESTINO</Text><Text accessibilityRole="header" style={trip.heroTitle}>{nomeLocalExibicao(destino)}</Text><Text style={trip.heroSubtitle}>{titulo}</Text></View>;
 }
 export function BlocoViagem({title,action,children}:{title:string;action?:ReactNode;children:ReactNode}) { return <View style={{gap:14}}><View style={trip.sectionHeader}><Text accessibilityRole="header" style={trip.sectionTitle}>{title}</Text>{action}</View>{children}</View>; }
 export function AtalhoViagem({title,detail,icon,onPress}:{title:string;detail?:string;icon:Icon;onPress:()=>void}) {
@@ -40,11 +45,11 @@ export function AtalhoViagem({title,detail,icon,onPress}:{title:string;detail?:s
 }
 export type PontoViagem = {nome:string;latitude:number;longitude:number};
 export function ItinerarioViagem({origem,destino,paradas=[],mapa=false,lista=true}:{origem:PontoViagem|null;destino:PontoViagem|null;paradas?:PontoViagem[];mapa?:boolean;lista?:boolean}) {
-    const pontos=[...(origem?[{...origem,tipo:'Saída'}]:[]),...paradas.map((p,i)=>({...p,tipo:`Embarque ${i+1}`})),...(destino?[{...destino,tipo:'Destino'}]:[])];
+    const pontos=[...(origem?[{...origem,tipo:'Saída'}]:[]),...paradas.map((p,i)=>({...p,tipo:`Embarque ${i+1}`})),...(destino?[{...destino,tipo:'Destino'}]:[])].map(p=>({...p,nome:nomeLocalExibicao(p.nome)}));
     return <View style={trip.itinerary}>
         {mapa&&pontos.length>0&&<><View style={trip.map}><MapaPreviaPublica pontos={pontos.map((p,i)=>({...p,paradaId:i+1}))}/></View><Text style={trip.caption}>Mapa dos pontos. Linhas indicam sequência, não navegação viária.</Text></>}
-        {lista?pontos.map((p,i)=><View key={i} style={trip.timelineRow}><View style={trip.timelineRail}><View style={[trip.dot,i===pontos.length-1&&{backgroundColor:theme.colors.primary}]}/>{i<pontos.length-1&&<View style={trip.rail}/>}</View><View style={{flex:1,paddingBottom:i<pontos.length-1?16:0,gap:4}}><Text style={trip.caption}>{p.tipo}</Text><Text style={trip.label}>{p.nome}</Text></View></View>):<>{origem&&<DadoViagem icon="navigate-outline" text={`Saída: ${origem.nome}`}/>}
-        {destino&&<DadoViagem icon="flag-outline" text={`Destino: ${destino.nome}`}/>}</>}
+        {lista?pontos.map((p,i)=><View key={i} style={trip.timelineRow}><View style={trip.timelineRail}><View style={[trip.dot,i===pontos.length-1&&{backgroundColor:theme.colors.primary}]}/>{i<pontos.length-1&&<View style={trip.rail}/>}</View><View style={{flex:1,paddingBottom:i<pontos.length-1?16:0,gap:4}}><Text style={trip.caption}>{p.tipo}</Text><Text style={trip.label}>{p.nome}</Text></View></View>):<>{origem&&<DadoViagem icon="navigate-outline" text={`Saída: ${nomeLocalExibicao(origem.nome)}`}/>}
+        {destino&&<DadoViagem icon="flag-outline" text={`Destino: ${nomeLocalExibicao(destino.nome)}`}/>}</>}
         {!origem&&<Text style={trip.caption}>Saída definida pelos pontos de embarque.</Text>}
     </View>;
 }

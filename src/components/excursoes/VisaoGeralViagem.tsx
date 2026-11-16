@@ -2,13 +2,19 @@ import { View } from 'react-native';
 import type { Excursao, ExecucaoExcursao } from '../../services/excursoes';
 import type { Momento } from './Planejamento';
 import { ActionButton, AtalhoViagem, BlocoViagem, DestinoHero, DadoViagem, EditarLink, ItinerarioViagem, dataViagem, horaViagem, trip } from './ViagemUI';
+import { useNomesExcursao } from './useNomesExcursao';
+import { Notice } from '../ui/Primitives';
 type Gestao='participantes'|'convites'|'operacao'|'publicacao';
-export function VisaoGeralViagem({e,active,dirty,onEdit,onSection,onResume,onRefresh}:{e:Excursao;active?:ExecucaoExcursao;dirty:boolean;onEdit:(m:Momento)=>void;onSection:(s:Gestao)=>void;onResume:()=>void;onRefresh:()=>void}) {
+export function VisaoGeralViagem({e:original,active,dirty,onEdit,onSection,onResume,onRefresh}:{e:Excursao;active?:ExecucaoExcursao;dirty:boolean;onEdit:(m:Momento)=>void;onSection:(s:Gestao)=>void;onResume:()=>void;onRefresh:()=>void}) {
+    const {exibicao:e,consultando,consultados,falhas}=useNomesExcursao(original);
     const origem=e.origemNome&&e.origemLatitude!=null&&e.origemLongitude!=null?{nome:e.origemNome,latitude:e.origemLatitude,longitude:e.origemLongitude}:null;
     const destino={nome:e.destinoNome,latitude:e.destinoLatitude,longitude:e.destinoLongitude};
     const editable=!['CANCELADA','CONCLUIDA'].includes(e.estado)&&!active;
     return <>
         <DestinoHero destino={e.destinoNome} titulo={e.titulo} estado={e.estado}/>
+        {consultando&&<Notice>Consultando os endereços que ainda não foram identificados.</Notice>}
+        {consultados>0&&<Notice>Endereços consultados pelas coordenadas. Confirme os pontos no planejamento para salvar essas descrições.</Notice>}
+        {falhas>0&&<Notice>Alguns endereços não puderam ser consultados. Abra os pontos no planejamento para informar uma descrição.</Notice>}
         {dirty&&<AtalhoViagem title="Seu planejamento está aqui" detail="Retomar alterações ainda não salvas" icon="create-outline" onPress={onResume}/>}
         <BlocoViagem title="Quando vamos" action={editable?<EditarLink onPress={()=>onEdit('Datas')}/>:undefined}>
             <View style={trip.travelCard}><DadoViagem icon="calendar-outline" text={`${dataViagem(e.partidaEm,{weekday:'long',day:'numeric',month:'long'})} · ${horaViagem(e.partidaEm)}`}/>{e.retornoEm&&<DadoViagem icon="return-down-back-outline" text={`Retorno ${dataViagem(e.retornoEm)} · ${horaViagem(e.retornoEm)}`}/>}<DadoViagem icon="people-outline" text={`${e.capacidade} lugares no total`}/></View>

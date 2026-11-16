@@ -1,5 +1,6 @@
 import type { DadosExcursao, Excursao, ParadaExcursao } from '../../services/excursoes';
 import { validarDatasExcursao } from '../../services/excursaoFormulario';
+import { nomeLocalGenerico } from '../../services/enderecoReversoExcursao';
 import type { PontoViagem } from './ViagemUI';
 export type RascunhoViagem = {titulo:string;destino:PontoViagem|null;origem:PontoViagem|null;partida:string;retorno:string;capacidade:string;modo:Excursao['modoColeta'];paradas:ParadaExcursao[]};
 export const momentos=['Destino','Datas','Embarque','Pontos','Revisão'] as const;
@@ -16,6 +17,7 @@ export function dadosRascunho(d:RascunhoViagem,versao?:number):DadosExcursao {
 export function validarMomento(d:RascunhoViagem,m:Momento) {
     if(m==='Destino'||m==='Revisão'){
         if(!d.destino||!d.titulo.trim())throw new Error('Escolha o destino e dê um nome à viagem.');
+        if(nomeLocalGenerico(d.destino.nome)||(d.origem&&nomeLocalGenerico(d.origem.nome)))throw new Error('Confirme o endereço ou uma descrição da origem e do destino no mapa.');
     }
     if(m==='Datas'||m==='Revisão'){
         if(!/^[1-9]\d*$/.test(d.capacidade.trim()))throw new Error('Informe a quantidade de lugares da van.');
@@ -24,7 +26,7 @@ export function validarMomento(d:RascunhoViagem,m:Momento) {
     if(m==='Pontos'||m==='Revisão'){
         if(d.modo==='PARADA_UNICA'&&d.paradas.length!==1)throw new Error('Escolha um único ponto de encontro.');
         if(d.modo==='MULTIPLAS_PARADAS'&&(d.paradas.length<2||d.paradas.length>50))throw new Error('Organize de 2 a 50 pontos de encontro.');
-        if(d.modo!=='PORTA_A_PORTA'&&d.paradas.some(p=>!p.nome.trim()||!Number.isFinite(p.latitude)||!Number.isFinite(p.longitude)||Math.abs(p.latitude)>90||Math.abs(p.longitude)>180||(p.latitude===0&&p.longitude===0)))throw new Error('Confirme os pontos de embarque no mapa.');
+        if(d.modo!=='PORTA_A_PORTA'&&d.paradas.some(p=>nomeLocalGenerico(p.nome)||!Number.isFinite(p.latitude)||!Number.isFinite(p.longitude)||Math.abs(p.latitude)>90||Math.abs(p.longitude)>180||(p.latitude===0&&p.longitude===0)))throw new Error('Confirme os pontos de embarque no mapa.');
         if(d.modo!=='PORTA_A_PORTA'&&d.paradas.some(p=>p.horario&&!/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(p.horario)))throw new Error('Use HH:mm nos horários dos pontos.');
     }
 }

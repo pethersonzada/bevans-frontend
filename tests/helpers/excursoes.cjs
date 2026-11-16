@@ -10,6 +10,11 @@ function harness(entry,{services={},resources=()=>({data:null,error:'',reload(){
   function request(name){
    if(name in extras)return extras[name];
    if(name==='react')return react;if(name==='react/jsx-runtime')return {jsx,jsxs:jsx};if(name==='react-native')return rn;
+   if(name==='expo-location')return {reverseGeocodeAsync:async()=>[]};
+   if(name==='@rnmapbox/maps')return {__esModule:true,default:{MapView:'NativeMap',Camera:'Camera',PointAnnotation:'Annotation',StyleURL:{Dark:'dark'}}};
+   if(name.endsWith('services/location'))return {getCurrentCoordinates:async()=>({latitude:-8,longitude:-35})};
+   if(name.includes('EnderecoSearchInput'))return {__esModule:true,default:'Search'};
+   if(name.endsWith('MapMarker'))return {__esModule:true,default:'Marker'};
    if(name==='expo-router')return {useLocalSearchParams:()=>({}),useRouter:()=>({push:p=>paths.push(p),replace:p=>paths.push(p),back:()=>paths.push('back')}),useFocusEffect:fn=>react.useEffect(fn,[fn])};
    if(name==='@expo/vector-icons')return {Ionicons:'Icon'};
    if(name==='@react-native-community/netinfo')return {useNetInfo:()=>connection};
@@ -29,7 +34,7 @@ function harness(entry,{services={},resources=()=>({data:null,error:'',reload(){
    if(name.startsWith('.')){const target=path.resolve(path.dirname(file),name);for(const ext of ['.ts','.tsx'])if(fs.existsSync(target+ext))return load(target+ext);}
    throw Error('Unexpected import '+name+' in '+file);
   }
-  vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports,require:request,process:{env},Date,Error,Number,JSON,Intl,URL,console});return exports;
+  vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports,require:request,process:{env},Date,Error,Number,JSON,Intl,URL,console,AbortController,setTimeout,clearTimeout});return exports;
  }
  const mod=load(entry);
  return {mod,paths,keys,lock,connection,firebase,share,load,render:(name,props={})=>{cursor=0;effects=[];const tree=mod[name](props);effects.forEach(fn=>fn());return tree;},back:()=>[...backHandlers].at(-1)?.(),unmount:()=>cleanups.forEach(fn=>fn?.())};

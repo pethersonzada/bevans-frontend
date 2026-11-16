@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   StyleSheet,
   Text,
+  TextInput,
   View,
   TouchableOpacity,
 } from 'react-native';
@@ -34,6 +35,7 @@ type Coordenadas = [number, number];
 type LocalizacaoInicial = {
   latitude: number | null | undefined;
   longitude: number | null | undefined;
+  nome?: string;
 };
 
 type Props = {
@@ -47,6 +49,8 @@ type Props = {
   onChange: (
     endereco: EnderecoEncontrado | null
   ) => void;
+  // Opt-in: excursion points review a reverse-geocoded address before saving.
+  resolverEndereco?: (ponto: { latitude: number; longitude: number }, signal?: AbortSignal) => Promise<EnderecoEncontrado>;
 };
 
 function coordenadasValidas(
@@ -77,6 +81,7 @@ export default function EnderecoMapaPicker({
   tipo = 'endereco',
   localizacaoInicial,
   onChange,
+  resolverEndereco,
 }: Props) {
   const camera = useRef<MapboxGL.Camera>(null);
 
@@ -98,6 +103,43 @@ export default function EnderecoMapaPicker({
     useState(!posicaoSalva);
 
   const [erroGPS, setErroGPS] = useState('');
+  const [descricao, setDescricao] = useState('');
+  const [buscandoEndereco, setBuscandoEndereco] = useState(false);
+  const [erroEndereco, setErroEndereco] = useState('');
+  const enderecoRequest = useRef(0), enderecoAbort = useRef<AbortController | null>(null);
+  const pontoAtual = useRef<EnderecoEncontrado | null>(null), montado = useRef(true);
+  const onChangeAtual = useRef(onChange); onChangeAtual.current = onChange;
+  const nomeValido = (nome: string) => !!nome.trim() && nome.trim().toLocaleLowerCase('pt-BR') !== 'ponto marcado no mapa';
+  function cancelarEndereco() { enderecoRequest.current++; enderecoAbort.current?.abort(); enderecoAbort.current = null; }
+  useEffect(() => { montado.current = true; return () => { montado.current = false; cancelarEndereco(); }; }, []);
+
+  function consultarEndereco(latitude: number, longitude: number) {
+    if (!resolverEndereco) return;
+    cancelarEndereco(); const request = enderecoRequest.current;
+    const controller = new AbortController(); enderecoAbort.current = controller;
+    const point: EnderecoEncontrado = { id: `manual:${longitude}:${latitude}`, latitude, longitude, nome: '', rua: '', numero: '', bairro: '', tipo: 'endereco', precisao: 'manual' };
+    pontoAtual.current = point; selecionouRef.current = true;
+    setSelecionado(point); setCandidato(point); setDescricao(''); setErroEndereco(''); setBuscandoEndereco(true); onChangeAtual.current(null);
+    void resolverEndereco({ latitude, longitude }, controller.signal).then(address => {
+      if (!montado.current || controller.signal.aborted || request !== enderecoRequest.current) return;
+      // The geocoder supplies text, never replacement coordinates for the pin.
+      const confirmed = { ...address, latitude, longitude, precisao: 'manual' as const };
+      pontoAtual.current = confirmed; setSelecionado(confirmed); setCandidato(confirmed); setDescricao(confirmed.nome);
+      onChangeAtual.current(nomeValido(confirmed.nome) ? confirmed : null);
+    }).catch(() => {
+      if (montado.current && !controller.signal.aborted && request === enderecoRequest.current) setErroEndereco('Não foi possível consultar o endereço. Informe uma descrição do local; o pin foi preservado.');
+    }).finally(() => { if (montado.current && !controller.signal.aborted && request === enderecoRequest.current) setBuscandoEndereco(false); });
+  }
+
+  useEffect(() => {
+    if (!resolverEndereco || !posicaoSalva) return;
+    const [longitude, latitude] = posicaoSalva;
+    if (nomeValido(localizacaoInicial?.nome || '')) {
+      const point: EnderecoEncontrado = { id: `salvo:${longitude}:${latitude}`, latitude, longitude, nome: localizacaoInicial!.nome!, rua: '', numero: '', bairro: '', tipo: 'endereco', precisao: 'manual' };
+      pontoAtual.current = point; setSelecionado(point); setCandidato(point); setDescricao(point.nome); onChangeAtual.current(point);
+    } else consultarEndereco(latitude, longitude);
+    return cancelarEndereco;
+  }, [resolverEndereco, localizacaoInicial?.latitude, localizacaoInicial?.longitude, localizacaoInicial?.nome]);
 
   // Impede que o GPS sobrescreva a câmera
   // depois que o usuário selecionar um endereço
@@ -126,12 +168,15 @@ export default function EnderecoMapaPicker({
   function atualizarEndereco(
     endereco: EnderecoEncontrado | null
   ) {
+    cancelarEndereco(); setBuscandoEndereco(false); setErroEndereco('');
     selecionouRef.current = endereco !== null;
 
     setCandidato(endereco);
     const confirmado = endereco?.precisao === 'endereco' || endereco?.precisao === 'manual' ? endereco : null;
     setSelecionado(confirmado);
-    onChange(confirmado);
+    pontoAtual.current = confirmado;
+    if (resolverEndereco) setDescricao(confirmado?.nome || '');
+    onChange(resolverEndereco && confirmado && !nomeValido(confirmado.nome) ? null : confirmado);
 
     if (endereco) {
       // Selecionou uma opção na pesquisa:
@@ -161,6 +206,7 @@ export default function EnderecoMapaPicker({
 
   function marcarPonto(longitude: number, latitude: number) {
     if (!coordenadasValidas(latitude, longitude)) return;
+    if (resolverEndereco) { consultarEndereco(latitude, longitude); return; }
     const base = candidato || selecionado;
     const manual: EnderecoEncontrado = {
       id: 'manual:' + longitude + ':' + latitude,
@@ -287,13 +333,26 @@ export default function EnderecoMapaPicker({
                 : 'Selecionar localização'}
         </Text>
 
-        <Text style={styles.descricao}>
+        {resolverEndereco && selecionado ? <View style={{ gap: 8 }}>
+          {buscandoEndereco && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><ActivityIndicator color={theme.colors.map.text}/><Text style={styles.descricao}>Buscando endereço do ponto…</Text></View>}
+          <Text style={styles.titulo}>Nome ou endereço do local</Text>
+          <TextInput accessibilityLabel="Nome ou endereço do local" value={descricao} placeholder="Informe uma descrição para este pin" placeholderTextColor={theme.colors.map.textLight}
+            style={{ minHeight: 52, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.map.border, backgroundColor: theme.colors.map.input, color: theme.colors.map.text, fontSize: 15 }} multiline
+            onChangeText={nome => {
+              cancelarEndereco(); setBuscandoEndereco(false); setErroEndereco(''); setDescricao(nome);
+              const point = pontoAtual.current; if (!point) return;
+              const updated = { ...point, nome: nome.trim() }; pontoAtual.current = updated; setSelecionado(updated); setCandidato(updated);
+              onChangeAtual.current(nomeValido(nome) ? updated : null);
+            }}/>
+          {!!erroEndereco && <Text accessibilityLiveRegion="polite" style={styles.descricao}>{erroEndereco}</Text>}
+          <Text style={styles.descricao}>Revise a descrição antes de usar o ponto. Alterar o texto não move o pin.</Text>
+        </View> : <Text style={styles.descricao}>
           {selecionado
             ? selecionado.nome
             : posicaoSalva
               ? 'O marcador mostra o endereço salvo. Pesquise outro endereço para alterá-lo.'
               : 'Pesquise um endereço ou toque no mapa para marcar o local exato. Arraste o marcador para ajustar.'}
-        </Text>
+        </Text>}
       </View>
     </View>
   );
