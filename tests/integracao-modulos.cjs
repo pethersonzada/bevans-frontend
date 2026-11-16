@@ -25,7 +25,7 @@ test('boarding requests retain direction, date and confirmed point without a pas
     const r=await m.solicitarEmbarque(8,{sentido:'VOLTA',dataOperacao:'2026-11-20',paradaId:4});assert.equal(r.status,'PENDENTE');assert.equal(body.sentido,'VOLTA');assert.equal(body.paradaId,4);assert.equal(body.alunoId,undefined);
 });
 test('excursion invitation uses only HTTPS web page and fragment; API token never appears in a query',()=>{
-    const m=load('src/services/excursoes.ts',{'./catalogo':catalogo(),'../config/api':{}});assert.equal(m.linkConvite('https://example.test/convite','secret'),'https://example.test/convite#secret');
+    const m=load('src/services/excursoes.ts',{'./excursaoFormulario':load('src/services/excursaoFormulario.ts',{}),'./catalogo':catalogo(),'../config/api':{}});assert.equal(m.linkConvite('https://example.test/convite','secret'),'https://example.test/convite#secret');
     for(const base of [undefined,'http://example.test/','https://example.test/?token=x','https://user:pass@example.test/'])assert.throws(()=>m.linkConvite(base,'secret'));
 });
 test('operational confirmation sends current version and preserves independent disembarkation',async()=>{
@@ -93,7 +93,7 @@ test('passenger excursions never call the driver listing endpoint or display oth
 });
 test('excursion collection requires the returned order and does not silently accept mismatched persistence',async()=>{
     const paradas=[{id:1,nome:'Praça A',latitude:-8,longitude:-35,horario:null,instrucoes:null},{id:2,nome:'Praça B',latitude:-8.1,longitude:-35.1,horario:null,instrucoes:null}];let body;
-    const m=load('src/services/excursoes.ts',{'./catalogo':catalogo(),'../config/api':{apiRequest:async(path,options)=>{body=JSON.parse(options.body);return {id:7,titulo:'Evento',versao:2,modoColeta:'MULTIPLAS_PARADAS',paradas:[...paradas].reverse()};}}});
+    const m=load('src/services/excursoes.ts',{'./excursaoFormulario':load('src/services/excursaoFormulario.ts',{}),'./catalogo':catalogo(),'../config/api':{apiRequest:async(path,options)=>{body=JSON.parse(options.body);return {id:7,titulo:'Evento',versao:2,modoColeta:'MULTIPLAS_PARADAS',paradas:[...paradas].reverse()};}}});
     await assert.rejects(m.salvarColetaExcursao(7,'MULTIPLAS_PARADAS',1,paradas),/ordem/);assert.equal(body.paradas[0].pontoConfirmado,true);assert.equal(body.versao,1);
 });
 test('GPS publishing throttles a fast native watcher and never queues skipped samples',async()=>{

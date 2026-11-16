@@ -1,4 +1,5 @@
 import { apiRequest } from '../config/api';
+import { validarDatasExcursao, validarValidadeConvite } from './excursaoFormulario';
 import { paginaValida, recursoId, type Pagina } from './catalogo';
 export type ParadaExcursao={id:number|null;nome:string;latitude:number;longitude:number;horario:string|null;instrucoes:string|null;pontoConfirmado?:boolean};
 export type Excursao={id:number;titulo:string;destinoNome:string;destinoLatitude:number;destinoLongitude:number;
@@ -16,6 +17,7 @@ export async function buscarExcursao(id:string,signal?:AbortSignal) {
     const r=excursao(await apiRequest<Excursao>(`/excursoes/${recursoId(id)}`,{signal}));if(r.id!==Number(id))throw new Error('Excursão divergente.');return r;
 }
 export async function salvarExcursao(id:number|null,dados:DadosExcursao) {
+    validarDatasExcursao(dados.partidaEm,dados.retornoEm,dados.capacidade);
     const r=excursao(await apiRequest<Excursao>(id?`/excursoes/${recursoId(id)}`:'/excursoes',{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(dados)}));
     if(id&&r.id!==id)throw new Error('O servidor retornou outra excursão.');return r;
 }
@@ -36,7 +38,8 @@ export async function iniciarExcursao(id:number,sentido:'IDA'|'VOLTA') {
 export async function finalizarExcursao(id:number,execucao:number) {
     return apiRequest<ExecucaoExcursao>(`/excursoes/${recursoId(id)}/execucoes/${recursoId(execucao)}/finalizacao`,{method:'PUT'});
 }
-export async function criarConviteExcursao(id:number,expiraEm:string) {
+export async function criarConviteExcursao(id:number,expiraEm:string,partidaEm?:string) {
+    validarValidadeConvite(expiraEm,partidaEm||expiraEm);
     const r=await apiRequest<{id:number;token:string}>(`/excursoes/${recursoId(id)}/convites`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expiraEm})});
     if(!r || typeof r.token!=='string' || !r.token)throw new Error('Convite não confirmado.');return r;
 }
