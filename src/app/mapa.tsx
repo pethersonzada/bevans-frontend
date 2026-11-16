@@ -26,6 +26,7 @@ import { validCoordinates } from '../services/location';
 import { ensureNavigationLocation, NavigationLocationError } from '../services/navigationLocation';
 import { encerrarViagem } from '../services/viagens';
 import { buscarRotaPublica } from '../services/rotasPublicas';
+import { montarParadasPublicas, type ParadaPublicaNavegacao } from '../services/roteiroNavegacao';
 import { createPositionSender } from '../services/telemetria';
 import { theme } from '../styles/theme';
 import { useAuth } from '../contexts/AuthContext';
@@ -1088,6 +1089,7 @@ export default function Mapa() {
         let destinoCarregado: LatLng | null = null;
 
         let rotaCarregada: PassageiroRota[] = [];
+        let paradasPublicas: ParadaPublicaNavegacao[] = [];
 
         try {
             if (!user?.id) {
@@ -1213,6 +1215,9 @@ export default function Mapa() {
                 if (rotaPublica.turmaId !== Number(turmaAtual.id)) throw new Error('A rota pública não pertence à turma da viagem.');
                 garagemCarregada = { latitude: rotaPublica.origemLatitude, longitude: rotaPublica.origemLongitude };
                 destinoCarregado = { latitude: rotaPublica.destinoLatitude, longitude: rotaPublica.destinoLongitude };
+                paradasPublicas = rotaPublica.paradas.map(p => ({
+                    id: Number(p.id), nome: p.nome, latitude: p.latitude, longitude: p.longitude,
+                }));
             }
 
             const urlOtimizar =
@@ -1263,12 +1268,21 @@ export default function Mapa() {
                 }))
                 .filter(
                     (p: PassageiroRota) =>
-                        Number.isFinite(p.id) &&
+                        Number.isSafeInteger(p.id) &&
+                        p.id > 0 &&
                         Number.isFinite(p.latitude) &&
                         Number.isFinite(p.longitude) &&
                         p.latitude !== 0 &&
                         p.longitude !== 0
                 );
+
+            // O snapshot traz os embarques aprovados; a rota pública também
+            // exige as paradas cadastradas, mesmo quando ainda não há reserva.
+            if (rotaId) {
+                rotaCarregada = montarParadasPublicas(
+                    rotaCarregada, paradasPublicas, direcaoUsada.toUpperCase() as 'IDA' | 'VOLTA'
+                );
+            }
 
             await salvarCache(
                 CACHE_KEYS.garagem(Number(turmaAtual.id)), garagemCarregada
