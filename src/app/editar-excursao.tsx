@@ -1,6 +1,8 @@
+import { PontoFormulario } from '../components/PontoFormulario';
+import { RemoteLoading, Screen, Section, Steps, ActionButton as Button, Field, Choice, Notice, ui } from '../components/ui/Primitives';
 import { useContext, useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Button, ScrollView, Text, TextInput, View, Share } from 'react-native';
+import { ScrollView, Text, TextInput, View, Share } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRemoteResource } from '../hooks/useRemoteResource';
@@ -16,7 +18,7 @@ import { modosColeta, validarDatasExcursao, compartilharConviteSeguro } from '..
 import { estadoConviteCompartilhamento, onConvitesChanged, prepararConviteCompartilhamento, recuperarLinkConvite, autorizarNovaEmissaoAposRevisao } from '../services/convitesCompartilhamento';
 
 import { ExcursaoActionContext as ActionLock } from '../components/ExcursaoActionContext';
-const etapas = ['Dados', 'Embarques', 'Publicação', 'Convites', 'Execução'] as const;
+const etapas = ['Dados', 'Embarques', 'Publicação', 'Convites', 'Participantes', 'Execução'] as const;
 export default function EditarExcursao() {
     const { id } = useLocalSearchParams<{ id?: string }>();
     const { user } = useAuth();
@@ -39,24 +41,24 @@ export function TelaExcursao({ id, motorista }: { id?: string; motorista: boolea
         setSnapshot(atual); reload();
     };
     if (!motorista) return <AsyncState message="A gestão exige perfil de motorista." />;
-    return <ActionLock.Provider value={lock}><SafeAreaView style={{ flex: 1 }}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, gap: 12 }}>
-        <Button title="Voltar" onPress={() => router.back()} /><Text style={s.title}>{id ? 'Gerenciar excursão' : 'Criar excursão'}</Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{etapas.map(nome => <Button key={nome} title={nome} accessibilityLabel={nome === etapa ? nome + ' selecionada' : nome} onPress={() => setEtapa(nome)} />)}</View>
-        <Button title="Recarregar dados e descartar rascunho" onPress={() => setDescartar(true)} />
-        {descartar && <><Text>Descartar as alterações ainda não salvas?</Text><AsyncAction title="Confirmar descarte" action={async () => { if (id) await atualizar(Number(id)); setEditorRevision(v => v + 1); setDescartar(false); }} /><Button title="Manter rascunho" onPress={() => setDescartar(false)} /></>}
-        {error && <AsyncState message={error} onRetry={reload} />}
-        {id && !snapshot ? <AsyncState loading /> : <Editor key={editorRevision} etapa={etapa} excursao={snapshot || undefined} versaoAtual={data?.excursao.versao} onSaved={atualizar} />}
-        {etapa === 'Execução' && data?.execucoes.map(e => <View key={e.id} style={s.card}><Text>{e.sentido} · {e.estado === 'EM_ANDAMENTO' ? 'Em andamento' : e.estado === 'FINALIZADA' ? 'Finalizada' : 'Cancelada'}</Text><Button title="Controle de embarque" onPress={() => router.push({ pathname: '/controle-viagem', params: { tipo: 'EXCURSAO', id: String(e.id) } })} />
+    return <ActionLock.Provider value={lock}><Screen title={id ? 'Gerenciar excursão' : 'Criar excursão'} subtitle="Planeje, publique e acompanhe cada etapa." onBack={() => router.back()}>
+
+        <Steps steps={etapas} current={etapa} onChange={setEtapa} />
+        {id&&<Button title="Recarregar dados e descartar rascunho" icon="refresh-outline" onPress={() => setDescartar(true)} />}
+        {descartar && <><Text style={ui.body}>Descartar as alterações ainda não salvas?</Text><AsyncAction title="Confirmar descarte" action={async () => { if (id) await atualizar(Number(id)); setEditorRevision(v => v + 1); setDescartar(false); }} /><Button title="Manter rascunho" onPress={() => setDescartar(false)} /></>}
+        {!!error && <AsyncState message={error} onRetry={reload} />}
+        {id && !snapshot ? <RemoteLoading/> : <Editor key={editorRevision} etapa={etapa} excursao={snapshot || undefined} versaoAtual={data?.excursao.versao} onSaved={atualizar} />}
+        {etapa === 'Execução' && data?.execucoes.map(e => <View key={e.id} style={ui.section}><Text style={ui.body}>{e.sentido} · {e.estado === 'EM_ANDAMENTO' ? 'Em andamento' : e.estado === 'FINALIZADA' ? 'Finalizada' : 'Cancelada'}</Text><Button title="Controle de embarque" onPress={() => router.push({ pathname: '/controle-viagem', params: { tipo: 'EXCURSAO', id: String(e.id) } })} />
             {e.estado === 'EM_ANDAMENTO' && <AsyncAction title="Finalizar execução" confirmMessage="Encerrar esta execução? Confirme os desembarques reais antes de finalizar." action={async () => { await finalizarExcursao(data.excursao.id, e.id); reload(); }} />}</View>)}
-        {data && (etapa === 'Convites' || etapa === 'Embarques') && <GestaoExcursao key={data.excursao.id} id={data.excursao.id} />}
-    </ScrollView></SafeAreaView></ActionLock.Provider>;
+        {data && (etapa === 'Convites' || etapa === 'Participantes' || etapa === 'Execução') && <GestaoExcursao key={data.excursao.id+etapa} id={data.excursao.id} secao={etapa === 'Convites' ? 'convites' : etapa === 'Participantes' ? 'participantes' : 'roteiro'} />}
+    </Screen></ActionLock.Provider>;
 }
-export function AsyncAction({ title, action, confirmMessage }: { title: string; action: () => Promise<void>; confirmMessage?: string }) {
+export function AsyncAction({ title, action, confirmMessage, disabled = false }: { title: string; action: () => Promise<void>; confirmMessage?: string; disabled?: boolean }) {
     const [busy, setBusy] = useState(false), [error, setError] = useState(''), [confirmar, setConfirmar] = useState(false);
     const pending = useRef(false), mounted = useRef(true), lock = useContext(ActionLock);
     useEffect(() => () => { mounted.current = false; }, []);
-    return <View style={{ gap: 8, paddingVertical: 8 }}>{confirmar && <Text accessibilityLiveRegion="polite">{confirmMessage}</Text>}<Button title={busy ? 'Aguarde…' : confirmar ? 'Confirmar: ' + title : title} disabled={busy} onPress={() => {
-        if (pending.current || lock?.current) return;
+    return <View style={{ gap: 8, paddingVertical: 8 }}>{confirmar && <Text accessibilityLiveRegion="polite">{confirmMessage}</Text>}<Button variant={confirmMessage?.startsWith('Cancelar')?'danger':'primary'} title={busy ? 'Aguarde…' : confirmar ? 'Confirmar: ' + title : title} disabled={busy||disabled} onPress={() => {
+        if (disabled || pending.current || lock?.current) return;
         if (confirmMessage && !confirmar) { setConfirmar(true); return; }
         pending.current = true; if (lock) lock.current = true; setBusy(true); setError('');
         void action().catch(e => { if (mounted.current) setError((e as { status?: number })?.status === 409 ? 'Os dados mudaram ou a operação está bloqueada. Seu rascunho foi preservado; recarregue para revisar a versão oficial.' : errorMessage(e)); })
@@ -78,48 +80,51 @@ export function Editor({ excursao: initial, onSaved, etapa, versaoAtual }: { exc
         update();return onConvitesChanged(update);
     },[e?.id]);
     const dados: DadosExcursao = { titulo, destinoNome: destino?.nome || '', destinoLatitude: destino?.latitude ?? NaN, destinoLongitude: destino?.longitude ?? NaN, origemNome: origem?.nome ?? null, origemLatitude: origem?.latitude ?? null, origemLongitude: origem?.longitude ?? null, partidaEm: partida, retornoEm: retorno || null, capacidade: Number(capacidade), versao: e?.versao };
+    const dadosPendentes=!!e&&(titulo!==e.titulo||partida!==e.partidaEm||(retorno||null)!==e.retornoEm||Number(capacidade)!==e.capacidade||destino?.nome!==e.destinoNome||destino?.latitude!==e.destinoLatitude||destino?.longitude!==e.destinoLongitude||(origem?.nome??null)!==(e.origemNome??null)||(origem?.latitude??null)!==(e.origemLatitude??null)||(origem?.longitude??null)!==(e.origemLongitude??null));
+    const coletaPendente=!!e&&(modo!==e.modoColeta||JSON.stringify(paradas)!==JSON.stringify(e.paradas));
     const salvar = async () => {
         if (!destino || !titulo.trim() || !/^[1-9]\d*$/.test(capacidade.trim())) throw new Error('Informe título, destino confirmado e quantidade inteira de lugares.');
         validarDatasExcursao(partida, retorno || null, Number(capacidade));
         const r = await salvarExcursao(e?.id ?? null, dados); await onSaved(r.id,r);
     };
     return <>
-        {e && <Text>{e.estado === 'RASCUNHO' ? 'Rascunho' : e.estado === 'PUBLICADA' ? 'Publicada' : e.estado === 'CANCELADA' ? 'Cancelada' : 'Concluída'}</Text>}
+        {(dadosPendentes||coletaPendente)&&<Notice>Há alterações ainda não salvas. Salve Dados e Embarques antes de publicar.</Notice>}
+        {e && <Notice>{e.estado === 'RASCUNHO' ? 'Rascunho' : e.estado === 'PUBLICADA' ? 'Publicada' : e.estado === 'CANCELADA' ? 'Cancelada' : 'Concluída'}</Notice>}
         {e && versaoAtual !== undefined && e.versao !== versaoAtual && <Text accessibilityLiveRegion="polite">Os dados mudaram em outra sessão. Seu rascunho foi preservado; recarregue para revisar antes de salvar.</Text>}
         <View style={{ display: etapa === 'Dados' ? 'flex' : 'none', gap: 12 }}>
-            <Text style={s.title} accessibilityRole="header">Dados da excursão</Text>
-            <TextInput style={s.input} accessibilityLabel="Título da excursão" placeholder="Título" value={titulo} onChangeText={setTitulo} />
-            <Text>Destino: {destino?.nome || 'confirme no mapa'}</Text><EnderecoMapaPicker localizacaoInicial={destino} onChange={setDestino} />
-            <Text>Origem operacional opcional: {origem?.nome || 'não configurada'}</Text><EnderecoMapaPicker localizacaoInicial={origem} onChange={setOrigem} /><Button title="Remover origem operacional" onPress={() => setOrigem(null)} />
+            <Section title="Informações da viagem" description="Comece pelo destino, pelas datas e pela capacidade.">
+            <Field label="Nome da excursão" accessibilityLabel="Título da excursão" placeholder="Nome da viagem" hint="Será exibido aos participantes." value={titulo} onChangeText={setTitulo} />
+            {etapa==='Dados'&&<PontoFormulario label="Destino da excursão" value={destino} onChange={setDestino}/>}
+            {etapa==='Dados'&&<PontoFormulario label="Origem operacional" value={origem} onChange={setOrigem} optional/>}<Text style={ui.caption}>A origem operacional é opcional e não substitui os pontos de embarque dos participantes.</Text>
             <SeletorDataHora label="Partida" value={partida} onChange={setPartida} /><SeletorDataHora label="Retorno" value={retorno} onChange={setRetorno} optional />
-            <TextInput style={s.input} accessibilityLabel="Capacidade" placeholder="Lugares" keyboardType="number-pad" value={capacidade} onChangeText={setCapacidade} />
-            <AsyncAction title="Salvar dados da excursão" action={salvar} />
+            <Field label="Lugares disponíveis" accessibilityLabel="Capacidade" placeholder="Quantidade de lugares" keyboardType="number-pad" value={capacidade} onChangeText={setCapacidade} />
+            <AsyncAction title="Salvar dados da excursão" action={salvar} /></Section>
         </View>
-        {!e && etapa !== 'Dados' && <Text>Salve os dados da excursão para continuar nesta etapa.</Text>}
+        {!e && etapa !== 'Dados' && <Text style={ui.body}>Salve os dados da excursão para continuar nesta etapa.</Text>}
         {e && <>
             <View style={{ display: etapa === 'Embarques' ? 'flex' : 'none', gap: 12 }}>
-                <Text style={s.title} accessibilityRole="header">Pontos de embarque</Text>
-                {(Object.keys(modosColeta) as Excursao['modoColeta'][]).map(m => <Button key={m} title={`${modo === m ? '✓ ' : ''}${modosColeta[m].nome}`} onPress={() => setModo(m)} />)}
-                <Text>{modosColeta[modo].descricao}</Text><Text>A ordem muda apenas pelos controles abaixo e é persistida ao salvar.</Text>
-                {modo !== 'PORTA_A_PORTA' && <><EnderecoMapaPicker onChange={setNovoPonto} /><Button title="Adicionar ponto confirmado" disabled={!novoPonto} onPress={() => { if (novoPonto) { setParadas([...paradas, { ...novoPonto, id: null, horario: null, instrucoes: null }]); setNovoPonto(null); } }} />
-                    {paradas.map((p, i) => <View key={p.id ?? `nova-${i}`} style={s.card}>
-                        <TextInput accessibilityLabel={`Nome da parada ${i + 1}`} value={p.nome} onChangeText={nome => setParadas(paradas.map((v, j) => i === j ? { ...v, nome } : v))} />
-                        <TextInput accessibilityLabel={`Horário da parada ${i + 1}`} placeholder="HH:mm" value={p.horario || ''} onChangeText={horario => setParadas(paradas.map((v, j) => i === j ? { ...v, horario: horario || null } : v))} />
+                <Section title="Como será o embarque?" description="Escolha o modo de coleta e revise os pontos antes de salvar.">
+                {(Object.keys(modosColeta) as Excursao['modoColeta'][]).map(m => <Choice key={m} label={modosColeta[m].nome} selected={modo===m} onPress={() => setModo(m)} />)}
+                <Text style={ui.body}>{modosColeta[modo].descricao}</Text><Text style={ui.body}>A ordem muda apenas pelos controles abaixo e é persistida ao salvar.</Text>
+                {modo !== 'PORTA_A_PORTA' && <>{etapa==='Embarques'&&<EnderecoMapaPicker onChange={setNovoPonto} />}<Button title="Adicionar ponto confirmado" disabled={!novoPonto} onPress={() => { if (novoPonto) { setParadas([...paradas, { ...novoPonto, id: null, horario: null, instrucoes: null }]); setNovoPonto(null); } }} />
+                    {paradas.map((p, i) => <View key={p.id ?? `nova-${i}`} style={ui.section}>
+                        <Text style={ui.label}>Parada {i+1}</Text><TextInput style={ui.input} accessibilityLabel={`Nome da parada ${i + 1}`} value={p.nome} onChangeText={nome => setParadas(paradas.map((v, j) => i === j ? { ...v, nome } : v))} />
+                        <TextInput style={ui.input} accessibilityLabel={`Horário da parada ${i + 1}`} placeholder="HH:mm" value={p.horario || ''} onChangeText={horario => setParadas(paradas.map((v, j) => i === j ? { ...v, horario: horario || null } : v))} />
                         <Button title="Mover para cima" disabled={i === 0} onPress={() => { const next = [...paradas]; [next[i - 1], next[i]] = [next[i], next[i - 1]]; setParadas(next); }} />
                         <Button title={`Reposicionar ${p.nome}`} onPress={() => setReposicionar(i)} /><Button title="Remover parada do rascunho" onPress={() => setParadas(paradas.filter((_, j) => j !== i))} />
                     </View>)}
                 </>}
-                {reposicionar != null && <><Text>Confirme a nova posição de {paradas[reposicionar]?.nome}</Text><EnderecoMapaPicker onChange={ponto => { if (ponto) { setParadas(paradas.map((p, i) => i === reposicionar ? { ...p, latitude: ponto.latitude, longitude: ponto.longitude } : p)); setReposicionar(null); } }} /><Button title="Cancelar reposicionamento" onPress={() => setReposicionar(null)} /></>}
-                <AsyncAction title="Salvar modo e paradas" confirmMessage="Salvar esta configuração na ordem exibida? Alterações incompatíveis com inscrições serão recusadas pelo servidor." action={async () => { const r = await salvarColetaExcursao(e.id, modo, e.versao, modo === 'PORTA_A_PORTA' ? [] : paradas); await onSaved(r.id,r); }} />
+                {reposicionar != null && <><Text style={ui.body}>Confirme a nova posição de {paradas[reposicionar]?.nome}</Text><EnderecoMapaPicker onChange={ponto => { if (ponto) { setParadas(paradas.map((p, i) => i === reposicionar ? { ...p, latitude: ponto.latitude, longitude: ponto.longitude } : p)); setReposicionar(null); } }} /><Button title="Cancelar reposicionamento" onPress={() => setReposicionar(null)} /></>}
+                <AsyncAction title="Salvar modo e paradas" confirmMessage="Salvar esta configuração na ordem exibida? Alterações incompatíveis com inscrições serão recusadas pelo servidor." action={async () => { const r = await salvarColetaExcursao(e.id, modo, e.versao, modo === 'PORTA_A_PORTA' ? [] : paradas); setParadas(r.paradas); setModo(r.modoColeta); await onSaved(r.id,r); }} /></Section>
             </View>
             <View style={{ display: etapa === 'Publicação' ? 'flex' : 'none', gap: 12 }}>
-                <Text style={s.title}>Revisão e publicação</Text><Text>{titulo} · {destino?.nome} · {partida ? new Date(partida).toLocaleString('pt-BR') : ''} · {capacidade} lugares</Text>
-                <Text>Salve as alterações antes de publicar. A publicação utiliza os dados já persistidos no servidor.</Text>
-                <AsyncAction title="Publicar excursão" confirmMessage="Publicar os dados salvos desta excursão?" action={async () => { const r = await acaoExcursao(e.id, 'publicacao', e.versao); await onSaved(r.id,r); }} />
+                <Section title="Revisão e publicação" description="Confira a versão salva no servidor."><Text style={ui.body}>{e.titulo} · {e.destinoNome} · {new Date(e.partidaEm).toLocaleString('pt-BR')} · {e.capacidade} lugares</Text>
+                <Text style={ui.body}>Salve as alterações antes de publicar. A publicação utiliza os dados já persistidos no servidor.</Text>
+                <AsyncAction disabled={dadosPendentes||coletaPendente} title="Publicar excursão" confirmMessage="Publicar os dados salvos desta excursão?" action={async () => { const r = await acaoExcursao(e.id, 'publicacao', e.versao); await onSaved(r.id,r); }} /></Section>
             </View>
             <View style={{ display: etapa === 'Convites' ? 'flex' : 'none', gap: 12 }}>
-                <Text style={s.title}>Convites</Text><SeletorDataHora label="Validade do convite" value={expira} onChange={setExpira} />
-                <Text>A inscrição pelo link depende da página de inscrições na web estar disponível. A gestão da excursão continua no aplicativo.</Text>
+                <Section title="Compartilhar acesso" description="Crie um convite com validade para a página de inscrição."><SeletorDataHora label="Validade do convite" value={expira} onChange={setExpira} />
+                <Text style={ui.body}>A inscrição pelo link depende da página de inscrições na web estar disponível. A gestão da excursão continua no aplicativo.</Text>
                 {!process.env.EXPO_PUBLIC_CONVITE_WEB_URL&&<Text accessibilityLiveRegion="polite">A página de inscrições ainda não está configurada. Configure-a antes de gerar links; convites existentes podem ser consultados ou revogados abaixo.</Text>}
                 <AsyncAction title={convitePendente?.id ? 'Compartilhar convite criado novamente' : 'Gerar e compartilhar convite'} action={async () => {
                     const convite=await prepararConviteCompartilhamento(e.id,expira,e.partidaEm,process.env.EXPO_PUBLIC_CONVITE_WEB_URL);
@@ -131,12 +136,12 @@ export function Editor({ excursao: initial, onSaved, etapa, versaoAtual }: { exc
                     convite.registrarResultado('Link copiado. Isso não confirma envio ou inscrição.');
                 }}/>}
                 {convitePendente?.incerto&&<AsyncAction title="Autorizar outra emissão após revisar a lista" confirmMessage="A criação anterior pode ter sido registrada sem retornar o link. Revise a lista e revogue convites sem link. Deseja permitir uma nova emissão manual?" action={()=>autorizarNovaEmissaoAposRevisao(e.id)}/>}
-                <Text accessibilityLiveRegion="polite">{convitePendente?.aviso}</Text><Text>Cancelar o compartilhamento não revoga o convite criado. O link pode ser recuperado ao voltar a esta excursão enquanto esta sessão do aplicativo continuar aberta. Após sair da conta ou fechar o app, revogue convites sem link e emita outro quando necessário.</Text>
+                <Text accessibilityLiveRegion="polite">{convitePendente?.aviso}</Text><Text style={ui.body}>Cancelar o compartilhamento não revoga o convite criado. O link pode ser recuperado ao voltar a esta excursão enquanto esta sessão do aplicativo continuar aberta. Após sair da conta ou fechar o app, revogue convites sem link e emita outro quando necessário.</Text></Section>
             </View>
             <View style={{ display: etapa === 'Execução' ? 'flex' : 'none', gap: 12 }}>
-                <Text style={s.title}>Execução</Text>
+                <Section title="Iniciar a viagem" description="Confira os participantes confirmados antes de iniciar.">
                 {(['IDA', 'VOLTA'] as const).map(sentido => <AsyncAction key={sentido} title={`Iniciar execução ${sentido}`} confirmMessage="Iniciar com os participantes confirmados? A execução bloqueia alterações de coleta." action={async () => { await iniciarExcursao(e.id, sentido); await onSaved(e.id); }} />)}
-                <AsyncAction title="Cancelar excursão" confirmMessage="Cancelar esta excursão e afetar suas inscrições? Esta ação não reabre a excursão." action={async () => { const r = await acaoExcursao(e.id, 'cancelamento', e.versao); await onSaved(r.id,r); }} />
+                <AsyncAction title="Cancelar excursão" confirmMessage="Cancelar esta excursão e afetar suas inscrições? Esta ação não reabre a excursão." action={async () => { const r = await acaoExcursao(e.id, 'cancelamento', e.versao); await onSaved(r.id,r); }} /></Section>
             </View>
         </>}
     </>;

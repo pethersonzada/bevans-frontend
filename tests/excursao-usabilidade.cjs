@@ -6,7 +6,7 @@ function harness(file,mocks={}){
  const slots=[],deps=[];let cursor=0,effects=[];const lock={current:false};
  const react={useState:initial=>{const i=cursor++;if(!(i in slots))slots[i]=initial;return [slots[i],v=>slots[i]=typeof v==='function'?v(slots[i]):v];},useRef:value=>{const i=cursor++;return slots[i]??(slots[i]={current:value});},useContext:()=>lock,useEffect:(fn,next)=>{const i=cursor++;if(!deps[i]||next.some((v,j)=>v!==deps[i][j]))effects.push(fn);deps[i]=next;}};
  const el=(type,props)=>({type,props});
- const mod=load(file,{'react':react,'react/jsx-runtime':{jsx:el,jsxs:el},'expo-router':{},'react-native':{Button:'Button',Text:'Text',View:'View',TextInput:'Input',Platform:{OS:'android'},Share:{sharedAction:'shared',share:async()=>({action:'dismissed'})}},'expo-clipboard':{},'../services/convitesCompartilhamento':{estadoConviteCompartilhamento:()=>null,onConvitesChanged:()=>()=>{}},'react-native-safe-area-context':{},'../hooks/useRemoteResource':{},'../services/excursoes':{},'../contexts/AuthContext':{},'../components/AsyncState':{},'../components/EnderecoMapaPicker':{__esModule:true,default:'Map'},'../config/api':{errorMessage:e=>e.message},'../styles/globalStyles':{globalStyles:{}},'../components/GestaoExcursao':{},'../components/SeletorDataHora':{SeletorDataHora:'DatePicker'},'../services/excursaoFormulario':form,'../components/ExcursaoActionContext':{ExcursaoActionContext:{}},...mocks},{process:{env:{EXPO_PUBLIC_CONVITE_WEB_URL:'https://example.test/convite'}}});
+ const mod=load(file,{'../components/PontoFormulario':{PontoFormulario:'PointField'},'../components/ui/Primitives':require('./helpers/ui.cjs'),'./ui/Primitives':require('./helpers/ui.cjs'),'react':react,'react/jsx-runtime':{jsx:el,jsxs:el},'expo-router':{},'react-native':{Button:'Button',Text:'Text',View:'View',TextInput:'Input',Platform:{OS:'android'},Share:{sharedAction:'shared',share:async()=>({action:'dismissed'})}},'expo-clipboard':{},'../services/convitesCompartilhamento':{estadoConviteCompartilhamento:()=>null,onConvitesChanged:()=>()=>{}},'react-native-safe-area-context':{},'../hooks/useRemoteResource':{},'../services/excursoes':{},'../contexts/AuthContext':{},'../components/AsyncState':{},'../components/EnderecoMapaPicker':{__esModule:true,default:'Map'},'../config/api':{errorMessage:e=>e.message},'../styles/globalStyles':{globalStyles:{}},'../components/GestaoExcursao':{},'../components/SeletorDataHora':{SeletorDataHora:'DatePicker'},'../services/excursaoFormulario':form,'../components/ExcursaoActionContext':{ExcursaoActionContext:{}},...mocks},{process:{env:{EXPO_PUBLIC_CONVITE_WEB_URL:'https://example.test/convite'}}});
  return {render:(name,props)=>{cursor=0;effects=[];const t=mod[name](props);effects.forEach(f=>f());return t;},lock};
 }
 test('date and time selection preserves local calendar and emits an ISO instant without manual input',()=>{
@@ -59,4 +59,26 @@ test('a failed background refresh keeps the mounted editor snapshot instead of u
  const h=harness('src/app/editar-excursao.tsx',{'expo-router':{useRouter:()=>({})},'../hooks/useRemoteResource':{useRemoteResource:()=>resource}});
  h.render('TelaExcursao',{id:'7',motorista:true});let t=h.render('TelaExcursao',{id:'7',motorista:true});const editor=nodes(t).find(n=>typeof n.type==='function'&&n.type.name==='Editor');assert.equal(editor.props.excursao,excursion);
  resource={data:null,error:'offline',reload:()=>{}};t=h.render('TelaExcursao',{id:'7',motorista:true});assert.equal(nodes(t).find(n=>typeof n.type==='function'&&n.type.name==='Editor').props.excursao,excursion);
+});
+
+test('publication reviews saved excursion data and blocks publishing an unrelated unsaved draft',()=>{
+ const h=harness('src/app/editar-excursao.tsx');const original={...excursion,origemNome:null,origemLatitude:null,origemLongitude:null};
+ let props={excursao:original,etapa:'Dados',versaoAtual:1,onSaved:async()=>{}};
+ let t=h.render('Editor',props);nodes(t).find(n=>n.type==='Input'&&n.props.accessibilityLabel==='Título da excursão').props.onChangeText('Ainda não salvo');
+ props={...props,etapa:'Publicação'};t=h.render('Editor',props);
+ assert.equal(nodes(t).find(n=>n.props?.title==='Publicar excursão').props.disabled,true);
+ assert.ok(nodes(t).some(n=>n.type==='Section'&&n.props.description==='Confira a versão salva no servidor.'));
+ const review=nodes(t).find(n=>n.type==='Section'&&n.props.title==='Revisão e publicação');
+ assert.ok(JSON.stringify(review).includes('Original'));assert.ok(!JSON.stringify(review).includes('Ainda não salvo'));
+});
+
+test('saving boarding points adopts server IDs without leaving publication blocked by an already-saved draft',async()=>{
+ const original={...excursion,origemNome:null,origemLatitude:null,origemLongitude:null};
+ const saved={...original,versao:2,paradas:[{...original.paradas[0],nome:'Praça revisada'}]};
+ const h=harness('src/app/editar-excursao.tsx',{'../services/excursoes':{salvarColetaExcursao:async()=>saved}});
+ let props={excursao:original,etapa:'Embarques',versaoAtual:1,onSaved:async()=>{}};
+ let t=h.render('Editor',props);nodes(t).find(n=>n.type==='Input'&&n.props.accessibilityLabel==='Nome da parada 1').props.onChangeText('Praça revisada');
+ t=h.render('Editor',props);await nodes(t).find(n=>n.props?.title==='Salvar modo e paradas').props.action();
+ props={...props,excursao:saved,etapa:'Publicação',versaoAtual:2};h.render('Editor',props);t=h.render('Editor',props);
+ assert.equal(nodes(t).find(n=>n.props?.title==='Publicar excursão').props.disabled,false);
 });

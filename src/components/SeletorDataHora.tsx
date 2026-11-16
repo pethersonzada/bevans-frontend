@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Button, Platform, Text, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
+import { ActionButton as Button, ui } from './ui/Primitives';
 import { selecionarDataHora } from '../services/excursaoFormulario';
 
 export function SeletorDataHora({label,value,onChange,optional=false}:{label:string;value:string;onChange:(value:string)=>void;optional?:boolean}) {
@@ -8,7 +9,7 @@ export function SeletorDataHora({label,value,onChange,optional=false}:{label:str
     const valido=Number.isFinite(Date.parse(value));
     const data=valido?new Date(value):new Date();
     return <View style={{gap:8,paddingVertical:8}}>
-        <Text accessibilityRole="header">{label}</Text>
+        <Text style={ui.label}>{label}</Text>
         <Text>{valido?data.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}):'Não selecionado'}</Text>
         <Text>Fuso do aparelho: {Intl.DateTimeFormat().resolvedOptions().timeZone}</Text>
         <Button title={`Escolher data: ${label}`} onPress={()=>setModo('date')}/>
