@@ -21,13 +21,13 @@ const paradas = [
 
 test('IDA visita as paradas cadastradas mesmo sem reservas', () => {
     const antes = JSON.stringify(paradas);
-    const ordem = montarParadasPublicas([], paradas, 'IDA');
+    const ordem = montarParadasDefinidas([], paradas, 'IDA');
     assert.deepEqual(Array.from(ordem, p => p.id), [-11, -22]);
     assert.equal(JSON.stringify(paradas), antes);
 });
 
 test('VOLTA percorre as paradas em ordem inversa sem mutar a origem', () => {
-    const ordem = montarParadasPublicas([], paradas, 'VOLTA');
+    const ordem = montarParadasDefinidas([], paradas, 'VOLTA');
     assert.deepEqual(Array.from(ordem, p => p.id), [-22, -11]);
     assert.equal(paradas[0].id, 11);
 });
@@ -37,17 +37,17 @@ test('passageiro embarcando na parada não cria waypoint duplicado', () => {
         { id: 100, nome: 'Passageiro 1', latitude: -8.100001, longitude: -34.9 },
         { id: 200, nome: 'Passageiro 2', latitude: -8.15, longitude: -34.95 },
     ];
-    const ordem = montarParadasPublicas(passageiros, paradas, 'IDA');
+    const ordem = montarParadasDefinidas(passageiros, paradas, 'IDA');
     assert.deepEqual(Array.from(ordem, p => p.id), [-11, -22, 200]);
 });
 
 test('paradas sem identidade não podem entrar na navegação', () => {
     assert.throws(
-        () => montarParadasPublicas([], [{ ...paradas[0], id: 0 }], 'IDA'),
+        () => montarParadasDefinidas([], [{ ...paradas[0], id: 0 }], 'IDA'),
         /identificador válido/
     );
     assert.throws(
-        () => montarParadasPublicas([], [paradas[0], paradas[0]], 'IDA'),
+        () => montarParadasDefinidas([], [paradas[0], paradas[0]], 'IDA'),
         /identificador válido/
     );
 });
