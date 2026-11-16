@@ -74,8 +74,9 @@ export default function HomePassageiro() {
         const subscription=AppState.addEventListener('change',state=>{if(state!=='active')clear();});
         return()=>{subscription.remove();clear();};
     },[]));
-    const [statusViagem, setStatusViagem] = useState('INATIVA');
-    const [statusGps, setStatusGps] = useState('GARAGEM');
+    const [statusViagem, setStatusViagem] = useState('CARREGANDO');
+    const [statusGps, setStatusGps] = useState('AGUARDANDO');
+    const [erroRadar, setErroRadar] = useState('');
 
     const [turma, setTurma] = useState<any>(null);
     const [enderecos, setEnderecos] = useState<any[]>([]);
@@ -221,12 +222,13 @@ export default function HomePassageiro() {
             if (signal.aborted || turmaSelecionadaRef.current !== turmaId) return;
             setStatusViagem(radar.status);
             setStatusGps(radar.gps);
+            setErroRadar('');
             if(gpsExpiryTimer.current)clearTimeout(gpsExpiryTimer.current);
             if(radar.position)gpsExpiryTimer.current=setTimeout(()=>{setPosicaoVan(null);setStatusGps('AGUARDANDO');},Math.max(0,radar.position.expiresAt-Date.now()));
             setPosicaoVan(previous => previous?.latitude === radar.position?.latitude && previous?.longitude === radar.position?.longitude ? previous : radar.position);
 
         } catch (error) {
-            if (!signal.aborted) {setStatusGps('AGUARDANDO');setPosicaoVan(null);}
+            if (!signal.aborted) {setStatusViagem('INDETERMINADO');setStatusGps('AGUARDANDO');setPosicaoVan(null);setErroRadar(errorMessage(error));}
         }
     }, 10000, pollingKey);
 
@@ -414,8 +416,9 @@ export default function HomePassageiro() {
                                             setTurma(item);
                                             setConfirmacao(null);
                                             setPosicaoVan(null);
-                                            setStatusViagem('INATIVA');
-                                            setStatusGps('GARAGEM');
+                                            setStatusViagem('CARREGANDO');
+                                            setStatusGps('AGUARDANDO');
+                                            setErroRadar('');
 
                                             carregarDadosSilencioso(item.id);
                                         }}
@@ -494,7 +497,11 @@ export default function HomePassageiro() {
                         </View>
 
                         <View style={styles.radarCard}>
-                            {statusViagem === 'INATIVA' ? (
+                            {statusViagem === 'CARREGANDO' ? (
+                                <AsyncState loading title="Consultando a viagem" message="Verificando o estado atual da van." />
+                            ) : statusViagem === 'INDETERMINADO' ? (
+                                <AsyncState title="Estado da viagem indisponível" message={erroRadar || 'Aguardando uma resposta válida do servidor.'} />
+                            ) : statusViagem === 'INATIVA' ? (
                                 <View style={styles.cadeadoBox}>
                                     <View style={styles.busIconContainer}>
                                         <Ionicons name="bus-outline" size={36} color={theme.colors.textLight} />
