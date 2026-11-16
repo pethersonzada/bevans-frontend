@@ -18,3 +18,10 @@ test('operational UI exposes separate accessible counters and readable states',(
 test('operational important actions require confirmation; conflicts reload official state',async()=>{const h=painelHarness();h.press(h.render(),'Não embarcou');assert.equal(h.calls.length,0);h.press(h.render(),'Confirmar alteração');assert.equal(h.calls.length,1);h.finish.reject({status:409});await new Promise(setImmediate);assert.equal(h.reloads,1);assert.match(texts(h.render()),/estado mudou/);});
 test('boarding remains quick and duplicate taps make only one write',async()=>{const h=painelHarness(false);const t=h.render();assert.ok(!texts(t).includes('Ana'));h.press(t,'Embarquei');h.press(t,'Embarquei');assert.equal(h.calls.length,1);assert.equal(h.calls[0][4],'EMBARCADO');h.finish.resolve({});await new Promise(setImmediate);assert.equal(h.reloads,1);});
 test('operational errors distinguish session, permission, conflict, timeout and offline',()=>{const m=load('src/services/operacoes.ts',{'../config/api':{},'./catalogo':{recursoId:Number}});assert.match(m.mensagemErroOperacao({status:401}),/sessão expirou/);assert.match(m.mensagemErroOperacao({status:403}),/permissão/);assert.match(m.mensagemErroOperacao({status:409}),/estado mudou/);assert.match(m.mensagemErroOperacao({kind:'timeout'}),/pode ter sido registrada/);assert.match(m.mensagemErroOperacao({kind:'network'}),/Sem conexão/);});
+
+test('operational service rejects a panel from another execution or modality',async()=>{
+ let payload={tipo:'VIAGEM',referenciaId:8,contadores:{},registros:[]};
+ const m=load('src/services/operacoes.ts',{'../config/api':{apiRequest:async()=>payload},'./catalogo':{recursoId:Number}});
+ await assert.rejects(m.consultarOperacao('VIAGEM','7',true),/inválido/);
+ payload={...payload,referenciaId:7,tipo:'EXCURSAO'};await assert.rejects(m.consultarOperacao('VIAGEM','7',true),/inválido/);
+});
