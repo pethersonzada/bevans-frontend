@@ -1160,33 +1160,14 @@ test('public route service never sends invalid identity or unconfirmed geographi
     assert.equal(calls,0);
 });
 test('urban route editor keeps map choices in the draft and saves ordered stops through the API',async()=>{
-    const writes=[];const router={back(){},push(){}};let saved;
-    const render=componentHarness('src/app/editar-rota-publica.tsx','default',{'../components/ui/Primitives':require('./helpers/ui.cjs'),'../services/turmas':{},
-        'expo-router':{useLocalSearchParams:()=>({turmaId:'7'}),useRouter:()=>router,useFocusEffect(){}},
-        'react-native':{StyleSheet:{create:x=>x},Text:'Text',View:'View',ScrollView:'Scroll',TextInput:'Input',TouchableOpacity:'Button'},
-        'react-native-safe-area-context':{useSafeAreaInsets:()=>({top:0,bottom:0})},
-        '../contexts/AuthContext':{useAuth:()=>({user:{id:'1',tipo:'MOTORISTA'},isLoading:false})},
-        '../components/AsyncState':{AsyncState:'AsyncState'},
-        '../components/EnderecoMapaPicker':{__esModule:true,default:'MapPicker'},
-        '../components/MapaPreviaPublica':{__esModule:true,default:'Preview'},
-        '../components/PedidosRota':{PedidosRota:'Pedidos'},
-        '../services/viagens':{iniciarViagem:async()=>{}},
-        '../styles/globalStyles':{globalStyles:{}},
-        '../services/rotasPublicas':{
-            salvarRotaPublica:async(id,data)=>{writes.push({id,data});saved=rotaPublicaFixture(data);return saved;},
-            salvarParadasPublicas:async(id,paradas)=>{writes.push({id,paradas});return {...saved,paradas:paradas.map((p,i)=>({...p,id:i+1}))};},
-        },
-    });
-    const press=label=>elements(render({})).find(n=>(n.props.accessibilityLabel===label||n.props.title===label)).props.onPress();
-    const input=(label,value)=>elements(render({})).find(n=>n.props.accessibilityLabel===label).props.onChangeText(value);
-    input('Nome da rota','Campus');input('Cidade de operação','Caruaru');
-    for(const [label,nome,lat,lon] of [['Definir origem','Terminal',-8.2,-35.9],['Definir destino','Campus',-8.3,-36],['Adicionar parada no mapa','Parada',-8.25,-35.95]]){
-        press(label);assert.equal(elements(render({})).find(n=>(n.props.accessibilityLabel==='Confirmar ponto'||n.props.title==='Confirmar ponto')).props.disabled,true);
-        elements(render({})).find(n=>n.type==='MapPicker').props.onChange({nome,latitude:lat,longitude:lon,precisao:'manual'});
-        press('Confirmar ponto');
-    }
-    input('Nome da parada 1','Ponto confirmado');press('Salvar rota e paradas');await new Promise(setImmediate);
-    assert.equal(writes.length,2);assert.equal(writes[0].data.origemNome,'Terminal');assert.equal(writes[1].paradas[0].nome,'Ponto confirmado');
-    assert.equal(elements(render({})).some(n=>n.props.children==='Rota e paradas salvas.'),true);
-    render.unmount();
+    const {harness,press,input,point,tick,nodes}=require('./helpers/rotasPublicas.cjs');const h=harness();
+    input(h,'Nome da rota','Campus');input(h,'Cidade de operação','Caruaru');press(h,'Continuar');
+    point(h,'Escolher origem','Terminal',-8.2,-35.9);point(h,'Escolher destino','Campus',-8.3,-36);press(h,'Continuar');
+    point(h,'Adicionar parada no mapa','Parada',-8.25,-35.95);press(h,'Ajustar parada 1');input(h,'Nome da parada 1','Ponto confirmado');
+    assert.equal(h.writes.length,0);press(h,'Continuar');
+    nodes(h.tree()).find(n=>n.props?.accessibilityLabel==='Segunda').props.onPress();
+    nodes(h.tree()).find(n=>n.props?.label==='Horário de ida').props.onChange('07:00');press(h,'Continuar');h.tree();await tick();
+    press(h,'Turma operacional');press(h,'Salvar rota pública');await tick();
+    assert.equal(h.writes.length,2);assert.equal(h.writes[0].data.origemNome,'Terminal');
+    assert.equal(h.writes[1].paradas[0].nome,'Ponto confirmado');assert.equal(h.published.length,0);h.unmount();
 });

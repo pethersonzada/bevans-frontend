@@ -39,14 +39,13 @@ test('passenger cannot load or enter the driver settings menu',()=>{
     const t=h.render();assert.deepEqual(h.keys,[false]);assert.equal(nodes(t).filter(n=>n.type==='MenuRow').length,0);
 });
 test('public route creation starts at its identity without selecting or creating a private turma',async()=>{
-    let writes=0,bases=0;
-    const h=harness('src/app/editar-rota-publica.tsx',{'../services/turmas':{listarTurmasMotorista:async()=>{bases++;return [];}},'../services/rotasPublicas':{listarMinhasRotas:async()=>[],salvarRotaPublica:async()=>{writes++;}}});
-    let t=h.render();assert.equal(nodes(t).find(n=>n.type==='Steps').props.current,'Dados');assert.equal(bases,0);
-    nodes(t).find(n=>n.type==='Input'&&n.props.accessibilityLabel==='Nome da rota').props.onChangeText('Rascunho de teste');
-    nodes(t).find(n=>n.type==='Steps').props.onChange('Capacidade');t=h.render();await new Promise(setImmediate);t=h.render();assert.equal(bases,1);
-    nodes(t).find(n=>n.props?.title==='Salvar rota e paradas').props.onPress();await new Promise(setImmediate);assert.equal(writes,0);
-    t=h.render();assert.ok(JSON.stringify(t).includes('Selecione a associação operacional'));
-    nodes(t).find(n=>n.type==='Steps').props.onChange('Dados');t=h.render();assert.equal(nodes(t).find(n=>n.type==='Input'&&n.props.accessibilityLabel==='Nome da rota').props.value,'Rascunho de teste');h.unmount();
+    const routes=require('./helpers/rotasPublicas.cjs');let bases=0;
+    const h=routes.harness({extras:{'../../services/turmas':{listarTurmasMotorista:async()=>{bases++;return [];}}}});
+    let t=h.tree();assert.equal(t.props.title,'Nova rota pública');assert.equal(bases,0);
+    routes.input(h,'Nome da rota','Rascunho de teste');routes.press(h,'Continuar');
+    assert.equal(h.writes.length,0);assert.equal(bases,0);
+    assert.equal(routes.find(h.tree(),'Nome da rota').props.value,'Rascunho de teste');
+    assert.ok(JSON.stringify(h.tree()).includes('Informe nome e cidade'));h.unmount();
 });
 test('route list offers creation without a turma-first chooser or automatic entity creation',async()=>{
     const h=harness('src/app/rotas-publicas.tsx',{'../services/rotasPublicas':{listarMinhasRotas:async()=>[]}});
