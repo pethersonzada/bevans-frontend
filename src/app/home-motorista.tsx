@@ -1,3 +1,4 @@
+import { MenuRow } from '../components/ui/Primitives';
 import { useAppAlert } from '../contexts/AppAlertContext';
 import { AppModal as Modal } from '../components/AppModal';
 import { Ionicons } from '@expo/vector-icons';
@@ -341,15 +342,11 @@ export default function HomeMotorista() {
 
             <HeaderMotorista
                 nomeMotorista={user?.nome ? user.nome.split(' ')[0] : ''}
-                totalPendentes={alunosPendentes.length}
-                onAbrirNotificacoes={() => setModalNotificacoesVisible(true)}
             />
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
-                    <TouchableOpacity accessibilityRole="button" accessibilityLabel="Gerenciar Rotas Públicas" onPress={() => router.push('/rotas-publicas')} style={{padding:16}}>
-                        <Text>Rotas Públicas</Text>
-                    </TouchableOpacity>
+
                 {erroCarga && <AsyncState message={erroCarga} onRetry={refresh} />}
                 {viagemAtiva && <BannerRotaAtiva
                     onPress={() => {
@@ -394,20 +391,17 @@ export default function HomeMotorista() {
                     onEditarTurma={() => {
                         if (turmaSelecionada) {
                             router.push({
-                                pathname: '/editar-turma',
+                                pathname: '/configuracoes-turma',
                                 params: {
-                                    id: turmaSelecionada.id,
-                                    nomeAtual: turmaSelecionada.nome,
-                                    turnoAtual: turmaSelecionada.turno,
-                                    origemAtual: turmaSelecionada.origemNome,
-                                    destinoAtual: turmaSelecionada.destinoNome
+                                    turmaId: String(turmaSelecionada.id)
                                 }
-                            } as any);
+                            });
                         }
                     }}
                 />
 
                 {turmaSelecionada&&<AtalhosTurma key={turmaSelecionada.id} turmaId={turmaSelecionada.id}/>}
+                <MenuRow title={`Solicitações de entrada (${alunosPendentes.length})`} description="Revise os pedidos para suas turmas." icon="people-outline" onPress={()=>setModalNotificacoesVisible(true)} />
                 <PainelTurmaSelecionada
                     turma={turmaSelecionada}
                     onAtualizarTurma={(tAtualizada) => { turmaSelecionadaRef.current = tAtualizada; setTurmaSelecionada(tAtualizada); }}

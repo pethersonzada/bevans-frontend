@@ -1,15 +1,13 @@
-import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AtalhoNotificacoes } from '../AtalhoNotificacoes';
+import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../styles/theme';
 
 type Props = {
     nomeMotorista: string;
-    totalPendentes: number;
-    onAbrirNotificacoes: () => void;
 };
 
-export function HeaderMotorista({ nomeMotorista, totalPendentes, onAbrirNotificacoes }: Props) {
+export function HeaderMotorista({ nomeMotorista }: Props) {
     const insets = useSafeAreaInsets();
 
     return (
@@ -21,18 +19,7 @@ export function HeaderMotorista({ nomeMotorista, totalPendentes, onAbrirNotifica
                 <Text style={styles.welcome}>Olá, {nomeMotorista}</Text>
             </View>
 
-            <TouchableOpacity 
-                onPress={onAbrirNotificacoes} 
-                style={styles.notifButton}
-                activeOpacity={0.7}
-            >
-                <Ionicons name="notifications-outline" size={24} color={theme.colors.text} />
-                {totalPendentes > 0 && (
-                    <View style={styles.badge}>
-                        <Text style={styles.badgeText}>{totalPendentes}</Text>
-                    </View>
-                )}
-            </TouchableOpacity>
+            <AtalhoNotificacoes />
         </View>
     );
 }

@@ -23,21 +23,25 @@ export function CardsTurmasMotorista({ turmas, turmaSelecionada, onSelecionarTur
     return (
         <View style={styles.container}>
             <View style={styles.headerRow}>
-                <Text style={styles.sectionTitle}>Turmas e Rotas</Text>
+                <Text style={styles.sectionTitle}>Minhas turmas</Text>
                 
                 <View style={styles.actionsContainer}>
                     {turmaSelecionada && (
                         <TouchableOpacity 
+                            accessibilityRole="button"
+                            accessibilityLabel="Configurações da turma selecionada"
                             onPress={onEditarTurma} 
                             style={styles.btnEditar}
                             activeOpacity={0.7}
                         >
-                            <Ionicons name="pencil-outline" size={14} color={theme.colors.primary} />
-                            <Text style={styles.btnEditarText}>Editar</Text>
+                            <Ionicons name="settings-outline" size={18} color={theme.colors.primary} />
+                            <Text style={styles.btnEditarText}>Configurar</Text>
                         </TouchableOpacity>
                     )}
                     
                     <TouchableOpacity 
+                        accessibilityRole="button"
+                        accessibilityLabel="Criar turma privada"
                         onPress={() => router.push('/cadastro-turma' as any)} 
                         style={styles.btnNova}
                         activeOpacity={0.7}
@@ -117,6 +121,8 @@ const styles = StyleSheet.create({
     },
     headerRow: {
         flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: theme.spacing.md,
@@ -133,6 +139,7 @@ const styles = StyleSheet.create({
         gap: theme.spacing.xs,
     },
     btnEditar: {
+        minHeight: 48,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 4,

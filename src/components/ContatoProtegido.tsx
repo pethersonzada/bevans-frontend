@@ -1,5 +1,6 @@
+import { ActionButton as Button } from './ui/Primitives';
 import { useRef,useState } from 'react';
-import { Button,Text,View,Linking } from 'react-native';
+import { Text,View,Linking } from 'react-native';
 import { contatoAutorizado } from '../services/contatoMotorista';
 import { errorMessage } from '../config/api';
 export function ContatoProtegido({tipo,id}:{tipo:'turmas'|'rotas-publicas';id:number}){

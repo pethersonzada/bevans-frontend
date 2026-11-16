@@ -1,3 +1,4 @@
+import { AtalhoNotificacoes } from '../components/AtalhoNotificacoes';
 import { useAppAlert } from '../contexts/AppAlertContext';
 import { AtalhosTurma } from '../components/AtalhosTurma';
 import { Ionicons } from '@expo/vector-icons';
@@ -349,8 +350,8 @@ export default function HomePassageiro() {
             <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
             <View style={[styles.header, { paddingTop: insets.top + theme.spacing.sm }]}>
-                <Text style={styles.dateText}>{dataFormatada}</Text>
-                <Text style={styles.welcome}>Olá, <Text style={styles.nomeBold}>{user?.nome ? user.nome.split(' ')[0] : ''}</Text></Text>
+                <View style={{flexDirection:'row',alignItems:'center',gap:12}}><View style={{flex:1}}><Text style={styles.dateText}>{dataFormatada}</Text>
+                <Text style={styles.welcome}>Olá, <Text style={styles.nomeBold}>{user?.nome ? user.nome.split(' ')[0] : ''}</Text></Text></View><AtalhoNotificacoes /></View>
             </View>
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}

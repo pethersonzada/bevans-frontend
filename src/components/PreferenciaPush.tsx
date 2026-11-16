@@ -1,3 +1,4 @@
+import { ActionButton, ui } from './ui/Primitives';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
@@ -25,9 +26,8 @@ function PushControls({ owner }: { owner: string }) {
     };
     return <View style={{ gap: 8 }}>
         <Text>A central funciona mesmo sem permitir notificações no aparelho.</Text>
-        {[['Permitir notificações Android', true], ['Revogar notificações deste aparelho', false]].map(([label, activate]) => <Pressable key={String(label)} accessibilityRole="button" accessibilityState={{ disabled: busy, busy }} disabled={busy} onPress={() => void run(Boolean(activate))} style={{ minHeight: 48, padding: 12, borderRadius: 8, backgroundColor: theme.colors.primary, justifyContent: 'center', opacity: busy ? 0.5 : 1 }}>
-            <Text style={{ color: '#fff', textAlign: 'center' }}>{busy ? 'Aguarde…' : label}</Text>
-        </Pressable>)}
+        <ActionButton variant="primary" title="Permitir notificações Android" busy={busy} onPress={()=>void run(true)}/>
+        <ActionButton variant="danger" title="Revogar notificações deste aparelho" disabled={busy} onPress={()=>void run(false)}/>
         <Text accessibilityLiveRegion="polite">{message}</Text>
     </View>;
 }

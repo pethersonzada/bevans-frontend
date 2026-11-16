@@ -27,6 +27,7 @@ function RootLayoutNav() {
                 <Stack.Screen name="detalhe-rota" />
                 <Stack.Screen name="controle-viagem" />
                 <Stack.Screen name="notificacoes" />
+                <Stack.Screen name="configuracoes-notificacoes" />
                 <Stack.Screen name="coleta-privada" />
                 <Stack.Screen name="gerenciar-enderecos" />
                 <Stack.Screen name="cadastro-endereco" />
@@ -42,6 +43,7 @@ function RootLayoutNav() {
                 <Stack.Screen name="home-motorista" />
                 <Stack.Screen name="cadastro-turma" />
                 <Stack.Screen name="editar-turma" />
+                <Stack.Screen name="configuracoes-turma" />
                 <Stack.Screen name="selecionar-rota-mapa" />
                 <Stack.Screen name="mapa" />
             </Stack.Protected>

@@ -1,3 +1,4 @@
+import { Section, MenuRow, ActionButton } from '../../components/ui/Primitives';
 import { useAppAlert } from '../../contexts/AppAlertContext';
 import { AppModal as Modal } from '../../components/AppModal';
 import { Ionicons } from '@expo/vector-icons';
@@ -197,12 +198,11 @@ export default function Perfil() {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={[
                     styles.scrollContent,
+                    {width: '100%', maxWidth:760, alignSelf:'center', gap:20},
                     { paddingTop: insets.top + theme.spacing.md, paddingBottom: insets.bottom + theme.spacing.xl },
                 ]}
             >
                 {/* Header com Avatar */}
-                <Pressable style={{minHeight:48,justifyContent:'center'}} accessibilityRole="button" onPress={()=>router.push('/notificacoes')}><Text>Preferências de notificações</Text></Pressable>
-                {user.tipo==='MOTORISTA'&&<Pressable style={{minHeight:48,justifyContent:'center'}} accessibilityRole="button" onPress={()=>router.push('/contato-comercial')}><Text>Configurar contato comercial protegido</Text></Pressable>}
                 <View style={styles.profileHeader}>
                     <View style={styles.avatarContainer}>
                         <Text style={styles.avatarText}>{inicial}</Text>
@@ -220,90 +220,14 @@ export default function Perfil() {
                     ) : null}
                 </View>
 
-                {/* Seção Endereços */}
-                {ehPassageiro && (
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>ENDEREÇOS</Text>
-                        <View style={globalStyles.card}>
-                            <Pressable
-                                style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
-                                onPress={() => router.push('/gerenciar-enderecos' as any)}
-                            >
-                                <View style={styles.menuIconWrapper}>
-                                    <Ionicons name="location-outline" size={20} color={theme.colors.primary} />
-                                </View>
-                                <Text style={styles.menuText}>Gerenciar Endereços</Text>
-                                <Ionicons name="chevron-forward" size={16} color={theme.colors.textLight} />
-                            </Pressable>
-                        </View>
-                    </View>
-                )}
 
-                {/* Seção Segurança */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>SEGURANÇA</Text>
-                    <View style={globalStyles.card}>
-                        <Pressable
-                            style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
-                            onPress={() => setModalEmailVisivel(true)}
-                        >
-                            <View style={styles.menuIconWrapper}>
-                                <Ionicons name="mail-outline" size={20} color={theme.colors.primary} />
-                            </View>
-                            <Text style={styles.menuText}>Alterar E-mail</Text>
-                            <Ionicons name="chevron-forward" size={16} color={theme.colors.textLight} />
-                        </Pressable>
-
-                        <View style={styles.divider} />
-
-                        <Pressable
-                            style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
-                            onPress={() => setModalSenhaVisivel(true)}
-                        >
-                            <View style={styles.menuIconWrapper}>
-                                <Ionicons name="lock-closed-outline" size={20} color={theme.colors.primary} />
-                            </View>
-                            <Text style={styles.menuText}>Alterar Senha</Text>
-                            <Ionicons name="chevron-forward" size={16} color={theme.colors.textLight} />
-                        </Pressable>
-                    </View>
-                </View>
-
-                {/* Seção Suporte */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>SUPORTE</Text>
-                    <View style={globalStyles.card}>
-                        <Pressable
-                            style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
-                            onPress={abrirWhatsApp}
-                        >
-                            <View style={styles.menuIconWrapper}>
-                                <Ionicons name="headset-outline" size={20} color={theme.colors.primary} />
-                            </View>
-                            <Text style={styles.menuText}>Central de Ajuda</Text>
-                            <Ionicons name="chevron-forward" size={16} color={theme.colors.textLight} />
-                        </Pressable>
-                    </View>
-                </View>
-
-                {/* Botões de Ação */}
-                <View style={styles.actionContainer}>
-                    <Pressable
-                        style={({ pressed }) => [styles.botaoSair, pressed && { opacity: 0.8 }]}
-                        onPress={sair}
-                    >
-                        <Ionicons name="log-out-outline" size={20} color={theme.colors.danger} />
-                        <Text style={styles.textoBotaoSair}>Encerrar Sessão</Text>
-                    </Pressable>
-
-                    <Pressable
-                        style={({ pressed }) => [styles.botaoDeletar, pressed && { opacity: 0.85 }]}
-                        onPress={() => setModalDeletarVisivel(true)}
-                    >
-                        <Ionicons name="trash-outline" size={20} color={theme.colors.surface} />
-                        <Text style={styles.textoBotaoDeletar}>Excluir Minha Conta</Text>
-                    </Pressable>
-                </View>
+                <Section title="Dados pessoais"><Text style={styles.menuText}>{nome}</Text><Text style={styles.subtituloEmail}>{emailUsuario||'E-mail não informado'}</Text></Section>
+                <Section title="Conta"><MenuRow title="Alterar e-mail" description="Atualize seu acesso com confirmação de senha." icon="mail-outline" onPress={()=>setModalEmailVisivel(true)}/></Section>
+                {ehPassageiro&&<Section title="Endereços"><MenuRow title="Meus endereços" description="Locais de embarque e desembarque." icon="location-outline" onPress={()=>router.push('/gerenciar-enderecos')}/></Section>}
+                {user.tipo==='MOTORISTA'&&<Section title="Seu trabalho"><MenuRow title="Contato comercial" description="Número de atendimento e autorização de divulgação." icon="call-outline" onPress={()=>router.push('/contato-comercial')}/></Section>}
+                <Section title="Segurança"><MenuRow title="Redefinir senha" description="Receba um link no e-mail da sua conta." icon="lock-closed-outline" onPress={()=>setModalSenhaVisivel(true)}/><MenuRow title="Excluir conta" description="Revise as consequências antes de confirmar." icon="trash-outline" onPress={()=>setModalDeletarVisivel(true)}/></Section>
+                <Section title="Suporte"><MenuRow title="Central de ajuda" description="Fale com o atendimento pelo WhatsApp." icon="headset-outline" onPress={()=>void abrirWhatsApp()}/></Section>
+                <ActionButton title="Sair da conta" variant="danger" icon="log-out-outline" onPress={sair}/>
             </ScrollView>
 
             {confirmarSaida && <LogoutConfirmation onConfirm={signOut} onCancel={cancelarSaida} />}
