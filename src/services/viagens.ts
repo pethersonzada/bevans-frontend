@@ -34,7 +34,7 @@ export class TrocaViagemError extends Error {
     }
 }
 const trocasPendentes = new Set<number>();
-export async function reiniciarViagem(turmaId: number, sentido: 'IDA' | 'VOLTA', viagemEsperada: number) {
+export async function reiniciarViagem(turmaId: number, sentido: 'IDA' | 'VOLTA', viagemEsperada: number, onAnteriorEncerrada?: () => void) {
     turmaIdValido(turmaId);
     if (!['IDA', 'VOLTA'].includes(sentido) || !Number.isSafeInteger(viagemEsperada) || viagemEsperada <= 0) throw new Error('Confirme a viagem e o sentido antes de substituir.');
     if (trocasPendentes.has(turmaId)) throw new Error('Já há uma troca de viagem em andamento.');
@@ -49,6 +49,7 @@ export async function reiniciarViagem(turmaId: number, sentido: 'IDA' | 'VOLTA',
         etapa = 'encerrar';
         await encerrarViagem(turmaId);
         encerrada = true;
+        onAnteriorEncerrada?.();
         etapa = 'iniciar';
         await iniciarViagem(turmaId, sentido);
         const estado = await consultarEstadoViagem(turmaId);

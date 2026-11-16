@@ -288,10 +288,13 @@ export default function HomeMotorista() {
             const executar = async () => {
                 if (executando) return;
                 executando = true;
-                inicioExecutando.current = true;
                 if (!inicioPendente.current || !vigente()) { liberar(); return; }
+                inicioExecutando.current = true;
                 try {
-                    if (atual.status === 'ATIVA') await reiniciarViagem(turmaId, sentido, atual.viagemId!);
+                    if (atual.status === 'ATIVA') await reiniciarViagem(turmaId, sentido, atual.viagemId!, () => {
+                        if (vigente()) setViagemAtiva(false);
+                        void AsyncStorage.removeItem('@vanbora:viagem_ativa_' + user.id).catch(() => {});
+                    });
                     else await iniciarViagem(turmaId, sentido);
                     const oficial = await consultarEstadoViagem(turmaId);
                     if (!vigente()) return;

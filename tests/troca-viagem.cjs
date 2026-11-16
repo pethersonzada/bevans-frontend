@@ -29,3 +29,13 @@ test('unknown readback remains unknown and repeated calls cannot duplicate write
     const h=harness({stage:'iniciar',unreadable:true});await assert.rejects(h.service.reiniciarViagem(7,'VOLTA',11),e=>e.estado===null&&e.anteriorEncerrada);
     const repeated=harness();const first=repeated.service.reiniciarViagem(7,'VOLTA',11);await assert.rejects(repeated.service.reiniciarViagem(7,'VOLTA',11),/andamento/);await first;assert.equal(repeated.writes.length,2);await assert.rejects(repeated.service.reiniciarViagem(7,'VOLTA',11));assert.equal(repeated.writes.length,2);
 });
+
+test('old execution is invalidated before the new start request resolves',async()=>{
+    let ended=false,startSawInvalidation=false;
+    const exports={};let state={status:'ATIVA',viagemId:11,sentido:'IDA'};
+    vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/services/viagens.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{exports,require:()=>({
+        apiRequest:async path=>path.startsWith('/operacoes')?{contadores:{naVan:0}}:state,
+        apiFetch:async path=>{if(path.startsWith('/rota/encerrar'))state={status:'INATIVA'};else{startSawInvalidation=ended;state={status:'ATIVA',viagemId:12,sentido:'VOLTA'};}return {ok:true};}
+    })});
+    await exports.reiniciarViagem(7,'VOLTA',11,()=>{ended=true;});assert.equal(startSawInvalidation,true);
+});
