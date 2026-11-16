@@ -42,7 +42,7 @@ async function validar(excursaoId: number, c: ConviteEmMemoria, assertCurrent: (
         assertCurrent();
         const e = error as { kind?: string; status?: number };
         // Transient read failures must not destroy the only copy of the token.
-        if (e.kind !== 'network' && e.kind !== 'timeout' && !(e.status && e.status >= 500)) forget(excursaoId);
+        if (e.kind !== 'network' && e.kind !== 'timeout' && e.status !== 408 && e.status !== 429 && !(e.status && e.status >= 500)) forget(excursaoId);
         throw error;
     }
 }

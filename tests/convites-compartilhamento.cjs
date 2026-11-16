@@ -54,3 +54,17 @@ test('logout/account change discards raw tokens and ignores late creation respon
 test('confirmed revocation forgets the only in-memory secret and list exposes metadata only',async()=>{
     const h=harness();await h.prepare();h.state.metadata[0].token='must-not-be-exposed';const list=await h.excursoes.convitesExcursao(7);assert.equal(list[0].token,undefined);await h.service.revogarConviteRecuperado(7,1);assert.equal(h.service.estadoConviteCompartilhamento(7),null);assert.ok(h.state.metadata[0].revogadoEm);
 });
+
+test('HTTP timeout and throttled revalidation preserve the token without releasing a stale link or issuing another',async()=>{
+    for(const status of [408,429]){
+        const h=harness();const original=await h.prepare();
+        h.state.readFailure=Object.assign(Error('temporary HTTP rejection'),{status});
+        await assert.rejects(h.service.recuperarLinkConvite(7,'https://example.test/convite'),/temporary HTTP/);
+        await assert.rejects(h.prepare(),/temporary HTTP/);
+        assert.equal(h.service.estadoConviteCompartilhamento(7).id,original.id);
+        assert.equal(h.state.created,1);
+        h.state.readFailure=null;
+        assert.equal((await h.prepare()).link,original.link);
+        assert.equal(h.state.created,1);
+    }
+});
