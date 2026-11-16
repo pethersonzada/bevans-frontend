@@ -59,3 +59,8 @@ test('ended-trip notice retains historical execution; authorization failure neve
     const m=load('src/services/notificacoes.ts',{'./catalogo':cat,'../config/api':{apiRequest:async path=>{paths.push(path);if(denied)throw {status:404};return {id:8,estado:'FINALIZADA'};}}});
     const notice={contextoTipo:'VIAGEM',contextoId:7,tipo:'VIAGEM_FINALIZADA'};const route=await m.destinoAutorizadoNotificacao(notice,false);assert.equal(route.params.id,'7');assert.deepEqual(paths,['/operacoes/VIAGEM/7/minha']);denied=true;await assert.rejects(m.destinoAutorizadoNotificacao(notice,false));assert.match(m.mensagemErroNotificacao({status:404}),/não está disponível/);await assert.rejects(m.destinoAutorizadoNotificacao({contextoTipo:'EXCURSAO',contextoId:8},false),/página da sua inscrição/);
 });
+test('device registration requires the backend to confirm the same active installation',async()=>{
+    const cat=load('src/services/catalogo.ts',{'../config/api':{}});let info={id:1,instalacaoId:'another_installation_123',ativo:true};
+    const m=load('src/services/notificacoes.ts',{'./catalogo':cat,'../config/api':{apiFetch:async()=>({ok:true}),readApiJson:async()=>info}});
+    await assert.rejects(m.registrarDispositivo('installation_123456','synthetic'),/não confirmou/);info={id:1,instalacaoId:'installation_123456',ativo:false};await assert.rejects(m.registrarDispositivo('installation_123456','synthetic'),/não confirmou/);info={...info,ativo:true};await m.registrarDispositivo('installation_123456','synthetic');
+});

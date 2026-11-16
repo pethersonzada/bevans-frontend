@@ -60,7 +60,7 @@ test('notification links distinguish executions from excursions and only use aut
     assert.equal(m.destinoNotificacao({contextoTipo:'DESCONHECIDO',contextoId:7}).pathname,'/(tabs)/home');
 });
 test('notification read and FCM device requests use only the current session and propagate errors',async()=>{
-    const calls=[];const m=load('src/services/notificacoes.ts',{'./catalogo':catalogo(),'../config/api':{apiFetch:async(path,options)=>{calls.push({path,options});return {ok:true};}}});
+    const calls=[];const m=load('src/services/notificacoes.ts',{'./catalogo':catalogo(),'../config/api':{readApiJson:async()=>({id:1,instalacaoId:'instalacao_123456789',ativo:true}),apiFetch:async(path,options)=>{calls.push({path,options});return {ok:true};}}});
     await m.lerNotificacao(9);await m.registrarDispositivo('instalacao_123456789','synthetic-token');await m.revogarDispositivo('instalacao_123456789');
     assert.equal(calls[0].options.method,'PUT');assert.equal(calls[1].path,'/notificacoes/dispositivos');assert.equal(JSON.parse(calls[1].options.body).consentePush,true);assert.equal(calls[2].options.method,'DELETE');
     await assert.rejects(m.registrarDispositivo('../invalid','token'));assert.equal(calls.length,3);

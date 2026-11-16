@@ -1,4 +1,4 @@
-import { apiRequest,apiFetch,readApiError } from '../config/api';
+import { apiRequest,apiFetch,readApiError,readApiJson } from '../config/api';
 import { paginaValida,recursoId,type Pagina } from './catalogo';
 export type Notificacao={id:number;tipo:string;contextoTipo:string;contextoId:number;titulo:string;mensagem:string;criadaEm:string;lidaEm:string|null};
 export type PreferenciasNotificacao={pushOperacional:boolean;pushInformativo:boolean};
@@ -27,6 +27,8 @@ export async function salvarPreferenciasNotificacao(dados:PreferenciasNotificaca
 export async function registrarDispositivo(instalacaoId:string,token:string) {
     if(!/^[A-Za-z0-9_-]{16,128}$/.test(instalacaoId)||!token.trim())throw new Error('Dispositivo inválido.');
     const r=await apiFetch('/notificacoes/dispositivos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({instalacaoId,token,consentePush:true})});if(!r.ok)throw await readApiError(r);
+    const info=await readApiJson<{id:number;instalacaoId:string;ativo:boolean}>(r);
+    if(!info||!Number.isSafeInteger(info.id)||info.id<=0||info.instalacaoId!==instalacaoId||info.ativo!==true)throw new Error('O servidor não confirmou o registro desta instalação. Tente novamente para conferir o estado.');
 }
 export async function revogarDispositivo(instalacaoId:string) {
     if(!/^[A-Za-z0-9_-]{16,128}$/.test(instalacaoId))throw new Error('Dispositivo inválido.');
