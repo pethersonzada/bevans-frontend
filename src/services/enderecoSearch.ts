@@ -23,6 +23,14 @@ export type EnderecoEncontrado = {
   precisao?: 'aproximada' | 'endereco' | 'manual';
 };
 
+export type ProximidadeBusca = { latitude: number; longitude: number };
+
+function coordenadasBusca(p?: ProximidadeBusca): string | null {
+  if (!p || !Number.isFinite(p.latitude) || !Number.isFinite(p.longitude) ||
+      Math.abs(p.latitude) > 90 || Math.abs(p.longitude) > 180) return null;
+  return p.longitude + ',' + p.latitude;
+}
+
 type Feature = {
   id?: string;
   geometry?: { coordinates?: number[] };
@@ -40,14 +48,15 @@ type Feature = {
   };
 };
 
-async function geocodificar(termo: string, types: string, signal?: AbortSignal): Promise<Feature[]> {
+async function geocodificar(termo: string, types: string, signal?: AbortSignal, proximidade?: ProximidadeBusca): Promise<Feature[]> {
   const token = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN;
   if (!token) throw new Error('Configure EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN.');
   const params = [
     `q=${encodeURIComponent(termo.trim())}`,
     'country=br', 'language=pt', 'limit=8',
     `types=${encodeURIComponent(types)}`, 'autocomplete=true',
-    'permanent=true', 'proximity=-35.97,-8.28',
+    'permanent=true',
+    ...(coordenadasBusca(proximidade) ? [`proximity=${coordenadasBusca(proximidade)}`] : []),
     `access_token=${encodeURIComponent(token)}`,
   ].join('&');
   const body = await searchJson<{ features?: Feature[] }>(`https://api.mapbox.com/search/geocode/v6/forward?${params}`, signal);
@@ -73,11 +82,11 @@ function converter(f: Feature, indice: number): EnderecoEncontrado | null {
   };
 }
 
-export async function pesquisarEnderecos(termo: string, signal?: AbortSignal): Promise<EnderecoEncontrado[]> {
+export async function pesquisarEnderecos(termo: string, signal?: AbortSignal, proximidade?: ProximidadeBusca): Promise<EnderecoEncontrado[]> {
   if (termo.trim().length < 3) return [];
   const [ruas, lugares] = await Promise.allSettled([
-    geocodificar(termo, 'address,street,place,neighborhood', signal),
-    pesquisarEstabelecimentos(termo, signal),
+    geocodificar(termo, 'address,street,place,neighborhood', signal, proximidade),
+    pesquisarEstabelecimentos(termo, signal, proximidade),
   ]);
   if (signal?.aborted) return [];
   const encontrados = ruas.status === 'fulfilled'
@@ -122,13 +131,14 @@ export async function localizarNumero(
 }
 
 /** POIs do Brasil: Geoapify (opcional). Mapbox Geocoding v6 não fornece POIs. */
-async function pesquisarEstabelecimentos(termo: string, signal?: AbortSignal): Promise<EnderecoEncontrado[]> {
+async function pesquisarEstabelecimentos(termo: string, signal?: AbortSignal, proximidade?: ProximidadeBusca): Promise<EnderecoEncontrado[]> {
   const key = process.env.EXPO_PUBLIC_GEOAPIFY_API_KEY;
   if (!key) return [];
   const params = [
     `text=${encodeURIComponent(termo)}`,
     'type=amenity', 'lang=pt', 'limit=6', 'format=json',
-    'filter=countrycode:br', 'bias=proximity:-35.97,-8.28',
+    'filter=countrycode:br',
+    ...(coordenadasBusca(proximidade) ? [`bias=proximity:${coordenadasBusca(proximidade)}`] : []),
     `apiKey=${encodeURIComponent(key)}`,
   ].join('&');
   type Local = { place_id?: string; name?: string; address_line1?: string; formatted?: string;
@@ -139,7 +149,7 @@ async function pesquisarEstabelecimentos(termo: string, signal?: AbortSignal): P
     if (!Number.isFinite(p.lat) || !Number.isFinite(p.lon) ||
       Math.abs(p.lat!) > 90 || Math.abs(p.lon!) > 180 ||
       (p.lat === 0 && p.lon === 0)) return [];
-    return [{ id: `poi:${p.place_id || i}`, nome: p.formatted || p.name || p.address_line1 || termo,
+    return [{ id: `poi:${p.place_id || i}`, nome: [p.name || p.address_line1 || termo, p.formatted].filter((v,i,a) => v && (i === 0 || v !== a[0])).join(' · '),
       latitude: p.lat!, longitude: p.lon!, rua: p.street || p.name || '',
       numero: p.housenumber || 'S/N', bairro: p.suburb || p.district || '',
       precisao: 'aproximada' as const, tipo: 'estabelecimento' as const }];
