@@ -299,26 +299,28 @@ export default function HomeMotorista() {
                     const oficial = await consultarEstadoViagem(turmaId);
                     if (!vigente()) return;
                     setViagemAtiva(oficial.status === 'ATIVA');
+                    const cache = '@vanbora:viagem_ativa_' + user.id;
+                    void (oficial.status === 'ATIVA' ? AsyncStorage.setItem(cache, 'true') : AsyncStorage.removeItem(cache)).catch(() => {});
                     if (oficial.status === 'ATIVA') router.push({ pathname: '/mapa', params: { sentido: oficial.sentido?.toLowerCase(), turmaId: String(turmaId) } });
                 } catch (error) {
                     if (!vigente()) return;
                     if (error instanceof TrocaViagemError) {
                         setViagemAtiva(error.estado?.status === 'ATIVA');
                         if (error.anteriorEncerrada) await AsyncStorage.removeItem('@vanbora:viagem_ativa_' + user.id);
-                        Alert.alert(error.anteriorEncerrada ? 'Viagem anterior encerrada' : 'Troca n?o conclu?da', error.message + (error.etapa === 'verificar' ? ' ' + errorMessage(error.original) : ''));
+                        Alert.alert(error.anteriorEncerrada ? 'Viagem anterior encerrada' : error.etapa === 'encerrar' ? 'Encerramento não confirmado' : 'Troca não concluída', error.message + ' ' + errorMessage(error.original));
                     } else {
                         await checarAmnesia(turmaId);
-                        Alert.alert('Partida n?o confirmada', errorMessage(error) + ' Atualize o estado antes de tentar novamente.');
+                        Alert.alert('Partida não confirmada', errorMessage(error) + ' Atualize o estado antes de tentar novamente.');
                     }
                 } finally { inicioExecutando.current = false; liberar(); }
             };
             Alert.alert(atual.status === 'ATIVA' ? 'Substituir viagem ativa?' : 'Iniciar viagem?',
                 atual.status === 'ATIVA'
-                    ? 'A viagem atual ser? encerrada: GPS e acesso operacional dessa execu??o ser?o interrompidos. A nova partida pode falhar e n?o h? retorno autom?tico ? viagem anterior. A troca ser? bloqueada se houver passageiros embarcados.'
-                    : (!todosResponderam ? 'H? passageiros sem confirmar presen?a. Deseja iniciar mesmo assim?' : 'Deseja iniciar a viagem de ' + sentido + '?'),
+                    ? 'A viagem atual será encerrada: GPS e acesso operacional dessa execução serão interrompidos. A nova partida pode falhar e não há retorno automático à viagem anterior. A troca será bloqueada se houver passageiros embarcados.'
+                    : (!todosResponderam ? 'Há passageiros sem confirmar presença. Deseja iniciar mesmo assim?' : 'Deseja iniciar a viagem de ' + sentido + '?'),
                 [{ text: 'Cancelar', style: 'cancel', onPress: liberar }, { text: atual.status === 'ATIVA' ? 'Encerrar e iniciar outra' : 'Iniciar', style: atual.status === 'ATIVA' ? 'destructive' : 'default', onPress: executar }],
                 { onDismiss: liberar });
-        } catch (error) { liberar(); if (vigente()) Alert.alert('Estado indispon?vel', errorMessage(error)); }
+        } catch (error) { liberar(); if (vigente()) Alert.alert('Estado indisponível', errorMessage(error)); }
     }, [turmaSelecionada, todosResponderam, user.id, router]);
 
     if (!loading && erroCarga && turmas.length === 0) {
