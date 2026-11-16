@@ -12,6 +12,7 @@ import {
 
 import type {
   EnderecoEncontrado,
+  ProximidadeBusca,
 } from '../services/enderecoSearch';
 import {
   pesquisarEnderecos,
@@ -23,11 +24,13 @@ import { AsyncState } from './AsyncState';
 type Props = {
   onSelecionar: (endereco: EnderecoEncontrado | null) => void;
   placeholder?: string;
+  proximidade?: ProximidadeBusca;
 };
 
 export default function EnderecoSearchInput({
   onSelecionar,
   placeholder = 'Rua, número, bairro, cidade ou estabelecimento',
+  proximidade,
 }: Props) {
   const [texto, setTexto] = useState('');
   const [resultados, setResultados] =
@@ -65,7 +68,8 @@ export default function EnderecoSearchInput({
       try {
         const itens = await pesquisarEnderecos(
           termo,
-          controller.signal
+          controller.signal,
+          proximidade
         );
 
         if (!controller.signal.aborted) {
@@ -92,7 +96,7 @@ export default function EnderecoSearchInput({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [texto, base, tentativa]);
+  }, [texto, base, tentativa, proximidade?.latitude, proximidade?.longitude]);
 
   function alterarTexto(valor: string) {
     pesquisa.current?.abort();
@@ -216,7 +220,7 @@ export default function EnderecoSearchInput({
         </View>
       )}
 
-      {semResultados && !buscando && <AsyncState appearance="map" status="empty" title="Nenhum endereço encontrado" message="Tente incluir o bairro ou a cidade na pesquisa." />}
+      {semResultados && !buscando && <AsyncState appearance="map" status="empty" title="Nenhum endereço encontrado" message="Tente informar o nome completo e a cidade ou marque o ponto diretamente no mapa." />}
       {!!erro && <AsyncState appearance="map" title="Confira o endereço" message={erro}
         onRetry={!base && texto.trim().length >= 3 ? () => setTentativa(value => value + 1) : undefined} />}
     </View>
