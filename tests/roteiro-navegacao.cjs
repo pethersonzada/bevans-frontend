@@ -12,7 +12,7 @@ vm.runInNewContext(
     ).outputText,
     { exports: exportsRoteiro, Error, Set, Number, Math }
 );
-const { montarParadasPublicas } = exportsRoteiro;
+const { montarParadasDefinidas } = exportsRoteiro;
 
 const paradas = [
     { id: 11, nome: 'Praça', latitude: -8.1, longitude: -34.9 },
