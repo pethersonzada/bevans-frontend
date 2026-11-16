@@ -1,5 +1,6 @@
 
 import MapboxGL from '@rnmapbox/maps';
+import { Ionicons } from '@expo/vector-icons';
 import { getCurrentCoordinates } from '../services/location';
 
 import { useEffect, useRef, useState } from 'react';
@@ -318,14 +319,17 @@ export default function EnderecoMapaPicker({
           <>
             <Text style={styles.descricao}>Resultado aproximado. Toque no mapa para marcar o local exato ou confirme explicitamente o ponto mostrado.</Text>
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="Confirmar ponto mostrado no mapa"
-              onPress={() => marcarPonto(candidato.longitude, candidato.latitude)} style={styles.confirmar}>
-              <Text style={styles.titulo}>Confirmar este ponto</Text>
+              onPress={() => marcarPonto(candidato.longitude, candidato.latitude)} style={styles.confirmar} activeOpacity={0.8}>
+              <Ionicons name="checkmark-circle-outline" color="#fff" size={22} />
+              <Text style={styles.confirmarTexto}>Confirmar este ponto</Text>
             </TouchableOpacity>
           </>
         )}
         <Text style={styles.titulo}>
           {selecionado
-            ? 'Nova localização selecionada'
+            ? 'Ponto confirmado'
+            : candidato
+              ? 'Confirme o ponto aproximado'
             : posicaoSalva
               ? 'Localização cadastrada'
               : posicaoGPS
@@ -359,7 +363,8 @@ export default function EnderecoMapaPicker({
 }
 
 const styles = StyleSheet.create({
-  confirmar: { minHeight: 48, justifyContent: 'center', padding: theme.spacing.sm },
+  confirmar: { minHeight: 52, justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, marginVertical: 8, backgroundColor: '#177E72' },
+  confirmarTexto: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
   container: {
     flex: 1,
     minHeight: 320,
