@@ -1,9 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { apiFetch, errorMessage, onSessionExpired } from '../config/api';
+import { errorMessage, onSessionExpired } from '../config/api';
 import { auth } from '../config/firebase';
 import { EMPTY_USER, SESSION_KEYS, fetchSessionUser, type SessionUser } from '../services/session';
+import { definirSessaoPush, prepararSessaoPush, encerrarSessaoPush } from '../services/push';
 
 type AuthContextData = {
     user: SessionUser;
@@ -24,6 +25,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [retry, setRetry] = useState(0);
     const revision = useRef(0);
     const storageQueue = useRef(Promise.resolve());
+    const logoutTask = useRef<Promise<void> | null>(null);
     const persist = useCallback((operation: () => Promise<void>) => {
         const next = storageQueue.current.catch(() => {}).then(operation);
         storageQueue.current = next;
@@ -31,28 +33,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const signOut = useCallback(async () => {
+        if (logoutTask.current) return logoutTask.current;
         const owner=currentUserRef.current.id;
+        const firebaseOwner=auth.currentUser;
+        definirSessaoPush(null);
+        currentUserRef.current=EMPTY_USER;
         revision.current++;
         setUser(EMPTY_USER);
         setSessionError(null);
         setIsLoading(false);
-        if(owner&&auth.currentUser){
-            // Revoke while the ID token still belongs to this account. On network
-            // failure retain the installation ID for a later explicit retry.
-            try{const storageKey=`@bevans:push:${owner}`;const [[,installation]]=await AsyncStorage.multiGet([storageKey]);
-                if(installation&&/^[A-Za-z0-9_-]{16,128}$/.test(installation)){
-                    try{const response=await apiFetch(`/notificacoes/dispositivos/${installation}`,{method:'DELETE',timeoutMs:5000});
-                        if(response.ok)await AsyncStorage.multiRemove([storageKey]);
-                    }finally{const notifications=await import('expo-notifications');await notifications.unregisterForNotificationsAsync();}
-                }
-            }catch{/* Offline logout remains available; revocation is not reported as successful. */}
-        }
-        const results = await Promise.allSettled([
-            firebaseSignOut(auth),
-            persist(() => AsyncStorage.multiRemove(SESSION_KEYS)),
-        ]);
-        const failure = results.find(result => result.status === 'rejected');
-        if (failure?.status === 'rejected') throw failure.reason;
+        const task=(async()=>{
+            if(owner&&firebaseOwner){
+                try { await encerrarSessaoPush(owner); } catch { /* Keep pending cleanup; the next account cannot register until native deletion succeeds. */ }
+            }
+            // Never sign out a new Firebase identity that appeared during cleanup.
+            if(auth.currentUser!==firebaseOwner)return;
+            const results = await Promise.allSettled([
+                firebaseSignOut(auth), persist(() => AsyncStorage.multiRemove(SESSION_KEYS)),
+            ]);
+            const failure = results.find(result => result.status === 'rejected');
+            if (failure?.status === 'rejected') throw failure.reason;
+        })();
+        logoutTask.current=task;
+        try { await task; } finally { if(logoutTask.current===task)logoutTask.current=null; }
     }, [persist]);
 
     useEffect(() => {
@@ -64,6 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const currentRevision = ++revision.current;
             const active = () => revision.current === currentRevision && auth.currentUser === firebaseUser;
             setUser(EMPTY_USER);
+            definirSessaoPush(null);
             if (initializing) setIsLoading(true);
             initializing = false;
             setSessionError(null);
@@ -78,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 // A new registration/login establishes its profile explicitly.
                 if (!entries.userId || (entries.firebaseUid && entries.firebaseUid !== firebaseUser.uid)) return;
                 const restored = await fetchSessionUser(firebaseUser.uid);
-                if (active()) setUser(restored);
+                if (active()) { await prepararSessaoPush(restored.id!); if(active())setUser(restored); }
             } catch (error) {
                 if (active()) setSessionError(errorMessage(error, 'Não foi possível restaurar sua sessão.'));
             } finally {
@@ -93,11 +97,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, [persist, retry, signOut]);
 
     const signIn = useCallback(async (userData: SessionUser) => {
+        if(logoutTask.current)await logoutTask.current;
         const firebaseUser = auth.currentUser;
         if (!firebaseUser || !userData.id || !/^[1-9]\d*$/.test(userData.id)) {
             throw new Error('Sessão inválida. Entre novamente.');
         }
         const currentRevision = ++revision.current;
+        await prepararSessaoPush(userData.id);
         await persist(() => AsyncStorage.multiSet([
             ['userId', userData.id!], ['userName', userData.nome], ['userTipo', userData.tipo],
             ['userEndereco', userData.endereco], ['firebaseUid', firebaseUser.uid],

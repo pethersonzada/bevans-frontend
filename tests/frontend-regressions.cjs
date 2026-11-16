@@ -272,7 +272,7 @@ test('session profile rejects absent, zero, arbitrary and malformed user IDs and
     assert.equal(profileToUser({ id: 10, tipo: 'MOTORISTA', nome: 'Ana' }).id, '10');
 });
 
-function sessionHarness(initialStorage = {}, profileImplementation) {
+function sessionHarness(initialStorage = {}, profileImplementation, pushImplementation) {
     const slots = [], deps = [];
     let cursor = 0, effects = [], observer, expired;
     const storage = new Map(Object.entries(initialStorage));
@@ -318,6 +318,7 @@ function sessionHarness(initialStorage = {}, profileImplementation) {
         },
         '../config/firebase': { auth },
         '../config/api': { errorMessage: api.errorMessage, onSessionExpired: fn => { expired = fn; return () => {}; } },
+        '../services/push': { definirSessaoPush() {}, prepararSessaoPush: async () => {}, encerrarSessaoPush: async owner => { if(pushImplementation)await pushImplementation(owner); } },
         '../services/session': { ...realSession, fetchSessionUser: async uid => {
             assert.equal(uid, 'firebase-ana'); profileCalls++;
             return profileImplementation ? profileImplementation() : sessionUser;
@@ -371,6 +372,13 @@ test('logout closes Firebase, clears profile and preserves unrelated preferences
     assert.equal(h.signOutCalls, 1);
     assert.equal(h.storage.has('userId'), false);
     assert.equal(h.storage.get('theme'), 'dark');
+});
+test('logout waits for push cleanup once while keeping Firebase credentials until revocation finishes',async()=>{
+    let finish,calls=0;const h=sessionHarness({userId:'25',firebaseUid:'firebase-ana'},null,owner=>{assert.equal(owner,'25');calls++;return new Promise(resolve=>finish=resolve);});
+    await h.emit({uid:'firebase-ana'});const provider=h.render();const first=provider.signOut(),second=provider.signOut();assert.equal(h.render().user.id,null);assert.equal(h.signOutCalls,0);assert.equal(calls,1);finish();await Promise.all([first,second]);assert.equal(h.signOutCalls,1);
+});
+test('failed remote push cleanup does not trap the user in a signed-in session',async()=>{
+    const h=sessionHarness({userId:'25',firebaseUid:'firebase-ana'},null,async()=>{throw Error('offline cleanup pending');});await h.emit({uid:'firebase-ana'});await h.render().signOut();assert.equal(h.signOutCalls,1);assert.equal(h.render().user.id,null);
 });
 
 test('profile restoration failure leaves protected identity unavailable and exposes an error', async () => {
