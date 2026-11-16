@@ -54,7 +54,7 @@ test('route list offers creation without a turma-first chooser or automatic enti
 });
 test('excursion management sections load only their own resource',()=>{
     for(const section of ['participantes','convites','roteiro']){
-        const h=harness('src/components/GestaoExcursao.tsx');const t=h.render('GestaoExcursao',{id:7,secao:section});
+        const h=harness('src/components/GestaoExcursao.tsx',{'./excursoes/ViagemUI':{trip:{}}});const t=h.render('GestaoExcursao',{id:7,secao:section});
         assert.equal(h.keys.filter(Boolean).length,section==='roteiro'?0:1);
         if(section!=='roteiro')assert.ok(h.keys.find(Boolean).startsWith(section+'-excursao:'));
         const titles=nodes(t).filter(n=>n.type==='Button').map(n=>n.props.title);
