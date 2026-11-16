@@ -660,15 +660,14 @@ test('trip requests send only the backend contract and distinguish 400 from conf
 });
 
 test('restart never starts a trip if ending the previous one failed', async () => {
-    const paths = []; const api = apiHarness(); let status = 503;
+    const paths = []; const api = apiHarness();
     const service = load('src/services/viagens.ts', { '../config/api': {
-        readApiError: api.readApiError, apiFetch: async path => { paths.push(path); return new Response('{}', { status }); },
+        readApiError: api.readApiError,
+        apiRequest: async path => path.startsWith('/operacoes') ? {contadores:{naVan:0}} : {status:'ATIVA',viagemId:11,sentido:'IDA'},
+        apiFetch: async path => { paths.push(path); return new Response('{}', { status: 503 }); },
     } });
-    await assert.rejects(service.reiniciarViagem(7, 'IDA'));
+    await assert.rejects(service.reiniciarViagem(7, 'VOLTA', 11), error => error.etapa === 'encerrar');
     assert.deepEqual(paths, ['/rota/encerrar?turmaId=7']);
-    status = 200; paths.length = 0;
-    await service.reiniciarViagem(7, 'VOLTA');
-    assert.deepEqual(paths, ['/rota/encerrar?turmaId=7', '/rota/iniciar']);
 });
 
 test('telemetry skips offline, inactive, missing turma and another account, without replaying old points', async () => {

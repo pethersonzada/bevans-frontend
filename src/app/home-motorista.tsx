@@ -2,13 +2,14 @@ import { useAppAlert } from '../contexts/AppAlertContext';
 import { AppModal as Modal } from '../components/AppModal';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useHomeRefresh } from '../hooks/useHomeRefresh';
-import { iniciarViagem, reiniciarViagem } from '../services/viagens';
+import { iniciarViagem, reiniciarViagem, consultarEstadoViagem, TrocaViagemError } from '../services/viagens';
 import { fetchTurmasMotorista, fetchPassageirosTurma, fetchSolicitacoesTurma } from '../services/motoristaHome';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
+    AppState,
     
     
     Pressable,
@@ -61,6 +62,14 @@ export default function HomeMotorista() {
     const [analisando, setAnalisando] = useState<number | null>(null);
     const analisePendente = useRef(false);
     const inicioPendente = useRef(false);
+    const inicioExecutando = useRef(false);
+    const emFoco = useRef(false);
+    useFocusEffect(useCallback(() => {
+        emFoco.current = true;
+        const dismiss = () => { if (!inicioExecutando.current) inicioPendente.current = false; };
+        const subscription = AppState.addEventListener('change', state => { if (state !== 'active') dismiss(); });
+        return () => { emFoco.current = false; dismiss(); subscription.remove(); };
+    }, []));
 
     const { refreshing, refresh } = useHomeRefresh(user?.id ?? null, carregarDadosSilencioso);
 
@@ -265,46 +274,49 @@ export default function HomeMotorista() {
     const todosResponderam = useMemo(() => !carregandoPassageiros && !erroPassageiros && totalPassageiros > 0 && totalRespostas === totalPassageiros,
         [totalPassageiros, totalRespostas, carregandoPassageiros, erroPassageiros]);
 
-    const iniciarRota = useCallback((sentido: 'IDA' | 'VOLTA') => {
-        if (!user?.id) return;
-        if (!turmaSelecionada) {
-            Alert.alert("Atenção", "Selecione uma turma.");
-            return;
-        }
-
+    const iniciarRota = useCallback(async (sentido: 'IDA' | 'VOLTA') => {
+        if (!user.id || !turmaSelecionada || inicioPendente.current) return;
         const turmaId = turmaSelecionada.id;
-        const executarInicioNoServidor = async (forcarEncerramento = false) => {
-            if (inicioPendente.current || turmaSelecionadaRef.current?.id !== turmaId) return;
-            inicioPendente.current = true;
-            try {
-                if (forcarEncerramento) await reiniciarViagem(turmaId, sentido);
-                else await iniciarViagem(turmaId, sentido);
-                await AsyncStorage.setItem('@vanbora:viagem_ativa_' + user.id, 'true');
-                if (turmaSelecionadaRef.current?.id !== turmaId) return;
-                setViagemAtiva(true);
-                router.push({ pathname: '/mapa', params: { sentido: sentido.toLowerCase(), turmaId: String(turmaId) } });
-            } catch (error) {
-                if (!forcarEncerramento && error instanceof ApiError && error.status === 409) {
-                    Alert.alert('Rota em andamento', 'Esta turma tem uma viagem em andamento. Deseja encerrar e iniciar outra?', [
-                        { text: 'Cancelar', style: 'cancel' },
-                        { text: 'Encerrar e iniciar', style: 'destructive', onPress: () => executarInicioNoServidor(true) },
-                    ]);
-                } else {
-                    if (turmaSelecionadaRef.current?.id === turmaId) await checarAmnesia(turmaId);
-                    Alert.alert('Erro', errorMessage(error));
-                }
-            } finally { inicioPendente.current = false; }
-        };
-
-        Alert.alert(
-            !todosResponderam ? "Alunos Pendentes" : "Iniciar Rota",
-            !todosResponderam ? "Existem alunos sem confirmar presença. Deseja iniciar mesmo assim?" : `Deseja iniciar a rota de ${sentido} agora?`,
-            [
-                { text: "Cancelar", style: "cancel" },
-                { text: "Iniciar", style: "default", onPress: () => executarInicioNoServidor(false) }
-            ]
-        );
-    }, [turmaSelecionada, todosResponderam, user?.id, router]);
+        const vigente = () => emFoco.current && turmaSelecionadaRef.current?.id === turmaId;
+        inicioPendente.current = true;
+        const liberar = () => { inicioPendente.current = false; };
+        try {
+            const atual = await consultarEstadoViagem(turmaId);
+            if (!vigente()) { liberar(); return; }
+            setViagemAtiva(atual.status === 'ATIVA');
+            let executando = false;
+            const executar = async () => {
+                if (executando) return;
+                executando = true;
+                inicioExecutando.current = true;
+                if (!inicioPendente.current || !vigente()) { liberar(); return; }
+                try {
+                    if (atual.status === 'ATIVA') await reiniciarViagem(turmaId, sentido, atual.viagemId!);
+                    else await iniciarViagem(turmaId, sentido);
+                    const oficial = await consultarEstadoViagem(turmaId);
+                    if (!vigente()) return;
+                    setViagemAtiva(oficial.status === 'ATIVA');
+                    if (oficial.status === 'ATIVA') router.push({ pathname: '/mapa', params: { sentido: oficial.sentido?.toLowerCase(), turmaId: String(turmaId) } });
+                } catch (error) {
+                    if (!vigente()) return;
+                    if (error instanceof TrocaViagemError) {
+                        setViagemAtiva(error.estado?.status === 'ATIVA');
+                        if (error.anteriorEncerrada) await AsyncStorage.removeItem('@vanbora:viagem_ativa_' + user.id);
+                        Alert.alert(error.anteriorEncerrada ? 'Viagem anterior encerrada' : 'Troca n?o conclu?da', error.message + (error.etapa === 'verificar' ? ' ' + errorMessage(error.original) : ''));
+                    } else {
+                        await checarAmnesia(turmaId);
+                        Alert.alert('Partida n?o confirmada', errorMessage(error) + ' Atualize o estado antes de tentar novamente.');
+                    }
+                } finally { inicioExecutando.current = false; liberar(); }
+            };
+            Alert.alert(atual.status === 'ATIVA' ? 'Substituir viagem ativa?' : 'Iniciar viagem?',
+                atual.status === 'ATIVA'
+                    ? 'A viagem atual ser? encerrada: GPS e acesso operacional dessa execu??o ser?o interrompidos. A nova partida pode falhar e n?o h? retorno autom?tico ? viagem anterior. A troca ser? bloqueada se houver passageiros embarcados.'
+                    : (!todosResponderam ? 'H? passageiros sem confirmar presen?a. Deseja iniciar mesmo assim?' : 'Deseja iniciar a viagem de ' + sentido + '?'),
+                [{ text: 'Cancelar', style: 'cancel', onPress: liberar }, { text: atual.status === 'ATIVA' ? 'Encerrar e iniciar outra' : 'Iniciar', style: atual.status === 'ATIVA' ? 'destructive' : 'default', onPress: executar }],
+                { onDismiss: liberar });
+        } catch (error) { liberar(); if (vigente()) Alert.alert('Estado indispon?vel', errorMessage(error)); }
+    }, [turmaSelecionada, todosResponderam, user.id, router]);
 
     if (!loading && erroCarga && turmas.length === 0) {
         return <View style={styles.centerContainer}><AsyncState message={erroCarga} onRetry={refresh} /></View>;
