@@ -41,17 +41,27 @@ export async function finalizarExcursao(id:number,execucao:number) {
 export async function criarConviteExcursao(id:number,expiraEm:string,partidaEm?:string) {
     validarValidadeConvite(expiraEm,partidaEm||expiraEm);
     const r=await apiRequest<{id:number;token:string}>(`/excursoes/${recursoId(id)}/convites`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expiraEm})});
-    if(!r || typeof r.token!=='string' || !r.token)throw new Error('Convite não confirmado.');return r;
+    if(!r || !Number.isSafeInteger(r.id) || r.id<=0 || typeof r.token!=='string' || !r.token.trim() || /\s/.test(r.token))throw new Error('Convite não confirmado. Confira a lista antes de emitir outro.');return {id:r.id,token:r.token};
+}
+export function validarPaginaConvite(base:string|undefined) {
+    if(!base)throw new Error('A página HTTPS de convites do webapp ainda não está configurada.');
+    let url:URL;try{url=new URL(base);}catch{throw new Error('Configure uma página HTTPS válida para os convites.');}
+    if(url.protocol!=='https:' || url.username || url.password || url.search || url.hash)throw new Error('Configure uma página HTTPS de convites sem parâmetros.');
+    return url;
 }
 export function linkConvite(base:string|undefined,token:string) {
-    if(!base)throw new Error('A página HTTPS de convites do webapp ainda não está configurada.');
-    const url=new URL(base);if(url.protocol!=='https:' || url.username || url.password || url.search || url.hash)throw new Error('Configure uma página HTTPS de convites sem parâmetros.');
+    const url=validarPaginaConvite(base);
+    if(typeof token!=='string'||!token.trim()||/\s/.test(token))throw new Error('Este convite não possui um link válido nesta sessão.');
     url.hash=token;return url.toString();
 }
 export type InscritoExcursao={id:number;nome:string;estado:string;paradaId:number|null;nomePonto:string|null};
 export async function participantesExcursao(id:number,pagina:number,signal?:AbortSignal){return paginaValida(await apiRequest<Pagina<InscritoExcursao>>(`/excursoes/${recursoId(id)}/inscricoes?pagina=${pagina}&tamanho=20`,{signal}));}
 export async function confirmarParticipante(id:number,inscricaoId:number){return apiRequest(`/excursoes/${recursoId(id)}/inscricoes/${recursoId(inscricaoId)}/confirmacao`,{method:'PUT'});}
-export async function convitesExcursao(id:number,signal?:AbortSignal){const r=await apiRequest<{id:number;expiraEm:string;revogadoEm:string|null}[]>(`/excursoes/${recursoId(id)}/convites`,{signal});if(!Array.isArray(r))throw new Error('Convites indisponíveis.');return r;}
+export async function convitesExcursao(id:number,signal?:AbortSignal){
+    const r=await apiRequest<{id:number;expiraEm:string;revogadoEm:string|null}[]>(`/excursoes/${recursoId(id)}/convites`,{signal});
+    if(!Array.isArray(r)||r.some(c=>!c||!Number.isSafeInteger(c.id)||c.id<=0||typeof c.expiraEm!=='string'||!Number.isFinite(Date.parse(c.expiraEm))||(c.revogadoEm!=null&&(typeof c.revogadoEm!=='string'||!Number.isFinite(Date.parse(c.revogadoEm))))))throw new Error('Convites indisponíveis.');
+    return r.map(c=>({id:c.id,expiraEm:c.expiraEm,revogadoEm:c.revogadoEm??null}));
+}
 export async function revogarConviteExcursao(id:number,conviteId:number){return apiRequest(`/excursoes/${recursoId(id)}/convites/${recursoId(conviteId)}`,{method:'DELETE'});}
 export async function planejarExcursao(id:number,sentido:'IDA'|'VOLTA',otimizar:boolean){
     const r=await apiRequest<{paradaId:number|null;nome:string;latitude:number;longitude:number}[]>(`/excursoes/${recursoId(id)}/planejamento?sentido=${sentido}&otimizar=${otimizar}`,{method:'POST'});

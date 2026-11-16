@@ -1,9 +1,10 @@
 import { useContext, useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Button, ScrollView, Text, TextInput, View, Share } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRemoteResource } from '../hooks/useRemoteResource';
-import { buscarExcursao, salvarExcursao, acaoExcursao, salvarColetaExcursao, listarExecucoes, iniciarExcursao, finalizarExcursao, criarConviteExcursao, linkConvite, type Excursao, type DadosExcursao, type ParadaExcursao } from '../services/excursoes';
+import { buscarExcursao, salvarExcursao, acaoExcursao, salvarColetaExcursao, listarExecucoes, iniciarExcursao, finalizarExcursao, type Excursao, type DadosExcursao, type ParadaExcursao } from '../services/excursoes';
 import { useAuth } from '../contexts/AuthContext';
 import { AsyncState } from '../components/AsyncState';
 import EnderecoMapaPicker from '../components/EnderecoMapaPicker';
@@ -11,7 +12,8 @@ import { errorMessage } from '../config/api';
 import { globalStyles as s } from '../styles/globalStyles';
 import { GestaoExcursao } from '../components/GestaoExcursao';
 import { SeletorDataHora } from '../components/SeletorDataHora';
-import { modosColeta, validarDatasExcursao, validarValidadeConvite, compartilharConviteSeguro } from '../services/excursaoFormulario';
+import { modosColeta, validarDatasExcursao, compartilharConviteSeguro } from '../services/excursaoFormulario';
+import { estadoConviteCompartilhamento, onConvitesChanged, prepararConviteCompartilhamento, recuperarLinkConvite, autorizarNovaEmissaoAposRevisao } from '../services/convitesCompartilhamento';
 
 import { ExcursaoActionContext as ActionLock } from '../components/ExcursaoActionContext';
 const etapas = ['Dados', 'Embarques', 'Publicação', 'Convites', 'Execução'] as const;
@@ -70,7 +72,11 @@ export function Editor({ excursao: initial, onSaved, etapa, versaoAtual }: { exc
     const [modo, setModo] = useState<Excursao['modoColeta']>(e?.modoColeta || 'PORTA_A_PORTA'), [paradas, setParadas] = useState<ParadaExcursao[]>(e?.paradas || []);
     const [novoPonto, setNovoPonto] = useState<{ nome: string; latitude: number; longitude: number } | null>(null), [expira, setExpira] = useState('');
     const [reposicionar, setReposicionar] = useState<number | null>(null);
-    const [convitePendente, setConvitePendente] = useState<{ id: number; token: string } | null>(null), [compartilhamento, setCompartilhamento] = useState('');
+    const [convitePendente,setConvitePendente]=useState<ReturnType<typeof estadoConviteCompartilhamento>>(null);
+    useEffect(()=>{
+        const update=()=>setConvitePendente(e?estadoConviteCompartilhamento(e.id):null);
+        update();return onConvitesChanged(update);
+    },[e?.id]);
     const dados: DadosExcursao = { titulo, destinoNome: destino?.nome || '', destinoLatitude: destino?.latitude ?? NaN, destinoLongitude: destino?.longitude ?? NaN, origemNome: origem?.nome ?? null, origemLatitude: origem?.latitude ?? null, origemLongitude: origem?.longitude ?? null, partidaEm: partida, retornoEm: retorno || null, capacidade: Number(capacidade), versao: e?.versao };
     const salvar = async () => {
         if (!destino || !titulo.trim() || !/^[1-9]\d*$/.test(capacidade.trim())) throw new Error('Informe título, destino confirmado e quantidade inteira de lugares.');
@@ -113,13 +119,19 @@ export function Editor({ excursao: initial, onSaved, etapa, versaoAtual }: { exc
             </View>
             <View style={{ display: etapa === 'Convites' ? 'flex' : 'none', gap: 12 }}>
                 <Text style={s.title}>Convites</Text><SeletorDataHora label="Validade do convite" value={expira} onChange={setExpira} />
-                <AsyncAction title={convitePendente ? 'Compartilhar convite criado novamente' : 'Gerar e compartilhar convite'} action={async () => {
-                    linkConvite(process.env.EXPO_PUBLIC_CONVITE_WEB_URL, 'validacao');
-                    let convite = convitePendente;
-                    if (!convite) { validarValidadeConvite(expira, e.partidaEm); convite = await criarConviteExcursao(e.id, expira, e.partidaEm); setConvitePendente(convite); }
-                    setCompartilhamento(await compartilharConviteSeguro(linkConvite(process.env.EXPO_PUBLIC_CONVITE_WEB_URL, convite.token), link => Share.share({ message: link }), Share.sharedAction));
+                <Text>A inscrição pelo link depende da página de inscrições na web estar disponível. A gestão da excursão continua no aplicativo.</Text>
+                {!process.env.EXPO_PUBLIC_CONVITE_WEB_URL&&<Text accessibilityLiveRegion="polite">A página de inscrições ainda não está configurada. Configure-a antes de gerar links; convites existentes podem ser consultados ou revogados abaixo.</Text>}
+                <AsyncAction title={convitePendente?.id ? 'Compartilhar convite criado novamente' : 'Gerar e compartilhar convite'} action={async () => {
+                    const convite=await prepararConviteCompartilhamento(e.id,expira,e.partidaEm,process.env.EXPO_PUBLIC_CONVITE_WEB_URL);
+                    convite.registrarResultado(await compartilharConviteSeguro(convite.link, link => Share.share({ message: link }), Share.sharedAction));
                 }} />
-                <Text accessibilityLiveRegion="polite">{compartilhamento}</Text><Text>Cancelar o compartilhamento não revoga o convite criado. Compartilhe novamente ou revogue na lista.</Text>
+                {convitePendente?.id&&<AsyncAction title="Copiar link do convite recuperado" action={async()=>{
+                    const convite=await recuperarLinkConvite(e.id,process.env.EXPO_PUBLIC_CONVITE_WEB_URL);
+                    try{await Clipboard.setStringAsync(convite.link);}catch{throw new Error('Não foi possível copiar o link. O convite continua disponível nesta sessão.');}
+                    convite.registrarResultado('Link copiado. Isso não confirma envio ou inscrição.');
+                }}/>}
+                {convitePendente?.incerto&&<AsyncAction title="Autorizar outra emissão após revisar a lista" confirmMessage="A criação anterior pode ter sido registrada sem retornar o link. Revise a lista e revogue convites sem link. Deseja permitir uma nova emissão manual?" action={()=>autorizarNovaEmissaoAposRevisao(e.id)}/>}
+                <Text accessibilityLiveRegion="polite">{convitePendente?.aviso}</Text><Text>Cancelar o compartilhamento não revoga o convite criado. O link pode ser recuperado ao voltar a esta excursão enquanto esta sessão do aplicativo continuar aberta. Após sair da conta ou fechar o app, revogue convites sem link e emita outro quando necessário.</Text>
             </View>
             <View style={{ display: etapa === 'Execução' ? 'flex' : 'none', gap: 12 }}>
                 <Text style={s.title}>Execução</Text>

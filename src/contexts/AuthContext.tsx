@@ -5,6 +5,7 @@ import { errorMessage, onSessionExpired } from '../config/api';
 import { auth } from '../config/firebase';
 import { EMPTY_USER, SESSION_KEYS, fetchSessionUser, type SessionUser } from '../services/session';
 import { definirSessaoPush, prepararSessaoPush, encerrarSessaoPush } from '../services/push';
+import { definirSessaoConvites } from '../services/convitesCompartilhamento';
 
 type AuthContextData = {
     user: SessionUser;
@@ -37,6 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const owner=currentUserRef.current.id;
         const firebaseOwner=auth.currentUser;
         definirSessaoPush(null);
+        definirSessaoConvites(null);
         currentUserRef.current=EMPTY_USER;
         revision.current++;
         setUser(EMPTY_USER);
@@ -64,6 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             void signOut().catch(error => console.error('Erro ao encerrar sessao', error));
         });
         const unsubscribeAuth = onAuthStateChanged(auth, async firebaseUser => {
+            definirSessaoConvites(firebaseUser?.uid||null);
             const currentRevision = ++revision.current;
             const active = () => revision.current === currentRevision && auth.currentUser === firebaseUser;
             setUser(EMPTY_USER);
@@ -103,6 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             throw new Error('Sessão inválida. Entre novamente.');
         }
         const currentRevision = ++revision.current;
+        definirSessaoConvites(firebaseUser.uid);
         await prepararSessaoPush(userData.id);
         await persist(() => AsyncStorage.multiSet([
             ['userId', userData.id!], ['userName', userData.nome], ['userTipo', userData.tipo],

@@ -319,6 +319,7 @@ function sessionHarness(initialStorage = {}, profileImplementation, pushImplemen
         '../config/firebase': { auth },
         '../config/api': { errorMessage: api.errorMessage, onSessionExpired: fn => { expired = fn; return () => {}; } },
         '../services/push': { definirSessaoPush() {}, prepararSessaoPush: async () => {}, encerrarSessaoPush: async owner => { if(pushImplementation)await pushImplementation(owner); } },
+        '../services/convitesCompartilhamento': { definirSessaoConvites() {} },
         '../services/session': { ...realSession, fetchSessionUser: async uid => {
             assert.equal(uid, 'firebase-ana'); profileCalls++;
             return profileImplementation ? profileImplementation() : sessionUser;
