@@ -32,6 +32,12 @@ protection é uma configuração remota separada, que não foi alterada aqui.
 
 Sem execução remota do novo workflow, só é possível afirmar validação local.
 
+Execução remota conferida em 16/11/2026: [run 43796515370](https://github.com/pethersonzada/bevans-frontend/actions/runs/43796515370),
+evento `push`, `main`, SHA `38f3c12ffef40a2d0dd2742c37e161e43ebaf2f5`,
+conclusão `success`. Instalação, arquitetura/tipos/testes e bundle Android passaram
+no job `133066449532`. Essa evidência cobre esse SHA; alterações locais posteriores
+precisam de nova execução após push autorizado. Não foi observado evento de PR.
+
 Referências: [setup-node](https://github.com/actions/setup-node/tree/v6),
 [checkout](https://github.com/actions/checkout/tree/v6),
 [variáveis Expo](https://docs.expo.dev/guides/environment-variables/).

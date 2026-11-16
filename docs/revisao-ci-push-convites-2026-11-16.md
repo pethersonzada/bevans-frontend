@@ -236,3 +236,76 @@ check obrigatório em branch protection exige configuração remota separada.
   concede GPS, administração ou informações de terceiros.
 
 As três issues permanecem abertas até as respectivas evidências externas.
+
+## Continuação — 16/11/2026
+
+Esta seção atualiza o estado histórico acima. Início em `main`, árvore limpa,
+HEAD `38f3c12`, zero commits de diferença para a referência local `origin/main`.
+O SHA remoto de `refs/heads/main` foi também consultado via GitHub e coincide.
+Nenhum arquivo de backend/webapp foi alterado; contratos e issues foram apenas
+consultados. Não houve push adicional, deploy, EAS Build ou alteração de ambiente.
+
+### CI remoto confirmado
+
+[Run 43796515370](https://github.com/pethersonzada/bevans-frontend/actions/runs/43796515370),
+evento `push`, SHA `38f3c12ffef40a2d0dd2742c37e161e43ebaf2f5`, concluiu com
+`success`. Job `133066449532`: checkout, setup Node, `npm ci`, check e bundle
+Android terminaram com sucesso entre 03:10 e 03:11 UTC de 16/11/2026.
+Não foi encontrado defeito no workflow que exigisse alteração. Não há evidência
+do evento `pull_request` nesta consulta nem configuração nova de branch protection.
+A aprovação cobre o SHA publicado, não os novos commits locais desta continuação.
+
+### Correção comprovada de convites
+
+Na revalidação, HTTP 408/429 apagava o token em memória como se o convite fosse
+inválido. Isso impedia recuperar seu link após uma falha temporária e permitia
+chegar a outra emissão na tentativa seguinte. Agora esses erros preservam a única
+cópia em memória, propagam a falha e **não liberam o link** até uma nova consulta
+bem-sucedida. Não há retry automático nem mudança do contrato de emissão.
+
+Arquivos funcionais: `src/services/convitesCompartilhamento.ts` e
+`tests/convites-compartilhamento.cjs`, commit local `aba5666`. Teste cobre ambos os status, recuperação e
+tentativa de preparação durante o erro, ausência de nova emissão e reutilização
+do mesmo link após recuperação. Executado contra o comportamento anterior por
+substituição somente no carregamento do teste: 7 passaram e o novo caso falhou.
+Com a correção: os 8 testes de convites passaram.
+
+Revisados registro/renovação/revogação Android, fila, geração da sessão, logout,
+reconexão, limpeza pendente, isolamento, deduplicação e autorização dos destinos.
+Não foi identificado outro defeito comprovado que justificasse reimplementar o
+push. A suíte mantém os cenários de falha e corrida existentes. Revalidação de
+convites continua verificando titularidade no servidor, publicação, partida,
+expiração e revogação; configuração HTTPS é validada antes de emitir.
+
+### Validação desta continuação
+
+- Linha de base: arquitetura, TypeScript e 135 testes aprovados.
+- `npm ci`: aprovado, 781 pacotes; Node 22.23.2.
+- `npm run check`: aprovado, arquitetura, TypeScript e 136 testes.
+- `npm run bundle:android`: aprovado com `CI=true`, `EXPO_NO_DOTENV=1` e
+  `EXPO_OFFLINE=1`, bundle Hermes e assets em `.expo/ci-android`.
+- `git diff --check`: aprovado; diff restrito a serviço, regressão e documentação.
+- ADB disponível, `adb devices -l` executado: lista vazia. A primeira tentativa
+  no sandbox não conseguiu criar `.android`; consulta fora do sandbox confirmou
+  ausência de aparelhos. `GOOGLE_SERVICES_JSON` ausente na sessão. Não houve
+  teste físico, envio FCM, prebuild ou compilação nativa.
+
+### Situação das issues
+
+- **#7:** CI remoto do SHA publicado aprovado; permanece aberta pelos critérios
+  mais amplos de navegação/E2E e validação no aplicativo. Novos commits locais
+  aguardam push autorizado e nova execução remota.
+- **#32:** frontend auditado e suíte aprovada; permanece aberta. Exige Firebase
+  nativo de homologação, development build, dispositivo com serviços Google,
+  backend/worker de testes configurado por seu responsável e execução do roteiro
+  físico acima. Não se habilitou envio nem se alegou recebimento real.
+- **#16:** correção de falha transitória concluída; permanece aberta por URL HTTPS
+  operacional e E2E com webapp #14, compartilhamento nativo e ambiente isolado.
+  Issue #14 consultada: página institucional não equivale a inscrição operacional.
+  Não foi definida URL fictícia nem alterada configuração local. O webapp deve
+  ler o fragmento local, enviar `X-Convite` e separar a credencial `X-Inscricao`.
+  Nenhuma implementação web pertence a esta continuação.
+
+Os pré-requisitos e roteiros de aparelho/inscrição da seção anterior continuam
+válidos. Resultados desconhecidos de criação não são repetidos automaticamente;
+tokens perdidos pelo fechamento do processo não podem ser recuperados do hash.
