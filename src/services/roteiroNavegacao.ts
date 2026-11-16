@@ -1,8 +1,8 @@
 /**
- * Pontos operacionais de uma rota pública.
+ * Pontos operacionais de uma rota com paradas definidas.
  *
  * O snapshot da viagem identifica passageiros; a rota pública identifica as
- * paradas do serviço. Navegação FIXA precisa visitar também paradas sem reservas.
+ * paradas do serviço. A navegação precisa visitar também paradas sem reservas.
  * IDs negativos são locais à tela e nunca devem ser enviados à API como usuário.
  */
 export type CoordenadaRoteiro = {
@@ -20,7 +20,7 @@ function mesmoLocal(a: CoordenadaRoteiro, b: CoordenadaRoteiro) {
         Math.abs(a.longitude - b.longitude) < 0.000045;
 }
 
-export function montarParadasPublicas(
+export function montarParadasDefinidas(
     passageiros: CoordenadaRoteiro[],
     paradas: ParadaPublicaNavegacao[],
     sentido: 'IDA' | 'VOLTA',
