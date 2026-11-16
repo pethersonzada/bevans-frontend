@@ -3,6 +3,7 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
+    "bundle:android": "expo export --platform android --output-dir .expo/ci-android",
     "typecheck": "node scripts/generate-route-types.cjs && tsc --noEmit",
     "architecture": "node scripts/check-architecture.cjs",
     "check": "npm run architecture && npm run typecheck && npm test",
