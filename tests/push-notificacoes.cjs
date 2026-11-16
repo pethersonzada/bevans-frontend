@@ -1,7 +1,7 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
-function load(file,mocks){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{exports,Date,Error,URL,URLSearchParams,require:name=>{if(!(name in mocks))throw Error(name);return mocks[name];}});return exports;}
+function load(file,mocks){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports,Date,Error,URL,URLSearchParams,require:name=>{if(!(name in mocks))throw Error(name);return mocks[name];}});return exports;}
 function harness(){
     const storage=new Map(),events=[];
     const state={permission:'granted',token:'synthetic-native-A',registerFailure:false,revokeFailure:false,deleteFailure:false,registerGate:null,tokenGate:null,prompts:0};
@@ -63,4 +63,9 @@ test('device registration requires the backend to confirm the same active instal
     const cat=load('src/services/catalogo.ts',{'../config/api':{}});let info={id:1,instalacaoId:'another_installation_123',ativo:true};
     const m=load('src/services/notificacoes.ts',{'./catalogo':cat,'../config/api':{apiFetch:async()=>({ok:true}),readApiJson:async()=>info}});
     await assert.rejects(m.registrarDispositivo('installation_123456','synthetic'),/não confirmou/);info={id:1,instalacaoId:'installation_123456',ativo:false};await assert.rejects(m.registrarDispositivo('installation_123456','synthetic'),/não confirmou/);info={...info,ativo:true};await m.registrarDispositivo('installation_123456','synthetic');
+});
+test('offline central shows reconnection instead of an endless spinner and keeps back navigation available',()=>{
+    const element=(type,props)=>({type,props});
+    const m=load('src/app/notificacoes.tsx',{'react':{useEffect(){},useRef:value=>({current:value}),useState:value=>[value,()=>{}]},'react/jsx-runtime':{jsx:element,jsxs:element},'expo-router':{useRouter:()=>({back(){}})},'react-native':{Pressable:'Button',ScrollView:'Scroll',Switch:'Switch',Text:'Text',View:'View'},'react-native-safe-area-context':{SafeAreaView:'Safe'},'@react-native-community/netinfo':{useNetInfo:()=>({isConnected:false,isInternetReachable:false})},'../contexts/AuthContext':{},'../hooks/useRemoteResource':{useRemoteResource:()=>({data:null,error:'',reload(){}})},'../hooks/useNotificacoesRevision':{useNotificacoesRevision:()=>0},'../services/notificacoes':{},'../components/AsyncState':{AsyncState:'Async'},'../styles/globalStyles':{globalStyles:{}},'../styles/theme':{theme:{colors:{}}},'../components/PreferenciaPush':{PreferenciaPush:'Push'}});
+    const nodes=t=>!t||typeof t!=='object'?[]:[t,...[t.props?.children].flat(Infinity).flatMap(nodes)];const tree=m.Central({motorista:false});assert.ok(JSON.stringify(tree).includes('Sem conexão'));assert.equal(nodes(tree).filter(n=>n.type==='Async'&&n.props.loading).length,0);assert.equal(nodes(tree).find(n=>n.type==='Button').props.disabled,false);
 });

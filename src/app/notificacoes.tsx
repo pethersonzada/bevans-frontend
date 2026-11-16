@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNetInfo } from '@react-native-community/netinfo';
 import { useAuth } from '../contexts/AuthContext';
 import { useRemoteResource } from '../hooks/useRemoteResource';
 import { useNotificacoesRevision } from '../hooks/useNotificacoesRevision';
@@ -17,7 +18,9 @@ export default function Notificacoes() {
     return <Central key={user.id} motorista={user.tipo === 'MOTORISTA'} notificacaoId={notificacaoId} />;
 }
 const contextos: Record<string, string> = { VIAGEM: 'Viagem', EXCURSAO: 'Excursão', EXECUCAO_EXCURSAO: 'Viagem de excursão', ROTA_PUBLICA: 'Rota pública', TURMA: 'Turma', EMBARQUE: 'Pedido de embarque', SOLICITACAO_VAGA: 'Solicitação de vaga' };
-function Central({ motorista, notificacaoId }: { motorista: boolean; notificacaoId?: string }) {
+export function Central({ motorista, notificacaoId }: { motorista: boolean; notificacaoId?: string }) {
+    const connection=useNetInfo();
+    const offline=connection.isConnected===false||connection.isInternetReachable===false;
     const router = useRouter(), revision = useNotificacoesRevision();
     const [page, setPage] = useState(0), [feedback, setFeedback] = useState(''), [busy, setBusy] = useState(false);
     const pending = useRef(false), mounted = useRef(true), opened = useRef('');
@@ -45,18 +48,19 @@ function Central({ motorista, notificacaoId }: { motorista: boolean; notificacao
         if (destino.data && notificacaoId && opened.current !== notificacaoId && !pending.current) { opened.current = notificacaoId; open(destino.data); }
     }, [destino.data, notificacaoId]);
     const prefer = (value: PreferenciasNotificacao) => void run(async () => { await salvarPreferenciasNotificacao(value); if (mounted.current) prefs.reload(); });
-    const button = (title: string, action: () => void, disabled = false) => <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy || disabled, busy }} disabled={busy || disabled} onPress={action} style={{ minHeight: 48, padding: 12, borderRadius: 8, backgroundColor: theme.colors.primary, justifyContent: 'center', opacity: busy || disabled ? 0.5 : 1 }}><Text style={{ color: '#fff', textAlign: 'center' }}>{title}</Text></Pressable>;
+    const button = (title: string, action: () => void, disabled = false, networkRequired=true) => <Pressable accessibilityRole="button" accessibilityState={{ disabled: disabled || (networkRequired&&(busy||offline)), busy }} disabled={disabled || (networkRequired&&(busy||offline))} onPress={action} style={{ minHeight: 48, padding: 12, borderRadius: 8, backgroundColor: theme.colors.primary, justifyContent: 'center', opacity: disabled || (networkRequired&&(busy||offline)) ? 0.5 : 1 }}><Text style={{ color: '#fff', textAlign: 'center' }}>{title}</Text></Pressable>;
     return <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}><ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
-        {button('Voltar', () => router.back())}<Text style={s.title} accessibilityRole="header">Notificações</Text>
+        {button('Voltar', () => router.back(),false,false)}<Text style={s.title} accessibilityRole="header">Notificações</Text>
+        {offline&&<Text accessibilityLiveRegion="polite">Sem conexão. Informações anteriores podem estar desatualizadas; a central será atualizada ao reconectar.</Text>}
         <PreferenciaPush /><Text accessibilityLiveRegion="polite">{feedback}</Text>
-        {notificacaoId && (destino.error ? <AsyncState message={destino.error} onRetry={destino.reload} /> : destino.data ? button(`Abrir aviso: ${destino.data.titulo}`, () => open(destino.data!)) : <AsyncState loading title="Localizando seu aviso" />)}
+        {notificacaoId && (destino.error ? <AsyncState message={destino.error} onRetry={destino.reload} /> : destino.data ? button(`Abrir aviso: ${destino.data.titulo}`, () => open(destino.data!)) : offline?<Text>Reconecte para consultar o destino deste aviso com segurança.</Text>:<AsyncState loading title="Localizando seu aviso" />)}
         <Text accessibilityRole="header">Preferências da conta</Text>
-        {prefs.error ? <AsyncState message={prefs.error} onRetry={prefs.reload} /> : !prefs.data ? <AsyncState loading title="Carregando preferências" /> : <>
-            <Text>Avisos de viagem</Text><Switch accessibilityLabel="Avisos de viagem" disabled={busy} value={prefs.data.pushOperacional} onValueChange={pushOperacional => prefer({ ...prefs.data!, pushOperacional })} />
-            <Text>Avisos informativos</Text><Switch accessibilityLabel="Avisos informativos" disabled={busy} value={prefs.data.pushInformativo} onValueChange={pushInformativo => prefer({ ...prefs.data!, pushInformativo })} />
+        {prefs.error ? <AsyncState message={prefs.error} onRetry={prefs.reload} /> : !prefs.data ? offline?<Text>Preferências indisponíveis sem conexão.</Text>:<AsyncState loading title="Carregando preferências" /> : <>
+            <Text>Avisos de viagem</Text><Switch accessibilityLabel="Avisos de viagem" disabled={busy||offline} value={prefs.data.pushOperacional} onValueChange={pushOperacional => prefer({ ...prefs.data!, pushOperacional })} />
+            <Text>Avisos informativos</Text><Switch accessibilityLabel="Avisos informativos" disabled={busy||offline} value={prefs.data.pushInformativo} onValueChange={pushInformativo => prefer({ ...prefs.data!, pushInformativo })} />
         </>}
         <Text>As preferências de envio não removem o histórico da central.</Text>
-        {avisos.error ? <AsyncState message={avisos.error} onRetry={avisos.reload} /> : !avisos.data ? <AsyncState loading /> : <>
+        {avisos.error ? <AsyncState message={avisos.error} onRetry={avisos.reload} /> : !avisos.data ? offline?<AsyncState message="Reconecte para carregar seu histórico de notificações."/>:<AsyncState loading /> : <>
             {!avisos.data.itens.length && <AsyncState status="empty" title="Nenhuma notificação" />}
             {avisos.data.itens.map(n => <View key={n.id} style={[s.card, { gap: 8 }]}>
                 <Text>{n.lidaEm ? 'Lida' : 'Não lida'} · {contextos[n.contextoTipo] || 'Aviso'}</Text><Text accessibilityRole="header" style={{ fontWeight: '700' }}>{n.titulo}</Text><Text>{n.mensagem}</Text>
