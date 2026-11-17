@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 const ts=require('typescript');
-function load(file,mocks,globals={}){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports,URL,URLSearchParams,Error,...globals,require:name=>{if(name==='./mapaExcursao')return load('src/services/mapaExcursao.ts',{});if(!(name in mocks))throw Error(name);return mocks[name];}});return exports;}
+function load(file,mocks,globals={}){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports,URL,URLSearchParams,Error,...globals,require:name=>{if(name==='./mapaExcursao')return load('src/services/mapaExcursao.ts',{});if(name==='./excursaoValidacao')return load('src/services/excursaoValidacao.ts',{'./mapaExcursao':load('src/services/mapaExcursao.ts',{})});if(!(name in mocks))throw Error(name);return mocks[name];}});return exports;}
 const catalogo=()=>load('src/services/catalogo.ts',{'../config/api':{}});
 test('four tabs preserve Home and Profile, with routes, excursions and Android history',()=>{
     const children=[];const Tabs=()=>{};Tabs.Screen='Tab';

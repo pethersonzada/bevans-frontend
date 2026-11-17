@@ -1,6 +1,7 @@
 import type { ComponentProps, ReactNode } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { ScrollView, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../styles/theme';
 import { ActionButton } from '../ui/Primitives';
@@ -15,10 +16,31 @@ export function dataViagem(iso:string, options:Intl.DateTimeFormatOptions = { da
 }
 export function horaViagem(iso:string) { return Number.isFinite(Date.parse(iso)) ? new Date(iso).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : 'Escolher horário'; }
 export function PaginaViagem({ title, children, onBack, action, footer, tabs=false }: { title:string;children:ReactNode;onBack?:()=>void;action?:ReactNode;footer?:ReactNode;tabs?:boolean }) {
+    const scroll=useRef<ScrollView>(null),scrollOffset=useRef(0),focusTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
+    const revealFocus=useCallback(()=>{
+        clearTimeout(focusTimer.current);
+        focusTimer.current=setTimeout(()=>{
+            const input=TextInput.State.currentlyFocusedInput();
+            if(!input||!Keyboard.isVisible())return;
+            scroll.current?.getNativeScrollRef()?.measureInWindow((_x,top,_width,height)=>{
+                input.measureInWindow((_inputX,inputTop,_inputWidth,inputHeight)=>{
+                    const bottom=Math.min(top+height,Keyboard.metrics()?.screenY??Infinity);
+                    const delta=inputTop+inputHeight+16>bottom?inputTop+inputHeight+16-bottom:inputTop<top?inputTop-top-16:0;
+                    if(delta)scroll.current?.scrollTo({y:Math.max(0,scrollOffset.current+delta),animated:true});
+                });
+            });
+        },80);
+    },[]);
+    useEffect(()=>{
+        const listener=Keyboard.addListener('keyboardDidShow',revealFocus);
+        return()=>{listener.remove();clearTimeout(focusTimer.current);};
+    },[revealFocus]);
     return <SafeAreaView edges={tabs?['top','left','right']:['top','bottom','left','right']} style={trip.page}>
+        <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':'height'}>
         <View style={trip.bar}>{onBack&&<Pressable accessibilityRole="button" accessibilityLabel="Voltar" onPress={onBack} style={trip.iconButton}><Ionicons name="arrow-back" size={24} color={theme.colors.primary}/></Pressable>}<Text style={trip.barTitle}>{title}</Text>{action}</View>
-        <ScrollView keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets contentContainerStyle={trip.content}>{children}</ScrollView>
+        <ScrollView ref={scroll} onFocus={revealFocus} onLayout={revealFocus} onScroll={event=>{scrollOffset.current=event.nativeEvent.contentOffset.y;}} scrollEventThrottle={16} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets contentContainerStyle={trip.content}>{children}</ScrollView>
         {footer&&<View style={trip.footer}>{footer}</View>}
+        </KeyboardAvoidingView>
     </SafeAreaView>;
 }
 export function CabecalhoViagem({ eyebrow, title, subtitle }: { eyebrow?:string;title:string;subtitle?:string }) {
@@ -44,10 +66,10 @@ export function AtalhoViagem({title,detail,icon,onPress}:{title:string;detail?:s
     return <Pressable accessibilityRole="button" onPress={onPress} style={trip.shortcut}><View style={trip.shortcutIcon}><Ionicons name={icon} size={24} color={theme.colors.primary}/></View><View style={{flex:1,gap:4}}><Text style={trip.label}>{title}</Text>{detail&&<Text style={trip.muted}>{detail}</Text>}</View><Ionicons name="chevron-forward" size={20} color={theme.colors.textLight}/></Pressable>;
 }
 export type PontoViagem = {nome:string;latitude:number;longitude:number};
-export function ItinerarioViagem({origem,destino,paradas=[],mapa=false,lista=true}:{origem:PontoViagem|null;destino:PontoViagem|null;paradas?:PontoViagem[];mapa?:boolean;lista?:boolean}) {
+export function ItinerarioViagem({origem,destino,paradas=[],mapa=false,lista=true,onEditarPonto}:{origem:PontoViagem|null;destino:PontoViagem|null;paradas?:PontoViagem[];mapa?:boolean;lista?:boolean;onEditarPonto?:(tipo:'origem'|'destino'|'parada',index?:number)=>void}) {
     const pontos=[...(origem?[{...origem,tipo:'Saída'}]:[]),...paradas.map((p,i)=>({...p,tipo:`Embarque ${i+1}`})),...(destino?[{...destino,tipo:'Destino'}]:[])].map(p=>({...p,nome:nomeLocalExibicao(p.nome)}));
     return <View style={trip.itinerary}>
-        {mapa&&<><View style={trip.map}><MapaPreviaPublica pontos={pontos.map((p,i)=>({...p,paradaId:i+1,tipo:p.tipo==='Saída'?'ORIGEM':p.tipo==='Destino'?'DESTINO':'COLETA'}))}/></View><Text style={trip.caption}>Mapa dos locais confirmados. Nenhum trajeto pelas ruas foi calculado.</Text></>}
+        {mapa&&<><View style={trip.map}><MapaPreviaPublica pontos={pontos.map((p,i)=>({...p,paradaId:i+1,tipo:p.tipo==='Saída'?'ORIGEM':p.tipo==='Destino'?'DESTINO':'COLETA'}))} onEditarPonto={onEditarPonto?(_,i)=>{const tipo=pontos[i].tipo;onEditarPonto(tipo==='Saída'?'origem':tipo==='Destino'?'destino':'parada',tipo==='Saída'||tipo==='Destino'?undefined:i-(origem?1:0));}:undefined}/></View><Text style={trip.caption}>Mapa dos locais confirmados. Nenhum trajeto pelas ruas foi calculado.</Text></>}
         {lista?pontos.map((p,i)=><View key={i} style={trip.timelineRow}><View style={trip.timelineRail}><View style={[trip.dot,i===pontos.length-1&&{backgroundColor:theme.colors.primary}]}/>{i<pontos.length-1&&<View style={trip.rail}/>}</View><View style={{flex:1,paddingBottom:i<pontos.length-1?16:0,gap:4}}><Text style={trip.caption}>{p.tipo}</Text><Text style={trip.label}>{p.nome}</Text></View></View>):<>{origem&&<DadoViagem icon="navigate-outline" text={`Saída: ${nomeLocalExibicao(origem.nome)}`}/>}
         {destino&&<DadoViagem icon="flag-outline" text={`Destino: ${nomeLocalExibicao(destino.nome)}`}/>}</>}
         {!origem&&<Text style={trip.caption}>Saída definida pelos pontos de embarque.</Text>}

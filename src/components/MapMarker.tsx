@@ -1,6 +1,6 @@
 
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { theme } from '../styles/theme';
 
 export type TipoMarcador =
@@ -24,11 +24,13 @@ const ICONES: Record<
 type Props = {
   tipo: TipoMarcador;
   tamanho?: number;
+  numero?:number;
 };
 
 export default function MapMarker({
   tipo,
   tamanho = 42,
+  numero,
 }: Props) {
   return (
     <View
@@ -43,11 +45,11 @@ export default function MapMarker({
         },
       ]}
     >
-      <Ionicons
+      {numero!=null?<Text style={{color:theme.colors.map.text,fontSize:16,fontWeight:'700'}}>{numero}</Text>:<Ionicons
         name={ICONES[tipo]}
         size={Math.round(tamanho * 0.5)}
         color={theme.colors.map.text}
-      />
+      />}
     </View>
   );
 }

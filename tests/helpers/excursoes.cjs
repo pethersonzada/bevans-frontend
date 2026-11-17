@@ -1,9 +1,11 @@
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),ts=require('typescript');
 function harness(entry,{services={},resources=()=>({data:null,error:'',reload(){}}),user={id:'1',tipo:'MOTORISTA'},env={EXPO_PUBLIC_CONVITE_WEB_URL:'https://example.test/convite'},extras={}}={}) {
+ if(!services.confirmarPersistenciaExcursao)services.confirmarPersistenciaExcursao=async(_id,expected)=>expected;
+ if(!services.listarExecucoes)services.listarExecucoes=async()=>[];
  const slots=[],deps=[],cleanups=[],cache=new Map(),paths=[],keys=[],backHandlers=new Set();let cursor=0,effects=[];
  const lock={current:false},connection={isConnected:true},firebase={currentUser:{uid:'driver-test'}},share={sharedAction:'shared',share:async()=>({action:'dismissed'})};
  const react={createContext:()=>({Provider:'Provider'}),useState:initial=>{const i=cursor++;if(!(i in slots))slots[i]=typeof initial==='function'?initial():initial;return [slots[i],v=>slots[i]=typeof v==='function'?v(slots[i]):v];},useRef:initial=>{const i=cursor++;return slots[i]??(slots[i]={current:initial});},useEffect:(fn,next)=>{const i=cursor++;if(!next||!deps[i]||next.some((v,j)=>!Object.is(v,deps[i][j])))effects.push(()=>{cleanups[i]?.();cleanups[i]=fn();});deps[i]=next;},useCallback:(fn,next)=>{const i=cursor++;if(!deps[i]||next.some((v,j)=>!Object.is(v,deps[i][j])))slots[i]=fn;deps[i]=next;return slots[i];},useContext:()=>lock};
- const jsx=(type,props)=>({type,props});
+ const jsx=(type,props,key)=>({type,props,key});
  const rn={Text:'Text',TextInput:'Input',View:'View',ScrollView:'Scroll',Pressable:'Button',ActivityIndicator:'Spinner',Platform:{OS:'android'},Share:share,StyleSheet:{create:x=>x},BackHandler:{addEventListener:(_,fn)=>{backHandlers.add(fn);return {remove:()=>backHandlers.delete(fn)};}}};
  function load(file){
   file=path.resolve(file);if(cache.has(file))return cache.get(file);const exports={};cache.set(file,exports);

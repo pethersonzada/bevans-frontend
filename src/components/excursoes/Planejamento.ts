@@ -1,6 +1,7 @@
 import type { DadosExcursao, Excursao, ParadaExcursao } from '../../services/excursoes';
 import { validarDatasExcursao } from '../../services/excursaoFormulario';
 import { nomeLocalGenerico } from '../../services/enderecoReversoExcursao';
+import { mesmaColetaExcursao } from '../../services/excursaoValidacao';
 import type { PontoViagem } from './ViagemUI';
 export type RascunhoViagem = {titulo:string;destino:PontoViagem|null;origem:PontoViagem|null;partida:string;retorno:string;capacidade:string;modo:Excursao['modoColeta'];paradas:ParadaExcursao[]};
 export const momentos=['Destino','Datas','Embarque','Pontos','Revisão'] as const;
@@ -11,8 +12,8 @@ export function rascunhoInicial(e?:Excursao):RascunhoViagem {
         partida:e?.partidaEm||'',retorno:e?.retornoEm||'',capacidade:e?String(e.capacidade):'',modo:e?.modoColeta||'PORTA_A_PORTA',paradas:e?.paradas||[]};
 }
 export function dadosRascunho(d:RascunhoViagem,versao?:number):DadosExcursao {
-    return {titulo:d.titulo.trim(),destinoNome:d.destino?.nome||'',destinoLatitude:d.destino?.latitude??NaN,destinoLongitude:d.destino?.longitude??NaN,
-        origemNome:d.origem?.nome??null,origemLatitude:d.origem?.latitude??null,origemLongitude:d.origem?.longitude??null,partidaEm:d.partida,retornoEm:d.retorno||null,capacidade:Number(d.capacidade),versao};
+    return {titulo:d.titulo.trim(),destinoNome:d.destino?.nome.trim()||'',destinoLatitude:d.destino?.latitude??NaN,destinoLongitude:d.destino?.longitude??NaN,
+        origemNome:d.origem?.nome.trim()??null,origemLatitude:d.origem?.latitude??null,origemLongitude:d.origem?.longitude??null,partidaEm:d.partida,retornoEm:d.retorno||null,capacidade:Number(d.capacidade),versao};
 }
 export function validarMomento(d:RascunhoViagem,m:Momento) {
     if(m==='Destino'||m==='Revisão'){
@@ -35,4 +36,4 @@ export function dadosMudaram(d:RascunhoViagem,e:Excursao) {
     const normalize=(value:DadosExcursao)=>({...value,partidaEm:Date.parse(value.partidaEm),retornoEm:value.retornoEm?Date.parse(value.retornoEm):null});
     const left=normalize(dadosRascunho(d)),right=normalize(dadosRascunho(rascunhoInicial(e)));return JSON.stringify(left)!==JSON.stringify(right);
 }
-export function coletaMudou(d:RascunhoViagem,e:Excursao) {return d.modo!==e.modoColeta||JSON.stringify(coletaRascunho(d))!==JSON.stringify(e.paradas);}
+export function coletaMudou(d:RascunhoViagem,e:Excursao) {return d.modo!==e.modoColeta||!mesmaColetaExcursao(coletaRascunho(d),e.paradas);}

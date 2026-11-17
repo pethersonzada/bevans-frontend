@@ -11,9 +11,15 @@ export function selecionarDataHora(iso: string, escolha: Date, modo: 'date' | 't
     return resultado.toISOString();
 }
 export function validarDatasExcursao(partida: string, retorno: string | null, capacidade: number, agora = Date.now()) {
+    const calendarioValido=(iso:string)=>{
+        const match=/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/.exec(iso);
+        if(!match)return false;
+        const [,year,month,day,hour,minute,second='0']=match;
+        return +month>=1&&+month<=12&&+day>=1&&+day<=new Date(Date.UTC(+year,+month,0)).getUTCDate()&&+hour<=23&&+minute<=59&&+second<=59;
+    };
     const inicio = Date.parse(partida), fim = retorno ? Date.parse(retorno) : null;
-    if (!Number.isFinite(inicio) || inicio <= agora) throw new Error('Escolha uma partida futura.');
-    if (fim !== null && (!Number.isFinite(fim) || fim <= inicio)) throw new Error('O retorno deve ocorrer depois da partida.');
+    if (!calendarioValido(partida)||!Number.isFinite(inicio) || inicio <= agora) throw new Error('Escolha uma partida futura com data e horário válidos.');
+    if (fim !== null && (!calendarioValido(retorno!)||!Number.isFinite(fim) || fim <= inicio)) throw new Error('O retorno deve ocorrer depois da partida, com data e horário válidos.');
     if (!Number.isSafeInteger(capacidade) || capacidade < 1) throw new Error('Informe uma quantidade inteira e positiva de lugares.');
 }
 export function validarValidadeConvite(expira: string, partida: string, agora = Date.now()) {

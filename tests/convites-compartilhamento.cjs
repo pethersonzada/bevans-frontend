@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
 function load(file,mocks){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{exports,Date,Error,URL,require:name=>{if(!(name in mocks))throw Error(name);return mocks[name];}});return exports;}
 function harness(){
-    const state={created:0,readFailure:null,postFailure:false,postGate:null,metadata:[],requests:[],estado:'PUBLICADA'};
+    const state={created:0,readFailure:null,postFailure:false,postGate:null,metadata:[],requests:[],estado:'PUBLICADA',execucoes:[]};
     const auth={currentUser:{uid:'synthetic-organizer-A'}};
     const expiry=new Date(Date.now()+3600000).toISOString(),departure=new Date(Date.now()+7200000).toISOString();
     const form=load('src/services/excursaoFormulario.ts',{});
@@ -14,15 +14,17 @@ function harness(){
             state.created++;const id=state.created;state.metadata.push({id,expiraEm:JSON.parse(options.body).expiraEm,revogadoEm:null});
             if(state.postGate)await state.postGate;
             if(state.postFailure)throw Object.assign(Error('creation outcome unknown'),{kind:'timeout'});
-            return {id,token:`synthetic_invitation_${id}`};
+            return {convite:{id},token:`synthetic_invitation_${id}`};
         }
         if(options.method==='DELETE') {const id=Number(path.split('/').at(-1));const c=state.metadata.find(c=>c.id===id);if(c)c.revogadoEm=new Date().toISOString();return null;}
         if(state.readFailure)throw state.readFailure;
         if(path==='/excursoes/7/convites')return state.metadata;
+        if(path==='/excursoes/7/execucoes')return state.execucoes;
         if(path==='/excursoes/7')return {id:7,titulo:'Evento',versao:1,paradas:[],estado:state.estado,partidaEm:departure};
         throw Error('Unexpected API endpoint '+path);
     }};
-    const excursoes=load('src/services/excursoes.ts',{'../config/api':api,'./catalogo':cat,'./excursaoFormulario':form,'./mapaExcursao':load('src/services/mapaExcursao.ts',{})});
+    const mapa=load('src/services/mapaExcursao.ts',{});
+    const excursoes=load('src/services/excursoes.ts',{'../config/api':api,'./catalogo':cat,'./excursaoFormulario':form,'./mapaExcursao':mapa,'./excursaoValidacao':load('src/services/excursaoValidacao.ts',{'./mapaExcursao':mapa})});
     const service=load('src/services/convitesCompartilhamento.ts',{'../config/firebase':{auth},'./excursoes':excursoes,'./excursaoFormulario':form});
     service.definirSessaoConvites(auth.currentUser.uid);
     const prepare=(base='https://example.test/convite')=>service.prepararConviteCompartilhamento(7,expiry,departure,base);
@@ -67,4 +69,8 @@ test('HTTP timeout and throttled revalidation preserve the token without releasi
         assert.equal((await h.prepare()).link,original.link);
         assert.equal(h.state.created,1);
     }
+});
+
+test('a cached invitation cannot be shared once an execution exists even while the excursion remains published',async()=>{
+ const h=harness();await h.prepare();h.state.execucoes=[{id:9,excursaoId:7,sentido:'IDA',estado:'FINALIZADA',pontos:[{paradaId:null,tipo:'DESTINO',nome:'Destino',latitude:-8,longitude:-35}]}];await assert.rejects(h.service.recuperarLinkConvite(7,'https://example.test/convite'));assert.equal(h.service.estadoConviteCompartilhamento(7),null);assert.equal(h.state.created,1);
 });

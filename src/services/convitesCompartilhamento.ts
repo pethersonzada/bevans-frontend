@@ -1,5 +1,5 @@
 import { auth } from '../config/firebase';
-import { buscarExcursao, convitesExcursao, criarConviteExcursao, linkConvite, validarPaginaConvite, revogarConviteExcursao } from './excursoes';
+import { buscarExcursao, convitesExcursao, criarConviteExcursao, linkConvite, validarPaginaConvite, revogarConviteExcursao, listarExecucoes } from './excursoes';
 import { validarValidadeConvite } from './excursaoFormulario';
 
 type ConviteEmMemoria = { id: number; token: string; expiraEm: string; aviso: string };
@@ -32,12 +32,13 @@ export function conviteDisponivelEmMemoria(excursaoId: number, conviteId: number
 function forget(excursaoId: number) { convites.delete(excursaoId); changed(); }
 async function validar(excursaoId: number, c: ConviteEmMemoria, assertCurrent: () => void) {
     try {
-        const [excursao, metadados] = await Promise.all([buscarExcursao(String(excursaoId)), convitesExcursao(excursaoId)]);
+        const [excursao, metadados, execucoes] = await Promise.all([buscarExcursao(String(excursaoId)), convitesExcursao(excursaoId), listarExecucoes(excursaoId)]);
         assertCurrent();
         const salvo = metadados.find(value => value.id === c.id);
         if (!salvo || salvo.revogadoEm) throw new Error('Este convite foi revogado ou não está mais disponível.');
         if (!Number.isFinite(Date.parse(salvo.expiraEm)) || Date.parse(salvo.expiraEm) <= Date.now()) throw new Error('Este convite expirou.');
         if (excursao.estado !== 'PUBLICADA' || Date.parse(excursao.partidaEm) <= Date.now()) throw new Error('Esta excursão não está mais disponível para novas inscrições.');
+        if(execucoes.length)throw new Error('As inscrições foram encerradas porque a excursão já possui execução.');
     } catch (error) {
         assertCurrent();
         const e = error as { kind?: string; status?: number };
