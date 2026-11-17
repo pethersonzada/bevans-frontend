@@ -59,6 +59,8 @@ for (const roteiroStatus of [409, 503]) test(`mapa bloqueia HTTP ${roteiroStatus
     assert.equal(nodes(tree).some(n => n.type === 'Map'), false);
     const error = nodes(tree).find(n => n.type === 'AsyncState');
     assert.match(error.props.message, roteiroStatus === 409 ? /viagem antiga sem snapshot/ : /snapshot operacional está indisponível/);
+    const alerta = h.alerts.find(a => a[0] === 'Navegação indisponível');
+    assert.equal(alerta[1], error.props.message);
     assert.equal(h.direcoes.length, 0); h.unmount();
 });
 
