@@ -19,15 +19,14 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { API_URL } from '../config/config';
-import { apiFetch, apiRequest, readApiJson, readApiError, errorMessage } from '../config/api';
+import { apiFetch, apiRequest, readApiJson, errorMessage } from '../config/api';
 import { AsyncState } from '../components/AsyncState';
 import { withDeadline } from '../services/asyncOperation';
 import { validCoordinates } from '../services/location';
 import { ensureNavigationLocation, NavigationLocationError } from '../services/navigationLocation';
 import { encerrarViagem } from '../services/viagens';
-import { buscarRotaPublica, listarMinhasRotas } from '../services/rotasPublicas';
-import { conferirSnapshotRoteiro, assinaturaRoteiro, validarPontoRoteiro, montarParadasDefinidas, type ParadaPublicaNavegacao } from '../services/roteiroNavegacao';
-import { consultarColetaPrivada } from '../services/coletaPrivada';
+import { conferirSnapshotRoteiro, assinaturaRoteiro, chaveCacheRoteiro, restaurarVisitadas, pontosParaDirecoes, validarRespostaDirecoes, geometriaCompativel, LIMITE_WAYPOINTS_MAPBOX, type PontoNavegacao, type ExecucaoRoteiro, type PainelRoteiro } from '../services/roteiroNavegacao';
+import { consultarRoteiroOperacional } from '../services/roteiroOperacional';
 import { createPositionSender } from '../services/telemetria';
 import { theme } from '../styles/theme';
 import { useAuth } from '../contexts/AuthContext';
@@ -38,17 +37,6 @@ import { PainelManobra } from '../components/mapa/PainelManobra';
 
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
 MapboxGL.setAccessToken(MAPBOX_TOKEN);
-
-type PassageiroRota = {
-    id: number;
-    nome: string;
-    rua?: string;
-    numero?: string;
-    bairro?: string;
-    latitude: number;
-    longitude: number;
-    embarcado?: boolean;
-};
 
 type LatLng = {
     latitude: number;
@@ -73,7 +61,7 @@ type Projecao = {
 };
 
 type ParadaNavegacao = {
-    passageiroId: number | null;
+    chave: string;
     nome: string;
     ponto: LatLng;
     indiceRota: number;
@@ -84,16 +72,8 @@ type GeometriaSalva = {
     coordenadas: [number, number][];
     manobras: Manobra[];
     paradas: ParadaNavegacao[];
-    passageirosIds: number[];
     assinatura: string;
-};
-
-const CACHE_KEYS = {
-    garagem: (turmaId: number) => `@bevans:garagem:${turmaId}`,
-    destino: (turmaId: number) => `@bevans:destino:${turmaId}`,
-    rota: (turmaId: number, sentido: string) => `@bevans:rota:${turmaId}:${sentido}`,
-    geometria: (turmaId: number, sentido: string, viagemId: number) => `@bevans:geometria:v3:${turmaId}:${sentido}:${viagemId}`,
-    visitadas: (turmaId: number, sentido: string, viagemId: number) => `@bevans:visitadas:v2:${turmaId}:${sentido}:${viagemId}`,
+    pendentes: string[];
 };
 
 const RAIO_DESVIO_ROTA_METROS = 80;
@@ -103,7 +83,6 @@ const PRECISAO_MAXIMA_CHEGADA_METROS = 45;
 const LEITURAS_PARA_CHEGADA = 2;
 const DURACAO_ANIMACAO_MS = 1600;
 const JANELA_BUSCA_PROJECAO = 40;
-const LIMITE_WAYPOINTS_MAPBOX = 25;
 const LIMIAR_TEMPO_FORA_ROTA_MS = 6000;
 const COOLDOWN_RECALCULO_MS = 20000;
 
@@ -306,7 +285,7 @@ export default function Mapa() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
 
-    const { sentido, turmaId, rotaId } = useLocalSearchParams<{
+    const { sentido, turmaId } = useLocalSearchParams<{
         sentido?: string;
         turmaId?: string;
         rotaId?: string;
@@ -324,7 +303,7 @@ export default function Mapa() {
     const [posicaoSuave, setPosicaoSuave] = useState<LatLng | null>(null);
     const [headingAtual, setHeadingAtual] = useState(0);
 
-    const [rota, setRota] = useState<PassageiroRota[]>([]);
+    const [rota, setRota] = useState<PontoNavegacao[]>([]);
 
     const [garagem, setGaragem] = useState<LatLng | null>(null);
     const [destino, setDestino] = useState<LatLng | null>(null);
@@ -349,6 +328,7 @@ export default function Mapa() {
 
     const [online, setOnline] = useState(true);
     const [erroRede, setErroRede] = useState<string | null>(null);
+    const [erroNavegacao, setErroNavegacao] = useState<string | null>(null);
 
     const [foraDaRota, setForaDaRota] = useState(false);
     const [recalculandoRota, setRecalculandoRota] = useState(false);
@@ -369,7 +349,7 @@ export default function Mapa() {
     const manobrasRef = useRef<Manobra[]>([]);
 
     const direcaoAtualRef = useRef<Sentido>(direcaoAtual);
-    const rotaRef = useRef<PassageiroRota[]>([]);
+    const rotaRef = useRef<PontoNavegacao[]>([]);
 
     const garagemRef = useRef<LatLng | null>(null);
     const destinoRef = useRef<LatLng | null>(null);
@@ -398,7 +378,9 @@ export default function Mapa() {
         active: viagemAtivaRef.current && !encerrandoRef.current, mounted: montadoRef.current,
     }));
     const paradasRef = useRef<ParadaNavegacao[]>([]);
-    const visitadosRef = useRef<Set<number>>(new Set());
+    const visitadosRef = useRef<Set<string>>(new Set());
+    const execucaoRef = useRef<ExecucaoRoteiro | null>(null);
+    const assinaturaRef = useRef('');
     const leiturasChegadaRef = useRef(0);
     const indiceMinimoRef = useRef(0);
     const [proximaParada, setProximaParada] = useState<string | null>(null);
@@ -494,12 +476,7 @@ export default function Mapa() {
         const res = await fetchComTimeout(url, {}, 15000);
 
         const data = await readApiJson<any>(res);
-
-        if (data.code !== 'Ok' || !data.routes?.length) {
-            throw new Error(
-                data.message || 'Directions API não retornou rota válida'
-            );
-        }
+        validarRespostaDirecoes(data, pontos.length);
 
         const rotaEscolhida = data.routes[0];
 
@@ -680,12 +657,12 @@ export default function Mapa() {
     }
 
     async function registrarParadaVisitada(parada: ParadaNavegacao) {
-        if (parada.passageiroId === null || !turmaIdRef.current || !viagemIdRef.current) return;
-        visitadosRef.current.add(parada.passageiroId);
-        await salvarCache(
-            CACHE_KEYS.visitadas(turmaIdRef.current, direcaoAtualRef.current, viagemIdRef.current),
-            Array.from(visitadosRef.current)
-        );
+        const execucao = execucaoRef.current;
+        if (!execucao) return;
+        visitadosRef.current.add(parada.chave);
+        await salvarCache(chaveCacheRoteiro('visitadas', execucao), {
+            assinatura: assinaturaRef.current, chaves: Array.from(visitadosRef.current),
+        });
     }
 
     async function recalcularRotaAPartirDe(
@@ -705,35 +682,22 @@ export default function Mapa() {
         }
 
         try {
-            const idsPendentes = new Set(
-                paradasRef.current
-                    .filter((p) => p.passageiroId !== null)
-                    .map((p) => p.passageiroId)
-            );
-            const pendentes = rotaRef.current.filter(p => idsPendentes.has(p.id));
-
-            const destinoFinal =
-                direcaoAtualRef.current === 'ida'
-                    ? destinoAtual
-                    : garagemAtual;
-
-            const pontosOrdenados = [
-                origemAtual,
-                ...pendentes,
-                destinoFinal,
-            ];
+            const pendentes = rotaRef.current.filter(p => !visitadosRef.current.has(p.chave));
+            if (!pendentes.length) return;
+            const execucao = execucaoRef.current;
+            const assinatura = assinaturaRef.current;
+            const pontosOrdenados = pontosParaDirecoes(origemAtual, pendentes);
 
             const {
                 routeGeoJSON,
                 coordenadas,
                 manobras: manobrasCalculadas,
-                pontosAjustados,
                 indicesWaypoints,
             } = await buscarRotaMapbox(pontosOrdenados);
 
             if (!montadoRef.current) return;
-            const idsAindaPendentes = new Set(paradasRef.current.map(p => p.passageiroId));
-            if (pendentes.some(p => !idsAindaPendentes.has(p.id))) return;
+            if (execucao !== execucaoRef.current || assinatura !== assinaturaRef.current ||
+                pendentes.some(p => visitadosRef.current.has(p.chave))) return;
 
             const geoJsonValido = {
                 type: 'FeatureCollection',
@@ -746,39 +710,24 @@ export default function Mapa() {
                 ],
             };
 
-            const paradas: ParadaNavegacao[] = [
-                ...pendentes.map((p, i) => ({
-                    passageiroId: p.id,
-                    nome: p.nome,
-                    ponto: pontosAjustados[i + 1],
-                    indiceRota: indicesWaypoints[i + 1],
-                })),
-                {
-                    passageiroId: null,
-                    nome: 'Destino final',
-                    ponto: pontosAjustados[pontosAjustados.length - 1],
-                    indiceRota: indicesWaypoints[indicesWaypoints.length - 1],
-                },
-            ];
+            const paradas = pendentes.map((p, i) => ({
+                chave: p.chave, nome: p.nome, ponto: { latitude: p.latitude, longitude: p.longitude },
+                indiceRota: indicesWaypoints[i + 1],
+            }));
             aplicarGeometria(geoJsonValido, coordenadas, manobrasCalculadas, paradas);
-            const turmaId = turmaIdRef.current;
-            if (turmaId !== null && viagemIdRef.current !== null) {
-                await salvarCache(CACHE_KEYS.geometria(turmaId, direcaoAtualRef.current, viagemIdRef.current), {
-                    geoJson: geoJsonValido, coordenadas, manobras: manobrasCalculadas,
-                    paradas, passageirosIds: rotaRef.current.map(p => p.id),
-                    assinatura: assinaturaRoteiro(pendentes, destinoFinal),
-                } as GeometriaSalva);
-            }
+            if (execucao) await salvarCache(chaveCacheRoteiro('geometria', execucao), {
+                geoJson: geoJsonValido, coordenadas, manobras: manobrasCalculadas,
+                paradas, assinatura, pendentes: pendentes.map(p => p.chave),
+            } as GeometriaSalva);
 
             primeiroTickForaRotaRef.current = null;
 
             setForaDaRota(false);
+            setErroNavegacao(null);
             setErroRede(null);
-        } catch {
+        } catch (error) {
             if (montadoRef.current) {
-                setErroRede(
-                    'Falha ao recalcular a rota automaticamente.'
-                );
+                setErroNavegacao(errorMessage(error, 'Falha ao recalcular a rota automaticamente.'));
             }
         } finally {
             recalculandoRef.current = false;
@@ -798,6 +747,21 @@ export default function Mapa() {
             | null = null;
 
         const iniciarSistema = async () => {
+            // Uma nova tentativa não mantém a geometria ou o progresso de uma consulta anterior.
+            setGaragem(null);
+            setDestino(null);
+            setRota([]);
+            rotaRef.current = [];
+            visitadosRef.current = new Set();
+            assinaturaRef.current = '';
+            setGeometriaRota(null);
+            setCoordenadasRota([]);
+            coordenadasRotaRef.current = [];
+            paradasRef.current = [];
+            setProximaParada(null);
+            setParadasRestantes(0);
+            execucaoRef.current = null;
+            setErroNavegacao(null);
             let direcaoDefinitiva: Sentido =
                 (sentido as Sentido) || 'ida';
 
@@ -847,7 +811,8 @@ export default function Mapa() {
 
             await carregarGaragemERota(
                 direcaoDefinitiva,
-                posicaoInicial
+                posicaoInicial,
+                () => ativo
             );
 
             if (!ativo) return;
@@ -906,7 +871,6 @@ export default function Mapa() {
                             const proximaDistancia = distanciaMetros(pontoBruto, parada.ponto);
                             const precisao = loc.coords.accuracy ?? Infinity;
                             const chegadaValida =
-                                parada.passageiroId !== null &&
                                 proximaDistancia <= RAIO_CHEGADA_PARADA_METROS &&
                                 precisao <= PRECISAO_MAXIMA_CHEGADA_METROS &&
                                 velocidadeKmh <= VELOCIDADE_MAXIMA_CHEGADA_KMH;
@@ -1082,18 +1046,18 @@ export default function Mapa() {
 
             controladoresAtivosRef.current.clear();
         };
-    }, [tentativaInicial]);
+    }, [tentativaInicial, turmaId, sentido, user?.id]);
 
     async function carregarGaragemERota(
         direcaoUsada: Sentido,
-        posicaoInicial: LatLng
+        posicaoInicial: LatLng,
+        vigente: () => boolean
     ) {
         let garagemCarregada: LatLng | null = null;
         let destinoCarregado: LatLng | null = null;
 
-        let rotaCarregada: PassageiroRota[] = [];
-        let paradasObrigatorias: ParadaPublicaNavegacao[] = [];
-        let possuiParadasDefinidas = false;
+        let rotaCarregada: PontoNavegacao[] = [];
+
 
         try {
             if (!user?.id) {
@@ -1132,16 +1096,14 @@ export default function Mapa() {
                     `${API_URL}/rota/status-atual?turmaId=${turma.id}`,
                     { headers: HEADERS_PADRAO }, 6000
                 );
-                if (!resStatus.ok) continue;
                 const status = await readApiJson<any>(resStatus);
                 if (status?.status === 'ATIVA') {
                     if (!Number.isSafeInteger(status.viagemId) || status.viagemId <= 0) throw new Error('Viagem ativa sem identificador válido.');
                     viagemIdAtiva = status.viagemId;
                     turmaIdAtiva = Number(turma.id);
                     const sentidoServidor = String(status.sentido || '').toLowerCase();
-                    if (sentidoServidor === 'ida' || sentidoServidor === 'volta') {
-                        direcaoUsada = sentidoServidor;
-                    }
+                    if (sentidoServidor !== 'ida' && sentidoServidor !== 'volta') throw new Error('Sentido da viagem ativa inválido.');
+                    direcaoUsada = sentidoServidor;
                     break;
                 }
             }
@@ -1154,6 +1116,7 @@ export default function Mapa() {
             if (!turmaAtual || turmaIdAtiva !== Number(turmaAtual.id) || viagemIdAtiva === null) {
                 throw new Error('Não há viagem ativa confirmada para esta turma.');
             }
+            if (!vigente()) return;
 
             viagemAtivaRef.current = turmaIdAtiva === Number(turmaAtual.id);
             setViagemAtiva(viagemAtivaRef.current);
@@ -1162,172 +1125,45 @@ export default function Mapa() {
             turmaIdRef.current = turmaAtual.id;
             viagemIdRef.current = viagemIdAtiva;
 
-            const visitadasSalvas = await lerCache<number[]>(
-                CACHE_KEYS.visitadas(Number(turmaAtual.id), direcaoUsada, viagemIdAtiva)
-            );
-            visitadosRef.current = new Set(visitadasSalvas || []);
-
-            const rotaPublica = rotaId
-                ? await buscarRotaPublica(rotaId)
-                : (await listarMinhasRotas()).find(r => r.turmaId === Number(turmaAtual.id));
-            if (rotaPublica && rotaPublica.turmaId !== Number(turmaAtual.id)) {
-                throw new Error('A rota pública não pertence à turma da viagem.');
-            }
-
-            const origemLat = Number(
-                rotaPublica?.origemLatitude ?? turmaAtual.origemLatitude
-            );
-
-            const origemLng = Number(
-                rotaPublica?.origemLongitude ?? turmaAtual.origemLongitude
-            );
-
-            if (
-                !Number.isFinite(origemLat) ||
-                !Number.isFinite(origemLng) ||
-                (origemLat === 0 && origemLng === 0)
-            ) {
-                throw new Error(
-                    'Coordenadas de origem da turma inválidas'
+            const controller = new AbortController();
+            controladoresAtivosRef.current.add(controller);
+            try {
+                rotaCarregada = await consultarRoteiroOperacional(viagemIdAtiva, controller.signal);
+                const operacao = await apiRequest<PainelRoteiro>(
+                    `/operacoes/VIAGEM/${viagemIdAtiva}`, { signal: controller.signal }
                 );
+                conferirSnapshotRoteiro(rotaCarregada, operacao, viagemIdAtiva, direcaoUsada.toUpperCase());
+            } finally {
+                controladoresAtivosRef.current.delete(controller);
             }
-
-            garagemCarregada = {
-                latitude: origemLat,
-                longitude: origemLng,
+            if (!vigente()) return;
+            // Os extremos já representam o sentido desta execução, inclusive na VOLTA.
+            garagemCarregada = rotaCarregada[0];
+            destinoCarregado = rotaCarregada[rotaCarregada.length - 1];
+            const execucao: ExecucaoRoteiro = {
+                usuarioId: user.id, turmaId: Number(turmaAtual.id), viagemId: viagemIdAtiva,
+                sentido: direcaoUsada.toUpperCase() as 'IDA' | 'VOLTA',
             };
-
-            const destinoLat = Number(
-                rotaPublica?.destinoLatitude ?? turmaAtual.destinoLatitude
-            );
-
-            const destinoLng = Number(
-                rotaPublica?.destinoLongitude ?? turmaAtual.destinoLongitude
-            );
-
-            if (
-                !Number.isFinite(destinoLat) ||
-                !Number.isFinite(destinoLng) ||
-                (destinoLat === 0 && destinoLng === 0)
-            ) {
-                throw new Error(
-                    'Coordenadas de destino da turma inválidas'
-                );
-            }
-
-            destinoCarregado = {
-                latitude: destinoLat,
-                longitude: destinoLng,
-            };
-
-            // Rotas públicas compartilham o mapa, mas possuem origem e destino próprios.
-            if (rotaPublica) {
-                if (rotaPublica.turmaId !== Number(turmaAtual.id)) throw new Error('A rota pública não pertence à turma da viagem.');
-                possuiParadasDefinidas = true;
-                garagemCarregada = { latitude: rotaPublica.origemLatitude, longitude: rotaPublica.origemLongitude };
-                destinoCarregado = { latitude: rotaPublica.destinoLatitude, longitude: rotaPublica.destinoLongitude };
-                paradasObrigatorias = rotaPublica.paradas.map(p => ({
-                    id: Number(p.id), nome: p.nome, latitude: p.latitude, longitude: p.longitude,
-                }));
-            } else {
-                // Turmas privadas podem usar pontos definidos pelo motorista.
-                // PORTA_A_PORTA continua usando os endereços confirmados no snapshot.
-                const coleta = await consultarColetaPrivada(
-                    String(turmaAtual.id), direcaoUsada.toUpperCase(), ''
-                );
-                if (coleta.modo === 'PARADAS_DEFINIDAS') {
-                    possuiParadasDefinidas = true;
-                    paradasObrigatorias = [...coleta.paradas]
-                        .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))
-                        .map(p => ({ id: Number(p.id), nome: p.nome, latitude: p.latitude, longitude: p.longitude }));
-                }
-            }
-
-            const urlOtimizar =
-                `${API_URL}/rota/otimizar` +
-                `?sentido=${direcaoUsada}&turmaId=${turmaAtual.id}`;
-
-            const resPassageiros = await fetchComTimeout(
-                urlOtimizar,
-                {
-                    headers: HEADERS_PADRAO,
-                }
-            );
-
-            if (!resPassageiros.ok) {
-                const respostaErro = (await readApiError(resPassageiros)).message;
-
-                let mensagem = respostaErro;
-
-                try {
-                    const dados = JSON.parse(respostaErro);
-                    mensagem = dados.erro || dados.message || respostaErro;
-                } catch {
-                    // Mantém a resposta original.
-                }
-
-                throw new Error(`Falha na otimização: ${mensagem}`);
-            }
-
-            const lista = await readApiJson<any>(resPassageiros);
-
-            if (!Array.isArray(lista)) {
-                throw new Error(
-                    'Resposta inválida da otimização de rota'
-                );
-            }
-
-            rotaCarregada = lista
-                .map((p: any) => ({
-                    id: Number(p.id || p.usuarioId),
-                    nome: p.nome || 'Passageiro',
-                    latitude: Number(
-                        p.latitude ?? p.lat ?? 0
-                    ),
-                    longitude: Number(
-                        p.longitude ?? p.lng ?? 0
-                    ),
-                    embarcado: false,
-                }))
-                .map(validarPontoRoteiro);
-
-            // O otimizador deve servir o snapshot ativo, inclusive para públicas.
-            // Se o backend cair no cálculo privado legado, a operação denuncia
-            // passageiros ausentes ou indevidos antes de gerar a geometria.
-            const operacao = await apiRequest<Parameters<typeof conferirSnapshotRoteiro>[1]>(
-                `/operacoes/VIAGEM/${viagemIdAtiva}`
-            );
-            conferirSnapshotRoteiro(rotaCarregada, operacao, viagemIdAtiva, direcaoUsada.toUpperCase());
-
-            // O snapshot traz os embarques aprovados; a rota pública também
-            // exige as paradas cadastradas, mesmo quando ainda não há reserva.
-            if (possuiParadasDefinidas) {
-                rotaCarregada = montarParadasDefinidas(
-                    rotaCarregada, paradasObrigatorias, direcaoUsada.toUpperCase() as 'IDA' | 'VOLTA'
-                );
-            }
-
-            await salvarCache(
-                CACHE_KEYS.garagem(Number(turmaAtual.id)), garagemCarregada
-            );
-
-            await salvarCache(
-                CACHE_KEYS.destino(Number(turmaAtual.id)), destinoCarregado
-            );
-
-            await salvarCache(
-                CACHE_KEYS.rota(Number(turmaAtual.id), direcaoUsada), rotaCarregada
-            );
+            const assinatura = assinaturaRoteiro(execucao, rotaCarregada);
+            const visitasSalvas = await lerCache(chaveCacheRoteiro('visitadas', execucao));
+            if (!vigente()) return;
+            execucaoRef.current = execucao;
+            assinaturaRef.current = assinatura;
+            visitadosRef.current = restaurarVisitadas(visitasSalvas, assinatura, rotaCarregada);
         } catch (e) {
+            if (!vigente()) return;
 
             // Nunca navegar com lista de passageiros ou destinos em cache de outra execução.
             garagemCarregada = null;
             destinoCarregado = null;
             rotaCarregada = [];
-            if (montadoRef.current) setErroRede(errorMessage(e));
+            execucaoRef.current = null;
+            assinaturaRef.current = '';
+            visitadosRef.current = new Set();
+            if (montadoRef.current) setErroNavegacao(errorMessage(e));
         }
 
-        if (!montadoRef.current) return;
+        if (!montadoRef.current || !vigente()) return;
 
         if (!garagemCarregada || !destinoCarregado) {
             Alert.alert(
@@ -1352,105 +1188,43 @@ export default function Mapa() {
         direcaoAtualRef.current = direcaoUsada;
 
         await carregarGeometriaRota(
-            direcaoUsada,
-            garagemCarregada,
-            destinoCarregado,
-            rotaCarregada.filter(p => !visitadosRef.current.has(p.id)),
+            rotaCarregada.filter(p => !visitadosRef.current.has(p.chave)),
             posicaoInicial
         );
 
-        if (montadoRef.current) {
+        if (montadoRef.current && vigente()) {
             setLoading(false);
         }
     }
 
-    async function carregarGeometriaRota(
-        direcaoUsada: Sentido,
-        garagemPonto: LatLng,
-        destinoPonto: LatLng,
-        passageiros: PassageiroRota[],
-        posicaoAtual: LatLng
-    ) {
-        const destinoFinal =
-            direcaoUsada === 'ida'
-                ? destinoPonto
-                : garagemPonto;
-
-        // O backend já retorna os passageiros na ordem otimizada.
-        // Não invertemos novamente a lista na VOLTA.
-        const pontosOrdenados: LatLng[] = [
-            posicaoAtual,
-            ...passageiros,
-            destinoFinal,
-        ];
-
+    async function carregarGeometriaRota(pendentes: PontoNavegacao[], posicaoAtual: LatLng) {
+        const execucao = execucaoRef.current;
+        const assinatura = assinaturaRef.current;
+        if (!execucao || !pendentes.length) return;
         try {
-            const {
-                routeGeoJSON,
-                coordenadas,
-                manobras: manobrasCalculadas,
-                pontosAjustados,
-                indicesWaypoints,
-            } = await buscarRotaMapbox(pontosOrdenados);
-
-            if (!montadoRef.current) return;
-
-            const geoJsonValido = {
-                type: 'FeatureCollection',
-                features: [
-                    {
-                        type: 'Feature',
-                        properties: {},
-                        geometry: routeGeoJSON.geometry,
-                    },
-                ],
-            };
-
-            const paradas: ParadaNavegacao[] = [
-                ...passageiros.map((p, i) => ({
-                    passageiroId: p.id, nome: p.nome,
-                    ponto: pontosAjustados[i + 1], indiceRota: indicesWaypoints[i + 1],
-                })),
-                {
-                    passageiroId: null, nome: 'Destino final',
-                    ponto: pontosAjustados[pontosAjustados.length - 1],
-                    indiceRota: indicesWaypoints[indicesWaypoints.length - 1],
-                },
-            ];
+            const pontosOrdenados = pontosParaDirecoes(posicaoAtual, pendentes);
+            const { routeGeoJSON, coordenadas, manobras: manobrasCalculadas, indicesWaypoints } =
+                await buscarRotaMapbox(pontosOrdenados);
+            if (!montadoRef.current || execucao !== execucaoRef.current) return;
+            const geoJsonValido = { type: 'FeatureCollection', features: [routeGeoJSON] };
+            // A chegada usa o ponto original do snapshot, nunca o snap da rua do Mapbox.
+            const paradas = pendentes.map((p, i) => ({
+                chave: p.chave, nome: p.nome, ponto: { latitude: p.latitude, longitude: p.longitude },
+                indiceRota: indicesWaypoints[i + 1],
+            }));
             aplicarGeometria(geoJsonValido, coordenadas, manobrasCalculadas, paradas);
-            if (turmaIdRef.current !== null && viagemIdRef.current !== null) {
-                await salvarCache(CACHE_KEYS.geometria(turmaIdRef.current, direcaoUsada, viagemIdRef.current), {
-                    geoJson: geoJsonValido, coordenadas, manobras: manobrasCalculadas,
-                    paradas, passageirosIds: rotaRef.current.map(p => p.id),
-                    assinatura: assinaturaRoteiro(passageiros, destinoFinal),
-                } as GeometriaSalva);
-            }
-        } catch {
-            if (
-                pontosOrdenados.length >
-                LIMITE_WAYPOINTS_MAPBOX
-            ) {
-                Alert.alert(
-                    'Rota muito extensa',
-                    `Esta rota tem ${pontosOrdenados.length} pontos, acima do limite de ${LIMITE_WAYPOINTS_MAPBOX} da API de direções.`
-                );
-            }
-
-            const turmaId = turmaIdRef.current;
-            const cache = turmaId === null || viagemIdRef.current === null ? null : await lerCache<GeometriaSalva>(
-                CACHE_KEYS.geometria(turmaId, direcaoUsada, viagemIdRef.current)
-            );
-            if (!montadoRef.current) return;
-            const idsAtuais = rotaRef.current.map(p => p.id);
-            if (cache &&
-                cache.assinatura === assinaturaRoteiro(passageiros, destinoFinal) &&
-                JSON.stringify(cache.passageirosIds) === JSON.stringify(idsAtuais) &&
-                cache.paradas?.length === passageiros.length + 1 &&
-                cache.coordenadas?.length > 1) {
+            await salvarCache(chaveCacheRoteiro('geometria', execucao), {
+                geoJson: geoJsonValido, coordenadas, manobras: manobrasCalculadas,
+                paradas, assinatura, pendentes: pendentes.map(p => p.chave),
+            } as GeometriaSalva);
+        } catch (error) {
+            const cache = await lerCache<GeometriaSalva>(chaveCacheRoteiro('geometria', execucao));
+            if (!montadoRef.current || execucao !== execucaoRef.current) return;
+            if (cache && geometriaCompativel(cache, assinatura, pendentes)) {
                 aplicarGeometria(cache.geoJson, cache.coordenadas, cache.manobras, cache.paradas);
-                setErroRede('Navegação offline com geometria salva.');
+                setErroNavegacao('Navegação offline com geometria salva para este snapshot.');
             } else {
-                setErroRede('Não foi possível montar a rota. Cache incompatível ou indisponível.');
+                setErroNavegacao(errorMessage(error, 'Não foi possível montar a rota. Cache incompatível ou indisponível.'));
             }
         }
     }
@@ -1523,29 +1297,20 @@ export default function Mapa() {
         }
     }, [posicaoSuave, localizacao]);
 
-    const passageirosGeoJSON = useMemo(
+    const pontosOperacionaisGeoJSON = useMemo(
         () => ({
             type: 'FeatureCollection' as const,
 
             features: rota
-                .filter(
-                    (p) =>
-                        p.latitude &&
-                        p.longitude &&
-                        p.latitude !== 0 &&
-                        p.longitude !== 0
-                )
                 .map((p, index) => ({
                     type: 'Feature' as const,
 
                     properties: {
-                        id: p.id,
-                        label: p.embarcado
-                            ? '✓'
-                            : String(index + 1),
-                        cor: p.embarcado
-                            ? '#10B981'
-                            : '#3B82F6',
+                        id: p.chave,
+                        label: String(index + 1),
+                        nome: p.nome, tipo: p.tipo, paradaId: p.paradaId,
+                        passageiros: p.passageiros.map(a => a.nome).join(', '),
+                        cor: '#3B82F6',
                     },
 
                     geometry: {
@@ -1612,10 +1377,10 @@ export default function Mapa() {
         );
     }
 
-    if (!garagem || !destino) {
+    if (!garagem || !destino || (!geometriaRota && rota.length > visitadosRef.current.size)) {
         return (
             <View style={styles.loadingContainer}>
-                <AsyncState appearance="map" title="Navegação indisponível" message={erroRede || 'Não foi possível carregar a origem e o destino da rota.'}
+                <AsyncState appearance="map" title="Navegação indisponível" message={erroNavegacao || erroRede || 'Não foi possível carregar a origem e o destino da rota.'}
                     onRetry={() => { setErroRede(null); setLoading(true); setTentativaInicial(value => value + 1); }} />
                 {localizacaoBloqueada && <TouchableOpacity accessibilityRole="button" style={{ minHeight: 48, justifyContent: 'center' }}
                     onPress={() => { void Linking.openSettings().catch(error => Alert.alert('Erro', errorMessage(error))); }}>
@@ -1631,6 +1396,7 @@ export default function Mapa() {
 
     const posicaoExibida =
         posicaoSuave || localizacao;
+    const proximoPonto = rota.find(p => p.chave === paradasRef.current[0]?.chave);
 
     return (
         <View style={styles.fullScreenContainer}>
@@ -1701,7 +1467,7 @@ export default function Mapa() {
                         automaticamente...
                     </Text>
                 </View>
-            ) : erroRede ? (
+            ) : (erroNavegacao || erroRede) ? (
                 <View
                     style={[
                         styles.bannerNotificacao,
@@ -1718,7 +1484,7 @@ export default function Mapa() {
                             { color: '#60A5FA' },
                         ]}
                     >
-                        {erroRede}
+                        {erroNavegacao || erroRede}
                     </Text>
                 </View>
             ) : null}
@@ -1877,11 +1643,11 @@ export default function Mapa() {
                 </MapboxGL.PointAnnotation>
 
                 <MapboxGL.ShapeSource
-                    id="passageirosSource"
-                    shape={passageirosGeoJSON}
+                    id="pontosOperacionaisSource"
+                    shape={pontosOperacionaisGeoJSON}
                 >
                     <MapboxGL.CircleLayer
-                        id="passageirosCirculo"
+                        id="pontosOperacionaisCirculo"
                         style={{
                             circleRadius: 14,
                             circleColor: ['get', 'cor'],
@@ -1891,7 +1657,7 @@ export default function Mapa() {
                     />
 
                     <MapboxGL.SymbolLayer
-                        id="passageirosLabel"
+                        id="pontosOperacionaisLabel"
                         style={{
                             textField: ['get', 'label'],
                             textSize: 12,
@@ -1926,6 +1692,11 @@ export default function Mapa() {
                     <Text style={styles.proximaParadaTexto} numberOfLines={1}>
                         Próxima parada: {proximaParada} ({paradasRestantes} restantes)
                     </Text>
+                    {proximoPonto && <Text style={styles.proximaParadaTexto} numberOfLines={2}>
+                        {proximoPonto.passageiros.length
+                            ? `Passageiros (${proximoPonto.passageiros.length}): ${proximoPonto.passageiros.map(a => a.nome).join(', ')}`
+                            : 'Sem passageiros previstos neste ponto'}
+                    </Text>}
                 </View>
             )}
 
