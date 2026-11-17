@@ -1,0 +1,1621 @@
+[
+  {
+    "at": "2026-11-17T21:31:43.313Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:31:44.080Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:31:44.081Z",
+    "step": "criar-e-reabrir",
+    "mode": "PORTA_A_PORTA",
+    "stops": 0,
+    "version": 0
+  },
+  {
+    "at": "2026-11-17T21:31:44.493Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 409
+  },
+  {
+    "at": "2026-11-17T21:31:44.494Z",
+    "step": "inicio-rascunho",
+    "status": 409,
+    "code": "ESTADO_INVALIDO",
+    "message": "Excursão não está disponível para iniciar."
+  },
+  {
+    "at": "2026-11-17T21:31:45.812Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:31:46.159Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:31:46.159Z",
+    "step": "atualizar-dados-e-reabrir",
+    "mode": "PORTA_A_PORTA",
+    "stops": 0,
+    "version": 1
+  },
+  {
+    "at": "2026-11-17T21:31:46.474Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}/publicacao",
+    "status": 409
+  },
+  {
+    "at": "2026-11-17T21:31:46.474Z",
+    "step": "versao-desatualizada",
+    "status": 409,
+    "code": null,
+    "message": "Excursão mudou; atualize os dados antes de editar."
+  },
+  {
+    "at": "2026-11-17T21:31:46.820Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}/publicacao",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:31:47.150Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:31:47.151Z",
+    "step": "publicar-e-reabrir",
+    "mode": "PORTA_A_PORTA",
+    "stops": 0,
+    "version": 2
+  },
+  {
+    "at": "2026-11-17T21:31:47.596Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 409
+  },
+  {
+    "at": "2026-11-17T21:31:47.596Z",
+    "step": "volta-antes-da-ida",
+    "status": 409,
+    "code": "IDA_NAO_FINALIZADA",
+    "message": "Finalize a ida antes de iniciar a volta."
+  },
+  {
+    "at": "2026-11-17T21:31:48.223Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes/{id}/convites",
+    "status": 201
+  },
+  {
+    "at": "2026-11-17T21:31:48.224Z",
+    "step": "convite-servidor",
+    "mode": "PORTA_A_PORTA"
+  },
+  {
+    "at": "2026-11-17T21:31:48.698Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/publico/excursoes/credenciais",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:31:49.763Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/publico/excursoes/inscricoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:31:50.463Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}/inscricoes/{id}/confirmacao",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:31:50.877Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}/inscricoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:31:50.878Z",
+    "step": "participante-confirmado",
+    "mode": "PORTA_A_PORTA",
+    "count": 1
+  },
+  {
+    "at": "2026-11-17T21:31:51.383Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes/{id}/planejamento",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:31:51.705Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes/{id}/planejamento",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:31:51.705Z",
+    "step": "planejamento-ida-volta",
+    "mode": "PORTA_A_PORTA",
+    "outbound": 3,
+    "inbound": 3,
+    "coordinatesValid": true
+  },
+  {
+    "at": "2026-11-17T21:31:52.171Z",
+    "step": "HTTP",
+    "method": "DELETE",
+    "path": "/excursoes/{id}/convites/{id}",
+    "status": 204
+  },
+  {
+    "at": "2026-11-17T21:31:52.482Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}/convites",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:31:52.483Z",
+    "step": "convite-revogado",
+    "mode": "PORTA_A_PORTA"
+  },
+  {
+    "at": "2026-11-17T21:31:52.899Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:31:53.607Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:31:53.608Z",
+    "step": "criar-e-reabrir",
+    "mode": "PORTA_A_PORTA",
+    "stops": 0,
+    "version": 0
+  },
+  {
+    "at": "2026-11-17T21:31:53.969Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 409
+  },
+  {
+    "at": "2026-11-17T21:31:53.970Z",
+    "step": "inicio-rascunho",
+    "status": 409,
+    "code": "ESTADO_INVALIDO",
+    "message": "Excursão não está disponível para iniciar."
+  },
+  {
+    "at": "2026-11-17T21:31:54.459Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}/coleta",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:31:54.841Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:31:54.841Z",
+    "step": "uma-parada-persistida",
+    "mode": "PARADA_UNICA",
+    "stops": 1,
+    "version": 1
+  },
+  {
+    "at": "2026-11-17T21:31:55.200Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}/coleta",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:31:55.497Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:31:55.498Z",
+    "step": "troca-modo-sem-paradas-orfãs",
+    "mode": "PORTA_A_PORTA",
+    "stops": 0,
+    "version": 2
+  },
+  {
+    "at": "2026-11-17T21:31:55.960Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}/coleta",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:31:56.304Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:31:56.305Z",
+    "step": "restaurar-parada-unica",
+    "mode": "PARADA_UNICA",
+    "stops": 1,
+    "version": 3
+  },
+  {
+    "at": "2026-11-17T21:31:56.731Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:31:57.193Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:31:57.194Z",
+    "step": "atualizar-dados-e-reabrir",
+    "mode": "PARADA_UNICA",
+    "stops": 1,
+    "version": 4
+  },
+  {
+    "at": "2026-11-17T21:31:57.701Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}/publicacao",
+    "status": 409
+  },
+  {
+    "at": "2026-11-17T21:31:57.702Z",
+    "step": "versao-desatualizada",
+    "status": 409,
+    "code": null,
+    "message": "Excursão mudou; atualize os dados antes de editar."
+  },
+  {
+    "at": "2026-11-17T21:31:58.145Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}/publicacao",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:31:58.555Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:31:58.555Z",
+    "step": "publicar-e-reabrir",
+    "mode": "PARADA_UNICA",
+    "stops": 1,
+    "version": 5
+  },
+  {
+    "at": "2026-11-17T21:31:59.236Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 409
+  },
+  {
+    "at": "2026-11-17T21:31:59.237Z",
+    "step": "volta-antes-da-ida",
+    "status": 409,
+    "code": "IDA_NAO_FINALIZADA",
+    "message": "Finalize a ida antes de iniciar a volta."
+  },
+  {
+    "at": "2026-11-17T21:31:59.646Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes/{id}/convites",
+    "status": 201
+  },
+  {
+    "at": "2026-11-17T21:31:59.647Z",
+    "step": "convite-servidor",
+    "mode": "PARADA_UNICA"
+  },
+  {
+    "at": "2026-11-17T21:32:00.042Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/publico/excursoes/credenciais",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:00.703Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/publico/excursoes/inscricoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:01.115Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}/inscricoes/{id}/confirmacao",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:01.525Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}/inscricoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:01.525Z",
+    "step": "participante-confirmado",
+    "mode": "PARADA_UNICA",
+    "count": 1
+  },
+  {
+    "at": "2026-11-17T21:32:02.207Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes/{id}/planejamento",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:02.764Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes/{id}/planejamento",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:02.765Z",
+    "step": "planejamento-ida-volta",
+    "mode": "PARADA_UNICA",
+    "outbound": 3,
+    "inbound": 3,
+    "coordinatesValid": true
+  },
+  {
+    "at": "2026-11-17T21:32:03.129Z",
+    "step": "HTTP",
+    "method": "DELETE",
+    "path": "/excursoes/{id}/convites/{id}",
+    "status": 204
+  },
+  {
+    "at": "2026-11-17T21:32:03.517Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}/convites",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:03.518Z",
+    "step": "convite-revogado",
+    "mode": "PARADA_UNICA"
+  },
+  {
+    "at": "2026-11-17T21:32:03.880Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:04.176Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:04.177Z",
+    "step": "criar-e-reabrir",
+    "mode": "PORTA_A_PORTA",
+    "stops": 0,
+    "version": 0
+  },
+  {
+    "at": "2026-11-17T21:32:04.484Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 409
+  },
+  {
+    "at": "2026-11-17T21:32:04.485Z",
+    "step": "inicio-rascunho",
+    "status": 409,
+    "code": "ESTADO_INVALIDO",
+    "message": "Excursão não está disponível para iniciar."
+  },
+  {
+    "at": "2026-11-17T21:32:04.809Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}/coleta",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:05.148Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:05.148Z",
+    "step": "uma-parada-persistida",
+    "mode": "PARADA_UNICA",
+    "stops": 1,
+    "version": 1
+  },
+  {
+    "at": "2026-11-17T21:32:05.459Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}/coleta",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:06.045Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:06.046Z",
+    "step": "adicionar-segunda-parada",
+    "mode": "MULTIPLAS_PARADAS",
+    "stops": 2,
+    "version": 2
+  },
+  {
+    "at": "2026-11-17T21:32:06.442Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}/coleta",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:06.796Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:06.797Z",
+    "step": "adicionar-terceira-parada",
+    "mode": "MULTIPLAS_PARADAS",
+    "stops": 3,
+    "version": 3
+  },
+  {
+    "at": "2026-11-17T21:32:07.129Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}/coleta",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:07.461Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:07.462Z",
+    "step": "reordenar-e-reabrir",
+    "mode": "MULTIPLAS_PARADAS",
+    "stops": 3,
+    "version": 4
+  },
+  {
+    "at": "2026-11-17T21:32:07.770Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}/coleta",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:08.124Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:08.125Z",
+    "step": "editar-nome-horario-instrucoes",
+    "mode": "MULTIPLAS_PARADAS",
+    "stops": 3,
+    "version": 5
+  },
+  {
+    "at": "2026-11-17T21:32:08.453Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}/coleta",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:08.762Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:08.762Z",
+    "step": "remover-e-reabrir",
+    "mode": "MULTIPLAS_PARADAS",
+    "stops": 2,
+    "version": 6
+  },
+  {
+    "at": "2026-11-17T21:32:09.065Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:09.403Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:09.403Z",
+    "step": "atualizar-dados-e-reabrir",
+    "mode": "MULTIPLAS_PARADAS",
+    "stops": 2,
+    "version": 7
+  },
+  {
+    "at": "2026-11-17T21:32:09.717Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}/publicacao",
+    "status": 409
+  },
+  {
+    "at": "2026-11-17T21:32:09.718Z",
+    "step": "versao-desatualizada",
+    "status": 409,
+    "code": null,
+    "message": "Excursão mudou; atualize os dados antes de editar."
+  },
+  {
+    "at": "2026-11-17T21:32:10.077Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}/publicacao",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:10.397Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:10.398Z",
+    "step": "publicar-e-reabrir",
+    "mode": "MULTIPLAS_PARADAS",
+    "stops": 2,
+    "version": 8
+  },
+  {
+    "at": "2026-11-17T21:32:10.747Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 409
+  },
+  {
+    "at": "2026-11-17T21:32:10.748Z",
+    "step": "volta-antes-da-ida",
+    "status": 409,
+    "code": "IDA_NAO_FINALIZADA",
+    "message": "Finalize a ida antes de iniciar a volta."
+  },
+  {
+    "at": "2026-11-17T21:32:11.089Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes/{id}/convites",
+    "status": 201
+  },
+  {
+    "at": "2026-11-17T21:32:11.089Z",
+    "step": "convite-servidor",
+    "mode": "MULTIPLAS_PARADAS"
+  },
+  {
+    "at": "2026-11-17T21:32:11.433Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/publico/excursoes/credenciais",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:11.815Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/publico/excursoes/inscricoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:12.305Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}/inscricoes/{id}/confirmacao",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:12.696Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}/inscricoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:12.697Z",
+    "step": "participante-confirmado",
+    "mode": "MULTIPLAS_PARADAS",
+    "count": 1
+  },
+  {
+    "at": "2026-11-17T21:32:13.034Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes/{id}/planejamento",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:13.368Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes/{id}/planejamento",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:13.368Z",
+    "step": "planejamento-ida-volta",
+    "mode": "MULTIPLAS_PARADAS",
+    "outbound": 4,
+    "inbound": 4,
+    "coordinatesValid": true
+  },
+  {
+    "at": "2026-11-17T21:32:13.730Z",
+    "step": "HTTP",
+    "method": "DELETE",
+    "path": "/excursoes/{id}/convites/{id}",
+    "status": 204
+  },
+  {
+    "at": "2026-11-17T21:32:14.111Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}/convites",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:32:14.111Z",
+    "step": "convite-revogado",
+    "mode": "MULTIPLAS_PARADAS"
+  },
+  {
+    "at": "2026-11-17T21:32:14.112Z",
+    "step": "preparacao-concluida",
+    "newExcursions": 3
+  },
+  {
+    "at": "2026-11-17T21:32:14.112Z",
+    "step": "fase-aprovada",
+    "phase": "preparar"
+  },
+  {
+    "at": "2026-11-17T21:38:10.402Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:10.835Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:11.143Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:11.291Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:11.702Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:11.702Z",
+    "step": "inicio-confirmado-e-idempotente",
+    "mode": "PORTA_A_PORTA",
+    "direction": "IDA",
+    "points": 3
+  },
+  {
+    "at": "2026-11-17T21:38:12.313Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/operacoes/EXCURSAO/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:12.732Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/operacoes/EXCURSAO/{id}/passageiros/{id}/estado",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:13.310Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}/execucoes/{id}/finalizacao",
+    "status": 409
+  },
+  {
+    "at": "2026-11-17T21:38:13.311Z",
+    "step": "finalizacao-com-pessoa-na-van",
+    "status": 409,
+    "code": null,
+    "message": "Há passageiros na van: confirme desembarques antes de encerrar."
+  },
+  {
+    "at": "2026-11-17T21:38:13.655Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/operacoes/EXCURSAO/{id}/passageiros/{id}/estado",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:14.059Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/operacoes/EXCURSAO/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:14.551Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}/execucoes/{id}/finalizacao",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:14.976Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:14.976Z",
+    "step": "embarque-desembarque-finalizacao",
+    "mode": "PORTA_A_PORTA",
+    "direction": "IDA",
+    "disembarked": 1
+  },
+  {
+    "at": "2026-11-17T21:38:15.312Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:15.656Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:15.964Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:16.415Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:16.416Z",
+    "step": "inicio-confirmado-e-idempotente",
+    "mode": "PORTA_A_PORTA",
+    "direction": "VOLTA",
+    "points": 3
+  },
+  {
+    "at": "2026-11-17T21:38:16.783Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/operacoes/EXCURSAO/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:17.190Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/operacoes/EXCURSAO/{id}/passageiros/{id}/estado",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:17.741Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}/execucoes/{id}/finalizacao",
+    "status": 409
+  },
+  {
+    "at": "2026-11-17T21:38:17.742Z",
+    "step": "finalizacao-com-pessoa-na-van",
+    "status": 409,
+    "code": null,
+    "message": "Há passageiros na van: confirme desembarques antes de encerrar."
+  },
+  {
+    "at": "2026-11-17T21:38:18.114Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/operacoes/EXCURSAO/{id}/passageiros/{id}/estado",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:18.769Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/operacoes/EXCURSAO/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:19.192Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}/execucoes/{id}/finalizacao",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:19.687Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:19.687Z",
+    "step": "embarque-desembarque-finalizacao",
+    "mode": "PORTA_A_PORTA",
+    "direction": "VOLTA",
+    "disembarked": 1
+  },
+  {
+    "at": "2026-11-17T21:38:20.316Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:20.629Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 409
+  },
+  {
+    "at": "2026-11-17T21:38:20.630Z",
+    "step": "reinicio-apos-conclusao",
+    "status": 409,
+    "code": "EXECUCAO_EXISTENTE",
+    "message": "Este sentido já foi executado ou cancelado."
+  },
+  {
+    "at": "2026-11-17T21:38:20.630Z",
+    "step": "ida-volta-concluidas",
+    "mode": "PORTA_A_PORTA"
+  },
+  {
+    "at": "2026-11-17T21:38:21.219Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:21.596Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:21.963Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:22.416Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:23.029Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:23.030Z",
+    "step": "inicio-confirmado-e-idempotente",
+    "mode": "PARADA_UNICA",
+    "direction": "IDA",
+    "points": 3
+  },
+  {
+    "at": "2026-11-17T21:38:23.677Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/operacoes/EXCURSAO/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:24.055Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/operacoes/EXCURSAO/{id}/passageiros/{id}/estado",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:24.612Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}/execucoes/{id}/finalizacao",
+    "status": 409
+  },
+  {
+    "at": "2026-11-17T21:38:24.613Z",
+    "step": "finalizacao-com-pessoa-na-van",
+    "status": 409,
+    "code": null,
+    "message": "Há passageiros na van: confirme desembarques antes de encerrar."
+  },
+  {
+    "at": "2026-11-17T21:38:25.121Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/operacoes/EXCURSAO/{id}/passageiros/{id}/estado",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:25.730Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/operacoes/EXCURSAO/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:26.198Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}/execucoes/{id}/finalizacao",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:26.619Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:26.619Z",
+    "step": "embarque-desembarque-finalizacao",
+    "mode": "PARADA_UNICA",
+    "direction": "IDA",
+    "disembarked": 1
+  },
+  {
+    "at": "2026-11-17T21:38:27.229Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:27.606Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:27.848Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:28.175Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:28.176Z",
+    "step": "inicio-confirmado-e-idempotente",
+    "mode": "PARADA_UNICA",
+    "direction": "VOLTA",
+    "points": 3
+  },
+  {
+    "at": "2026-11-17T21:38:28.500Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/operacoes/EXCURSAO/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:28.828Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/operacoes/EXCURSAO/{id}/passageiros/{id}/estado",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:29.160Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}/execucoes/{id}/finalizacao",
+    "status": 409
+  },
+  {
+    "at": "2026-11-17T21:38:29.161Z",
+    "step": "finalizacao-com-pessoa-na-van",
+    "status": 409,
+    "code": null,
+    "message": "Há passageiros na van: confirme desembarques antes de encerrar."
+  },
+  {
+    "at": "2026-11-17T21:38:29.515Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/operacoes/EXCURSAO/{id}/passageiros/{id}/estado",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:29.828Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/operacoes/EXCURSAO/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:30.360Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}/execucoes/{id}/finalizacao",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:30.964Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:30.965Z",
+    "step": "embarque-desembarque-finalizacao",
+    "mode": "PARADA_UNICA",
+    "direction": "VOLTA",
+    "disembarked": 1
+  },
+  {
+    "at": "2026-11-17T21:38:31.271Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:38:31.770Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 409
+  },
+  {
+    "at": "2026-11-17T21:38:31.770Z",
+    "step": "reinicio-apos-conclusao",
+    "status": 409,
+    "code": "EXECUCAO_EXISTENTE",
+    "message": "Este sentido já foi executado ou cancelado."
+  },
+  {
+    "at": "2026-11-17T21:38:31.771Z",
+    "step": "ida-volta-concluidas",
+    "mode": "PARADA_UNICA"
+  },
+  {
+    "at": "2026-11-17T21:38:31.771Z",
+    "step": "fase-aprovada",
+    "phase": "completar"
+  },
+  {
+    "at": "2026-11-17T21:41:37.742Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:41:38.356Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:41:38.753Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/operacoes/EXCURSAO/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:41:38.753Z",
+    "step": "auditoria-operacao",
+    "mode": "PORTA_A_PORTA",
+    "direction": "IDA",
+    "state": "FINALIZADA",
+    "points": 3,
+    "expected": 1,
+    "onboard": 0,
+    "disembarked": 1
+  },
+  {
+    "at": "2026-11-17T21:41:39.103Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/operacoes/EXCURSAO/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:41:39.104Z",
+    "step": "auditoria-operacao",
+    "mode": "PORTA_A_PORTA",
+    "direction": "VOLTA",
+    "state": "FINALIZADA",
+    "points": 3,
+    "expected": 1,
+    "onboard": 0,
+    "disembarked": 1
+  },
+  {
+    "at": "2026-11-17T21:41:39.105Z",
+    "step": "estado-final-confirmado",
+    "mode": "PORTA_A_PORTA",
+    "state": "CONCLUIDA"
+  },
+  {
+    "at": "2026-11-17T21:41:39.454Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:41:39.763Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:41:40.083Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/operacoes/EXCURSAO/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:41:40.084Z",
+    "step": "auditoria-operacao",
+    "mode": "PARADA_UNICA",
+    "direction": "IDA",
+    "state": "FINALIZADA",
+    "points": 3,
+    "expected": 1,
+    "onboard": 0,
+    "disembarked": 1
+  },
+  {
+    "at": "2026-11-17T21:41:40.400Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/operacoes/EXCURSAO/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:41:40.401Z",
+    "step": "auditoria-operacao",
+    "mode": "PARADA_UNICA",
+    "direction": "VOLTA",
+    "state": "FINALIZADA",
+    "points": 3,
+    "expected": 1,
+    "onboard": 0,
+    "disembarked": 1
+  },
+  {
+    "at": "2026-11-17T21:41:40.401Z",
+    "step": "estado-final-confirmado",
+    "mode": "PARADA_UNICA",
+    "state": "CONCLUIDA"
+  },
+  {
+    "at": "2026-11-17T21:41:40.707Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:41:41.056Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:41:41.518Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/operacoes/EXCURSAO/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:41:41.518Z",
+    "step": "auditoria-operacao",
+    "mode": "MULTIPLAS_PARADAS",
+    "direction": "IDA",
+    "state": "FINALIZADA",
+    "points": 4,
+    "expected": 1,
+    "onboard": 0,
+    "disembarked": 1
+  },
+  {
+    "at": "2026-11-17T21:41:41.924Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/operacoes/EXCURSAO/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T21:41:41.925Z",
+    "step": "auditoria-operacao",
+    "mode": "MULTIPLAS_PARADAS",
+    "direction": "VOLTA",
+    "state": "FINALIZADA",
+    "points": 4,
+    "expected": 1,
+    "onboard": 0,
+    "disembarked": 1
+  },
+  {
+    "at": "2026-11-17T21:41:41.925Z",
+    "step": "estado-final-confirmado",
+    "mode": "MULTIPLAS_PARADAS",
+    "state": "CONCLUIDA"
+  },
+  {
+    "at": "2026-11-17T21:41:41.995Z",
+    "step": "acesso-sem-sessao",
+    "status": 401
+  },
+  {
+    "at": "2026-11-17T21:41:43.461Z",
+    "step": "acesso-passageiro",
+    "status": 403
+  },
+  {
+    "at": "2026-11-17T21:41:43.462Z",
+    "step": "fase-aprovada",
+    "phase": "auditar"
+  },
+  {
+    "at": "2026-11-17T22:15:11.431Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T22:15:11.878Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T22:15:12.180Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T22:15:12.550Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}/publicacao",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T22:15:12.865Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T22:15:13.244Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes/{id}/convites",
+    "status": 201
+  },
+  {
+    "at": "2026-11-17T22:15:14.270Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/publico/excursoes/credenciais",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T22:15:14.654Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/publico/excursoes/inscricoes",
+    "status": 400
+  },
+  {
+    "at": "2026-11-17T22:15:14.655Z",
+    "step": "ponto-invalido-rejeitado",
+    "status": 400,
+    "code": null,
+    "message": "Pin inválido."
+  },
+  {
+    "at": "2026-11-17T22:15:14.989Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/publico/excursoes/inscricoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T22:15:15.415Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}/inscricoes/{id}/confirmacao",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T22:15:15.748Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/publico/excursoes/credenciais",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T22:15:16.213Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/publico/excursoes/inscricoes",
+    "status": 409
+  },
+  {
+    "at": "2026-11-17T22:15:16.214Z",
+    "step": "capacidade-respeitada",
+    "status": 409,
+    "code": null,
+    "message": "Excursão sem vagas."
+  },
+  {
+    "at": "2026-11-17T22:15:16.548Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}/inscricoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T22:15:16.549Z",
+    "step": "capacidade-confirmacao",
+    "capacity": 1,
+    "confirmed": 1
+  },
+  {
+    "at": "2026-11-17T22:15:16.908Z",
+    "step": "HTTP",
+    "method": "DELETE",
+    "path": "/excursoes/{id}/convites/{id}",
+    "status": 204
+  },
+  {
+    "at": "2026-11-17T22:15:17.232Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/publico/excursoes/credenciais",
+    "status": 404
+  },
+  {
+    "at": "2026-11-17T22:15:17.233Z",
+    "step": "convite-revogado-rejeitado",
+    "status": 404,
+    "code": null,
+    "message": "Convite indisponível."
+  },
+  {
+    "at": "2026-11-17T22:15:17.563Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes/{id}/convites",
+    "status": 201
+  },
+  {
+    "at": "2026-11-17T22:15:30.457Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/publico/excursoes/credenciais",
+    "status": 404
+  },
+  {
+    "at": "2026-11-17T22:15:30.458Z",
+    "step": "convite-expirado-rejeitado",
+    "status": 404,
+    "code": null,
+    "message": "Convite indisponível."
+  },
+  {
+    "at": "2026-11-17T22:15:31.259Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T22:15:31.889Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/excursoes/{id}/cancelamento",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T22:15:32.268Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/excursoes/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-17T22:15:32.675Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/excursoes/{id}/execucoes",
+    "status": 409
+  },
+  {
+    "at": "2026-11-17T22:15:32.676Z",
+    "step": "inicio-cancelada",
+    "status": 409,
+    "code": "ESTADO_INVALIDO",
+    "message": "Excursão não está disponível para iniciar."
+  },
+  {
+    "at": "2026-11-17T22:15:32.676Z",
+    "step": "limites-concluidos",
+    "state": "CANCELADA"
+  },
+  {
+    "at": "2026-11-17T22:15:32.676Z",
+    "step": "fase-aprovada",
+    "phase": "limites"
+  }
+]

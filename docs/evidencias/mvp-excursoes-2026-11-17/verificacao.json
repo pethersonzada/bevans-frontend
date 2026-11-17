@@ -1,0 +1,117 @@
+{
+  "date": "2026-11-17",
+  "frontendCommits": [
+    "e72634c",
+    "2b43358"
+  ],
+  "checks": {
+    "architecture": "passed",
+    "typecheck": "passed",
+    "tests": {
+      "passed": 313,
+      "failed": 0
+    },
+    "check": "passed",
+    "androidExport": "passed"
+  },
+  "integration": {
+    "observedHTTP": 155,
+    "anonymousStatus": 401,
+    "passengerRoleStatus": 403,
+    "completedRoundTrips": 3,
+    "finalExecutions": [
+      {
+        "mode": "PORTA_A_PORTA",
+        "direction": "IDA",
+        "state": "FINALIZADA",
+        "points": 3,
+        "expected": 1,
+        "onboard": 0,
+        "disembarked": 1
+      },
+      {
+        "mode": "PORTA_A_PORTA",
+        "direction": "VOLTA",
+        "state": "FINALIZADA",
+        "points": 3,
+        "expected": 1,
+        "onboard": 0,
+        "disembarked": 1
+      },
+      {
+        "mode": "PARADA_UNICA",
+        "direction": "IDA",
+        "state": "FINALIZADA",
+        "points": 3,
+        "expected": 1,
+        "onboard": 0,
+        "disembarked": 1
+      },
+      {
+        "mode": "PARADA_UNICA",
+        "direction": "VOLTA",
+        "state": "FINALIZADA",
+        "points": 3,
+        "expected": 1,
+        "onboard": 0,
+        "disembarked": 1
+      },
+      {
+        "mode": "MULTIPLAS_PARADAS",
+        "direction": "IDA",
+        "state": "FINALIZADA",
+        "points": 4,
+        "expected": 1,
+        "onboard": 0,
+        "disembarked": 1
+      },
+      {
+        "mode": "MULTIPLAS_PARADAS",
+        "direction": "VOLTA",
+        "state": "FINALIZADA",
+        "points": 4,
+        "expected": 1,
+        "onboard": 0,
+        "disembarked": 1
+      }
+    ]
+  },
+  "images": [
+    {
+      "file": "01-datas.png",
+      "sha256": "5b47e75f77ac7ca0ae9b6e0a1b0ed878dacfc61a14b422c6321ccdf032eed5b9"
+    },
+    {
+      "file": "02-rascunho-reaberto.png",
+      "sha256": "ee136594026e6a4ce9d4b0fbff17be434417619735c2097be46202925cb7c9ee"
+    },
+    {
+      "file": "03-publicada.png",
+      "sha256": "82c14478bcc5548ae54fd3a1017dd713e27ec57bec36043703691a495bfc27ab"
+    },
+    {
+      "file": "04-campo-com-teclado.png",
+      "sha256": "684f5a9733067ea6fd6578d823b88f4e4c739ac6d0aa37212c44d54cac543394"
+    },
+    {
+      "file": "05-embarque-ida.png",
+      "sha256": "af63c86f3ac54011d1d27995627e2e3a04da55c5c5ce81a53e25218d24f258bb"
+    },
+    {
+      "file": "06-desembarque-ida.png",
+      "sha256": "f8d26ddf17dcc20d9bb7d938c2768759273e12419423d7a4d90fe7023df68846"
+    },
+    {
+      "file": "07-roteiro-volta.png",
+      "sha256": "ff52b678360893392e217f8a274b1a84e32da2aba7b26d9d352afb0f0a6f6bf1"
+    },
+    {
+      "file": "08-execucoes-finalizadas.png",
+      "sha256": "e6de1b2c46cc1650df8fed96c54e4ceea887c18c862e0c54f996535a974c3fa0"
+    },
+    {
+      "file": "09-convites-bloqueados.png",
+      "sha256": "ec6a3411424a9f5205012279c31d624e9d99342940aaee6502e9bc9c9c971822"
+    }
+  ]
+}
