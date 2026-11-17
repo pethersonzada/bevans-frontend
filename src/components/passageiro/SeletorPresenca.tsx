@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    
+
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -13,7 +13,7 @@ import {
 
 import { theme } from '../../styles/theme';
 
-import type { EnderecoPresenca, ConfirmacaoPresenca } from '../../types/presenca';
+import type { ConfirmacaoPresenca, EnderecoPresenca } from '../../types/presenca';
 
 type Props = {
     usaParadasIda?: boolean;
@@ -272,10 +272,10 @@ export function SeletorPresenca({
                     )}
 
                     <TouchableOpacity
-                        style={styles.botaoSecundario}
+                        style={styles.botaoConfirmar}
                         onPress={() => setEditando(true)}
                     >
-                        <Text style={styles.textoSecundario}>
+                        <Text style={styles.textoConfirmar}>
                             Alterar confirmação
                         </Text>
                     </TouchableOpacity>

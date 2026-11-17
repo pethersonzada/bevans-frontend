@@ -2,9 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { filterTurmas } from '../../services/turmaSearch';
 import { theme } from '../../styles/theme';
 import { AsyncState } from '../AsyncState';
-import { filterTurmas } from '../../services/turmaSearch';
 
 import type { Turma } from '../../types/turma';
 
@@ -22,35 +22,28 @@ export function CardsTurmasMotorista({ turmas, turmaSelecionada, onSelecionarTur
 
     return (
         <View style={styles.container}>
+
             <View style={styles.headerRow}>
                 <Text style={styles.sectionTitle}>Minhas turmas</Text>
-                
-                <View style={styles.actionsContainer}>
-                    {turmaSelecionada && (
-                        <TouchableOpacity 
-                            accessibilityRole="button"
-                            accessibilityLabel="Configurações da turma selecionada"
-                            onPress={onEditarTurma} 
-                            style={styles.btnEditar}
-                            activeOpacity={0.7}
-                        >
-                            <Ionicons name="settings-outline" size={18} color={theme.colors.primary} />
-                            <Text style={styles.btnEditarText}>Configurar</Text>
-                        </TouchableOpacity>
-                    )}
-                    
-                    <TouchableOpacity 
+
+                {turmaSelecionada && (
+                    <TouchableOpacity
                         accessibilityRole="button"
-                        accessibilityLabel="Criar turma privada"
-                        onPress={() => router.push('/cadastro-turma' as any)} 
-                        style={styles.btnNova}
+                        accessibilityLabel="Configurações da turma selecionada"
+                        onPress={onEditarTurma}
+                        style={styles.btnEditar}
                         activeOpacity={0.7}
                     >
-                        <Ionicons name="add" size={16} color={theme.colors.surface} />
-                        <Text style={styles.btnNovaText}>Nova Turma</Text>
+                        <Ionicons
+                            name="settings-outline"
+                            size={18}
+                            color={theme.colors.primary}
+                        />
+                        <Text style={styles.btnEditarText}>Configurar</Text>
                     </TouchableOpacity>
-                </View>
+                )}
             </View>
+
 
             {turmas.length > 0 && <TextInput accessibilityLabel="Pesquisar turma pelo nome ou código"
                 style={styles.search} placeholder="Pesquisar turma ou código" placeholderTextColor={theme.colors.textLight}
@@ -66,16 +59,16 @@ export function CardsTurmasMotorista({ turmas, turmaSelecionada, onSelecionarTur
                     message="Confira o código ou pesquise pelo nome. A busca inclui somente suas turmas."
                     actionLabel="Limpar pesquisa" onAction={() => setPesquisa('')} />
             ) : (
-                <ScrollView 
-                    horizontal 
-                    showsHorizontalScrollIndicator={false} 
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.scrollContent}
                 >
                     {resultados.map(t => {
                         const selecionada = turmaSelecionada?.id === t.id;
-                        
-                        const tituloExibicao = t.nome?.trim() 
-                            ? t.nome 
+
+                        const tituloExibicao = t.nome?.trim()
+                            ? t.nome
                             : (t.origemNome && t.destinoNome ? `${t.origemNome} ➔ ${t.destinoNome}` : (t.destinoNome || 'Rota sem nome'));
 
                         return (
@@ -86,15 +79,15 @@ export function CardsTurmasMotorista({ turmas, turmaSelecionada, onSelecionarTur
                                 activeOpacity={0.8}
                             >
                                 <View style={[styles.iconWrapper, selecionada && styles.iconWrapperSelecionada]}>
-                                    <Ionicons 
-                                        name="bus" 
-                                        size={20} 
-                                        color={selecionada ? theme.colors.surface : theme.colors.primary} 
+                                    <Ionicons
+                                        name="bus"
+                                        size={20}
+                                        color={selecionada ? theme.colors.surface : theme.colors.primary}
                                     />
                                 </View>
 
-                                <Text 
-                                    style={[styles.turmaNome, selecionada && styles.turmaNomeSelecionada]} 
+                                <Text
+                                    style={[styles.turmaNome, selecionada && styles.turmaNomeSelecionada]}
                                     numberOfLines={1}
                                 >
                                     {tituloExibicao}
@@ -106,6 +99,25 @@ export function CardsTurmasMotorista({ turmas, turmaSelecionada, onSelecionarTur
                             </TouchableOpacity>
                         );
                     })}
+
+
+                    <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityLabel="Criar nova turma"
+                        onPress={() => router.push('/cadastro-turma')}
+                        style={styles.cardNovaTurma}
+                        activeOpacity={0.8}
+                    >
+                        <Ionicons
+                            name="add"
+                            size={56}
+                            color={theme.colors.primary}
+                        />
+                        <Text style={styles.cardNovaTurmaTexto}>
+                            Nova turma
+                        </Text>
+                    </TouchableOpacity>
+
                 </ScrollView>
             )}
         </View>
@@ -113,9 +125,11 @@ export function CardsTurmasMotorista({ turmas, turmaSelecionada, onSelecionarTur
 }
 
 const styles = StyleSheet.create({
-    search: { minHeight: 48, paddingHorizontal: theme.spacing.md, marginBottom: theme.spacing.sm,
+    search: {
+        minHeight: 48, paddingHorizontal: theme.spacing.md, marginBottom: theme.spacing.sm,
         borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.borderRadius.md,
-        color: theme.colors.text, backgroundColor: theme.colors.surface, fontSize: theme.typography.size.regular },
+        color: theme.colors.text, backgroundColor: theme.colors.surface, fontSize: theme.typography.size.regular
+    },
     container: {
         marginBottom: theme.spacing.lg,
     },
@@ -226,5 +240,24 @@ const styles = StyleSheet.create({
     },
     turmaTurnoSelecionada: {
         color: 'rgba(255, 255, 255, 0.8)',
+    },
+
+    cardNovaTurma: {
+        width: 140,
+        minHeight: 130,
+        backgroundColor: theme.colors.surface,
+        borderRadius: theme.borderRadius.lg,
+        borderWidth: 0.2,
+        borderStyle: 'solid',
+        borderColor: theme.colors.primary,
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 4,
+    },
+
+    cardNovaTurmaTexto: {
+        color: theme.colors.primary,
+        fontSize: 13,
+        fontWeight: '700',
     },
 });

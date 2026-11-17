@@ -1,6 +1,6 @@
 import { AtalhoNotificacoes } from '../components/AtalhoNotificacoes';
 import { useAppAlert } from '../contexts/AppAlertContext';
-import { AtalhosTurma } from '../components/AtalhosTurma';
+import { CardsTurmasPassageiro } from '../components/cards/CardsTurmasPassageiro';
 import { Ionicons } from '@expo/vector-icons';
 import { getCurrentCoordinates } from '../services/location';
 import { useFocusEffect,useRouter } from 'expo-router';
@@ -358,6 +358,27 @@ export default function HomePassageiro() {
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
                 {erroCarga && <AsyncState message={erroCarga} onRetry={refresh} />}
+                {turmasPassageiro.length > 0 && (
+                    <CardsTurmasPassageiro
+                        turmas={turmasPassageiro}
+                        turmaSelecionadaId={turmaSelecionadaId}
+                        onSelecionarTurma={item => {
+                            if (item.id === turmaSelecionadaRef.current) return;
+                            dadosRequestRef.current++;
+                            turmaSelecionadaRef.current = item.id;
+                            setTurmaSelecionadaId(item.id);
+                            setTurma(item);
+                            setConfirmacao(null);
+                            setPosicaoVan(null);
+                            setStatusViagem('CARREGANDO');
+                            setStatusGps('AGUARDANDO');
+                            setErroRadar('');
+                            void carregarDadosSilencioso(item.id);
+                        }}
+                        onEntrarTurma={() => router.push('/entrar-turma')}
+                    />
+                )}
+
                 {!temEndereco && (
                     <TouchableOpacity
                         style={styles.bannerAlerta}
@@ -373,102 +394,6 @@ export default function HomePassageiro() {
                         </View>
                         <Ionicons name="chevron-forward" size={18} color={theme.colors.textLight} />
                     </TouchableOpacity>
-                )}
-
-
-                {turmasPassageiro.length > 0 && (
-                    <View style={{
-                        gap: 10,
-                        padding: theme.spacing.md,
-                        backgroundColor: theme.colors.surface,
-                        borderRadius: theme.borderRadius.lg,
-                        borderWidth: 1,
-                        borderColor: theme.colors.border,
-                    }}>
-                        <Text style={{
-                            fontSize: theme.typography.size.regular,
-                            fontWeight: '700',
-                            color: theme.colors.text,
-                        }}>
-                            Minhas turmas
-                        </Text>
-
-                        <View style={{
-                            flexDirection: 'row',
-                            flexWrap: 'wrap',
-                            gap: 8,
-                        }}>
-                            {turmasPassageiro.map((item: any) => {
-                                const selecionada =
-                                    item.id === turmaSelecionadaId;
-
-                                return (
-                                    <TouchableOpacity
-                                        key={item.id}
-                                        onPress={() => {
-                                            if (selecionada) return;
-
-                                            turmaSelecionadaRef.current =
-                                                item.id;
-
-                                            setTurmaSelecionadaId(item.id);
-                                            setTurma(item);
-                                            setConfirmacao(null);
-                                            setPosicaoVan(null);
-                                            setStatusViagem('CARREGANDO');
-                                            setStatusGps('AGUARDANDO');
-                                            setErroRadar('');
-
-                                            carregarDadosSilencioso(item.id);
-                                        }}
-                                        style={{
-                                            paddingHorizontal: 14,
-                                            paddingVertical: 10,
-                                            borderRadius: 10,
-                                            borderWidth: 1,
-                                            borderColor: selecionada
-                                                ? theme.colors.primary
-                                                : theme.colors.border,
-                                            backgroundColor: selecionada
-                                                ? theme.colors.primary
-                                                : theme.colors.background,
-                                        }}
-                                    >
-                                        <Text style={{
-                                            color: selecionada
-                                                ? '#FFFFFF'
-                                                : theme.colors.text,
-                                            fontWeight: '600',
-                                        }}>
-                                            {item.nome} · {item.turno}
-                                        </Text>
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </View>
-
-                        <TouchableOpacity
-                            onPress={() => router.push('/entrar-turma')}
-                            style={{
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                gap: 6,
-                                paddingVertical: 8,
-                            }}
-                        >
-                            <Ionicons
-                                name="add-circle-outline"
-                                size={19}
-                                color={theme.colors.primary}
-                            />
-                            <Text style={{
-                                color: theme.colors.primary,
-                                fontWeight: '600',
-                            }}>
-                                Entrar em outra turma
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
                 )}
 
 
@@ -547,7 +472,6 @@ export default function HomePassageiro() {
                             </View>
                         )}
 
-                        {turmaSelecionadaId&&<AtalhosTurma key={turmaSelecionadaId} turmaId={turmaSelecionadaId}/>}
                         <PresencaTurma
                             turmaId={turmaSelecionadaId}
                             key={turmaSelecionadaId ?? 'sem-turma'}
