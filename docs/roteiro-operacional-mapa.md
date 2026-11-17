@@ -1,5 +1,7 @@
 # Roteiro operacional no mapa do motorista
 
+Atualização de 17/11: a chegada GPS não conclui mais os pontos. O cache v5 ignora as visitas automáticas da versão v4. Comportamento atual, contrato operacional, novas regressões e pendências estão em [Conclusão explícita das paradas](conclusao-paradas-motorista.md). Os critérios de chegada e o cache descritos abaixo registram a rodada anterior, baseada em `06f7954`.
+
 Validação local em 17/11/2026, na branch `estabilizacao-rotas-mobile-20261116`, PR [#47](https://github.com/pethersonzada/bevans-frontend/pull/47).
 
 Código e testes no commit `38f4795` — Integrar roteiro operacional completo ao mapa e preservar todos os pontos do snapshot.
