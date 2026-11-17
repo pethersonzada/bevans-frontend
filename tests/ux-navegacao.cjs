@@ -6,7 +6,7 @@ const themeExports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync('src
 const nodes=t=>!t||typeof t!=='object'?[]:[t,...[t.props?.children,t.props?.action].flat(Infinity).flatMap(nodes)];
 test('trip shortcut rejects invalid execution identifiers and distinguishes status errors from loading',()=>{
  for(const viagemId of [-1,0,1.5,'7',null,7]){
-  const h=harness('src/components/AtalhosTurma.tsx',{'../hooks/useRemoteResource':{useRemoteResource:()=>({data:{status:'ATIVA',viagemId},error:''})}});
+  const h=harness('src/components/AtalhosTurma.tsx',{'../hooks/useRemoteResource':{useRemoteResource:key=>({data:key===false?null:{status:'ATIVA',viagemId},error:''})}});
   const t=h.render('AtalhosTurma',{turmaId:7});assert.equal(nodes(t).some(n=>n.props?.title==='Acompanhar viagem'),viagemId===7);
  }
  const h=harness('src/components/AtalhosTurma.tsx',{'../hooks/useRemoteResource':{useRemoteResource:()=>({data:null,error:'offline'})}});
@@ -17,6 +17,8 @@ function harness(file,overrides={}){
     const react={useState:initial=>{const i=cursor++;if(!(i in slots))slots[i]=typeof initial==='function'?initial():initial;return [slots[i],v=>slots[i]=typeof v==='function'?v(slots[i]):v];},useRef:value=>{const i=cursor++;return slots[i]??(slots[i]={current:value});},useEffect:(fn,next=[])=>{const i=cursor++;if(!deps[i]||next.some((v,j)=>v!==deps[i][j]))effects.push(()=>{cleanups[i]?.();cleanups[i]=fn();});deps[i]=next;},useCallback:fn=>fn,useContext:()=>({current:false})};
     const paths=[],keys=[],router={push:p=>paths.push(p),back:()=>paths.push('back'),replace:p=>paths.push(p)};
     const mocks={react,'react/jsx-runtime':{jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props})},'react-native':{Platform:{OS:'android'},Text:'Text',View:'View',Switch:'Switch',TextInput:'Input',TouchableOpacity:'Button',Pressable:'Pressable',StyleSheet:{create:x=>x}},'expo-router':{useRouter:()=>router,useLocalSearchParams:()=>({}),useFocusEffect:fn=>react.useEffect(fn,[])},'react-native-safe-area-context':{useSafeAreaInsets:()=>({top:0,bottom:0})},'@react-native-community/netinfo':{useNetInfo:()=>({isConnected:true})},'@expo/vector-icons':{Ionicons:'Icon'},'../components/ui/Primitives':ui,'./ui/Primitives':ui,'../styles/theme':{theme:{colors:{primary:'#14253A',surface:'#fff'}}},'../styles/globalStyles':{globalStyles:{}},'../contexts/AuthContext':{useAuth:()=>({user:{id:'1',tipo:'MOTORISTA'},isLoading:false})},'../hooks/useRemoteResource':{useRemoteResource:key=>{keys.push(key);return {data:null,error:'',reload(){}};}},'../hooks/useNotificacoesRevision':{useNotificacoesRevision:()=>0},'../components/AsyncState':{AsyncState:'Async'},'./AsyncState':{AsyncState:'Async'},'../components/PreferenciaPush':{PreferenciaPush:'Push'},'../services/notificacoes':{},'../config/api':{errorMessage:e=>e.message},'../components/EnderecoMapaPicker':{default:'Map',__esModule:true},'../components/MapaPreviaPublica':{default:'MapPreview',__esModule:true},'../components/PedidosRota':{PedidosRota:'Pedidos'},'../services/rotasPublicas':{},'../services/turmas':{},'../services/viagens':{},'./ContatoProtegido':{ContatoProtegido:'Contact'},'./MapaPreviaPublica':{default:'MapPreview',__esModule:true},'../services/excursoes':{},'../services/convitesCompartilhamento':{onConvitesChanged:()=>()=>{}},'./ExcursaoActionContext':{ExcursaoActionContext:{}},...overrides};
+    mocks['../services/coletaPrivada']={};
+    mocks['../services/mapaExcursao']={pontosSalvosExcursao:()=>[]};
     mocks['../styles/theme']=themeExports;
     for(const [name,value] of Object.entries(mocks))if(name.startsWith('../'))mocks['../'+name]=value;
     const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports,Date,Error,JSON,Number,process:{env:{}},require:name=>{assert.ok(name in mocks,'Unexpected import '+name);return mocks[name];}});
@@ -36,7 +38,7 @@ test('notification preferences stay separate, block network writes offline and k
 });
 test('driver and passenger turma shortcuts expose different destinations',()=>{
     for(const role of ['MOTORISTA','PASSAGEIRO']){
-        const h=harness('src/components/AtalhosTurma.tsx',{'../contexts/AuthContext':{useAuth:()=>({user:{tipo:role}})}});
+        const h=harness('src/components/AtalhosTurma.tsx',{'../contexts/AuthContext':{useAuth:()=>({user:{tipo:role}})},'../hooks/useRemoteResource':{useRemoteResource:key=>({data:String(key).startsWith('atalhos-coleta:')?{ida:{modo:'PARADAS_DEFINIDAS'},volta:{modo:'PORTA_A_PORTA'}}:null,error:''})}});
         const t=h.render('AtalhosTurma',{turmaId:7}),row=nodes(t).find(n=>n.type==='MenuRow');if(role==='MOTORISTA'){assert.equal(row,undefined);continue;}row.props.onPress();
         assert.equal(h.paths[0].pathname,'/coleta-privada');
         assert.equal(h.paths[0].params.turmaId,'7');assert.equal(nodes(t).some(n=>n.props?.title==='Configurações da turma'),role==='MOTORISTA');
