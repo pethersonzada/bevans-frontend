@@ -4,7 +4,7 @@ import { auth } from './firebase';
 export type ApiErrorKind = 'http' | 'network' | 'timeout' | 'aborted' | 'session' | 'invalid-response';
 
 export class ApiError extends Error {
-    constructor(message: string, public readonly kind: ApiErrorKind, public readonly status?: number) {
+    constructor(message: string, public readonly kind: ApiErrorKind, public readonly status?: number, public readonly code?: string) {
         super(message);
         this.name = 'ApiError';
     }
@@ -26,14 +26,17 @@ export async function readApiError(response: Response): Promise<ApiError> {
     const text = await response.text();
     const messages:Record<number,string>={403:'Você não tem permissão para esta operação.',404:'O recurso não está disponível para sua conta.',409:'Os dados mudaram ou há vínculos que impedem esta alteração. Atualize e tente novamente.',503:'O serviço está temporariamente indisponível. Tente novamente em instantes.'};
     let message = messages[response.status] || `Não foi possível concluir a operação (HTTP ${response.status}).`;
+    let code: string | undefined;
     try {
         const body = JSON.parse(text);
-        const detail = body?.erro || body?.message;
+        const detail = body?.erro || body?.message || body?.detail;
+        const codigo = body?.codigo || body?.code;
+        if (typeof codigo === 'string' && codigo.trim()) code = codigo.trim();
         if (typeof detail === 'string' && detail.trim()) message = detail;
     } catch {
         if (text.trim() && !text.trim().startsWith('<')) message = text;
     }
-    return new ApiError(message, 'http', response.status);
+    return new ApiError(message, 'http', response.status, code);
 }
 
 export async function readApiJson<T>(response: Response): Promise<T | null> {

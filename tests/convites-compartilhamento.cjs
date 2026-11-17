@@ -22,7 +22,7 @@ function harness(){
         if(path==='/excursoes/7')return {id:7,titulo:'Evento',versao:1,paradas:[],estado:state.estado,partidaEm:departure};
         throw Error('Unexpected API endpoint '+path);
     }};
-    const excursoes=load('src/services/excursoes.ts',{'../config/api':api,'./catalogo':cat,'./excursaoFormulario':form});
+    const excursoes=load('src/services/excursoes.ts',{'../config/api':api,'./catalogo':cat,'./excursaoFormulario':form,'./mapaExcursao':load('src/services/mapaExcursao.ts',{})});
     const service=load('src/services/convitesCompartilhamento.ts',{'../config/firebase':{auth},'./excursoes':excursoes,'./excursaoFormulario':form});
     service.definirSessaoConvites(auth.currentUser.uid);
     const prepare=(base='https://example.test/convite')=>service.prepararConviteCompartilhamento(7,expiry,departure,base);

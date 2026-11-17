@@ -49,7 +49,6 @@ export default {
       [
         "@rnmapbox/maps",
         {
-          RNMapboxMapsAccessToken: process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN,
           RNMapboxMapsImpl: "mapbox"
         }
       ]

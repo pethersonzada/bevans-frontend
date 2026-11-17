@@ -262,6 +262,16 @@ test('JSON parser accepts empty responses and standardizes HTTP and malformed bo
     assert.ok(!error.message.includes('<html>'));
 });
 
+test('operational HTTP conflicts retain the backend code and message without assuming a version conflict', async () => {
+    const api=apiHarness();
+    for(const code of ['ROTEIRO_INCONSISTENTE','ESTADO_INVALIDO','EXECUCAO_ATIVA','EXECUCAO_EXISTENTE']){
+        const error=await api.readApiError(new Response(JSON.stringify({codigo:code,erro:'Motivo específico retornado pelo servidor.'}),{status:409}));
+        assert.equal(error.code,code);assert.equal(error.status,409);assert.equal(error.message,'Motivo específico retornado pelo servidor.');
+    }
+    const legacy=await api.readApiError(new Response(JSON.stringify({erro:'Planejamento indisponível ou inconsistente; revise a excursão.'}),{status:409}));
+    assert.equal(legacy.code,undefined);assert.match(legacy.message,/Planejamento indisponível/);
+});
+
 test('session profile rejects absent, zero, arbitrary and malformed user IDs and unknown roles', () => {
     const api = apiHarness();
     const { profileToUser } = load('src/services/session.ts', { '../config/api': api });

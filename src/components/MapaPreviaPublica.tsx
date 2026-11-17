@@ -1,28 +1,54 @@
 import MapboxGL from '@rnmapbox/maps';
-import { useEffect, useRef } from 'react';
-import { View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import type { PontoPublico } from '../types/rotaPublica';
+import { coordenadasMapaValidas } from '../services/mapaExcursao';
+import { theme } from '../styles/theme';
 import MapMarker from './MapMarker';
 
-export default function MapaPreviaPublica({ pontos }: { pontos: PontoPublico[] }) {
+const token = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN?.trim() || '';
+// Initialize here too: opening this preview must not depend on another screen.
+if (token) MapboxGL.setAccessToken(token);
+
+export default function MapaPreviaPublica({ pontos }: { pontos: (PontoPublico & {tipo?:string})[] }) {
     const camera=useRef<MapboxGL.Camera>(null);
-    const west=Math.min(...pontos.map(p=>p.longitude)),east=Math.max(...pontos.map(p=>p.longitude));
-    const south=Math.min(...pontos.map(p=>p.latitude)),north=Math.max(...pontos.map(p=>p.latitude));
+    const [estado,setEstado]=useState<'carregando'|'pronto'|'erro'>('carregando');
+    const [tentativa,setTentativa]=useState(0);
+    const carregou=useRef(false);
+    const validos=pontos.filter(p=>coordenadasMapaValidas(p?.latitude,p?.longitude));
+    const west=Math.min(...validos.map(p=>p.longitude)),east=Math.max(...validos.map(p=>p.longitude));
+    const south=Math.min(...validos.map(p=>p.latitude)),north=Math.max(...validos.map(p=>p.latitude));
+    const enquadrar=()=>{
+        if(![west,east,south,north].every(Number.isFinite))return;
+        if(west===east&&south===north)camera.current?.setCamera({centerCoordinate:[west,south],zoomLevel:14,animationDuration:0});
+        else camera.current?.fitBounds([east,north],[west,south],48,0);
+    };
     useEffect(()=>{
-        if(![west,east,south,north].every(Number.isFinite) || (west===east && south===north))return;
-        camera.current?.fitBounds([east,north],[west,south],40,300);
+        if(carregou.current)enquadrar();
     },[west,east,south,north]);
-    if(!pontos.length)return null;
-    const coordinates=pontos.map(p=>[p.longitude,p.latitude]);
-    return <View accessibilityLabel="Mapa da ordem das paradas" style={{height:260}}>
-        <MapboxGL.MapView style={{flex:1}} styleURL={MapboxGL.StyleURL.Dark}>
-            <MapboxGL.Camera ref={camera} centerCoordinate={coordinates[0]} zoomLevel={12}/>
-            {pontos.length>1 && <MapboxGL.ShapeSource id="preview-points" shape={{type:'Feature',properties:{},geometry:{type:'LineString',coordinates}}}>
-                <MapboxGL.LineLayer id="preview-line" style={{lineColor:'#40BFA8',lineWidth:4}}/>
-            </MapboxGL.ShapeSource>}
-            {pontos.map((p,i)=><MapboxGL.PointAnnotation key={String(p.paradaId??`end-${i}`)} id={`preview-${i}`} coordinate={[p.longitude,p.latitude]} title={`${i+1}. ${p.nome}`}>
-                <MapMarker tipo={i===0?'origem':i===pontos.length-1?'destino':'endereco'}/>
-            </MapboxGL.PointAnnotation>)}
-        </MapboxGL.MapView>
+    useEffect(()=>{
+        if(!token||estado!=='carregando')return;
+        const timer=setTimeout(()=>setEstado('erro'),20000);
+        return()=>clearTimeout(timer);
+    },[estado,tentativa]);
+    return <View style={{gap:8}}>
+        <View accessibilityLabel="Mapa da ordem das paradas" style={{height:260,backgroundColor:theme.colors.map.background}}>
+            {token?<MapboxGL.MapView key={tentativa} testID="mapa-previa-nativo" style={{flex:1}} styleURL={MapboxGL.StyleURL.Dark}
+                onDidFinishLoadingMap={()=>{carregou.current=true;setEstado('pronto');enquadrar();}}
+                onDidFinishRenderingMapFully={()=>setEstado('pronto')}
+                onMapLoadingError={()=>setEstado('erro')}>
+                <MapboxGL.Camera ref={camera} defaultSettings={validos[0]?{centerCoordinate:[validos[0].longitude,validos[0].latitude],zoomLevel:12}:{zoomLevel:1}}/>
+                {validos.map((p,i)=><MapboxGL.PointAnnotation key={`${p.paradaId??'extremo'}-${i}`} id={`preview-${i}`} coordinate={[p.longitude,p.latitude]} title={`${i+1}. ${p.nome}`}>
+                    <MapMarker tipo={p.tipo==='ORIGEM'?'origem':p.tipo==='DESTINO'?'destino':p.tipo?'endereco':i===0&&validos.length>1?'origem':i===validos.length-1?'destino':'endereco'}/>
+                </MapboxGL.PointAnnotation>)}
+            </MapboxGL.MapView>:<Text accessibilityRole="alert" style={{color:theme.colors.map.text,padding:16}}>Mapa indisponível: o token do Mapbox não foi configurado neste aplicativo.</Text>}
+            {token&&estado==='carregando'&&<View pointerEvents="none" style={{position:'absolute',top:8,left:8,padding:8,backgroundColor:theme.colors.map.surface,flexDirection:'row',gap:8}}><ActivityIndicator color={theme.colors.primary}/><Text style={{color:theme.colors.map.text}}>Carregando mapa…</Text></View>}
+        </View>
+        {token&&estado==='erro'&&<View style={{gap:8}}>
+            <Text accessibilityRole="alert">Não foi possível renderizar o mapa. Verifique a conexão e tente novamente. O planejamento e os pontos foram preservados.</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Recarregar mapa" onPress={()=>{carregou.current=false;setEstado('carregando');setTentativa(v=>v+1);}} style={{minHeight:48,justifyContent:'center'}}><Text style={{color:theme.colors.primary}}>Recarregar mapa</Text></Pressable>
+        </View>}
+        {validos.length!==pontos.length&&<Text accessibilityRole="alert">Há pontos com coordenadas inválidas. Corrija os locais antes de gerar o roteiro.</Text>}
+        {!validos.length&&<Text>Nenhum ponto com coordenadas válidas para exibir. Adicione ou revise os locais da viagem.</Text>}
     </View>;
 }

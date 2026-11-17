@@ -1,6 +1,7 @@
-import { apiRequest } from '../config/api';
+import { apiFetch, apiRequest, readApiJson } from '../config/api';
 import { validarDatasExcursao, validarValidadeConvite } from './excursaoFormulario';
 import { paginaValida, recursoId, type Pagina } from './catalogo';
+import { validarPontosPlanejamento } from './mapaExcursao';
 export type ParadaExcursao={id:number|null;nome:string;latitude:number;longitude:number;horario:string|null;instrucoes:string|null;pontoConfirmado?:boolean};
 export type Excursao={id:number;titulo:string;destinoNome:string;destinoLatitude:number;destinoLongitude:number;
     origemNome:string|null;origemLatitude:number|null;origemLongitude:number|null;partidaEm:string;retornoEm:string|null;
@@ -63,7 +64,11 @@ export async function convitesExcursao(id:number,signal?:AbortSignal){
     return r.map(c=>({id:c.id,expiraEm:c.expiraEm,revogadoEm:c.revogadoEm??null}));
 }
 export async function revogarConviteExcursao(id:number,conviteId:number){return apiRequest(`/excursoes/${recursoId(id)}/convites/${recursoId(conviteId)}`,{method:'DELETE'});}
-export async function planejarExcursao(id:number,sentido:'IDA'|'VOLTA',otimizar:boolean){
-    const r=await apiRequest<{paradaId:number|null;nome:string;latitude:number;longitude:number}[]>(`/excursoes/${recursoId(id)}/planejamento?sentido=${sentido}&otimizar=${otimizar}`,{method:'POST'});
-    if(!Array.isArray(r))throw new Error('Roteiro indisponível.');return r;
+export async function planejarExcursao(id:number,sentido:'IDA'|'VOLTA',otimizar:boolean,signal?:AbortSignal){
+    const response=await apiFetch(`/excursoes/${recursoId(id)}/planejamento?sentido=${sentido}&otimizar=${otimizar}`,{method:'POST',signal});
+    // Development diagnostics contain no names, coordinates or participant data.
+    if(typeof __DEV__!=='undefined'&&__DEV__)console.info('[ExcursaoPlanejamentoHTTP]',JSON.stringify({sentido,otimizar,status:response.status}));
+    const pontos=validarPontosPlanejamento(await readApiJson<unknown>(response));
+    if(typeof __DEV__!=='undefined'&&__DEV__)console.info('[ExcursaoPlanejamentoPontos]',JSON.stringify({sentido,quantidade:pontos.length,tipos:pontos.map(p=>p.tipo??'SEM_TIPO'),coordenadasValidas:true}));
+    return pontos;
 }

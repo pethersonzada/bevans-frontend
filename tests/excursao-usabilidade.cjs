@@ -9,7 +9,7 @@ test('excursion preview ignores a late response from another excursion and repor
  const p={id:7,secao:'roteiro'};
  let t=h.render('GestaoExcursao',p);find(t,'Ver sequência dos pontos').props.onPress();
  h.render('GestaoExcursao',{...p,id:8});finish([{nome:'Ponto antigo',latitude:-8,longitude:-35}]);await turn();
- t=h.render('GestaoExcursao',{...p,id:8});assert.equal(nodes(t).some(n=>n.type==='MapPreview'),false);
+ t=h.render('GestaoExcursao',{...p,id:8});assert.equal(nodes(t).find(n=>n.type==='MapPreview').props.pontos.length,0);
  find(t,'Ver sequência dos pontos').props.onPress();finish([]);await turn();t=h.render('GestaoExcursao',{...p,id:8});
  assert.ok(JSON.stringify(t).includes('Nenhum ponto retornado'));h.unmount();
 });

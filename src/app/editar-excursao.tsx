@@ -92,7 +92,7 @@ export function TelaExcursao({id,motorista}:{id?:string;motorista:boolean}) {
                             </View>;
                         })}
                     </BlocoViagem>
-                    <GestaoExcursao id={e.id} secao="roteiro" origemConfigurada={e.origemLatitude!=null&&e.origemLongitude!=null} onConfigurarOrigem={()=>edit('Destino')} executados={execucoes.data?.map(v=>v.sentido)}/>
+                    <GestaoExcursao id={e.id} excursao={e} secao="roteiro" origemConfigurada={e.origemLatitude!=null&&e.origemLongitude!=null} onConfigurarOrigem={()=>edit('Destino')} onEditarPontos={()=>edit(e.modoColeta==='PORTA_A_PORTA'?'Destino':'Pontos')} executados={execucoes.data?.map(v=>v.sentido)}/>
                     <AsyncAction variant="danger" title="Cancelar excursão" disabled={offline} confirmMessage="Cancelar esta viagem? A ação afeta as inscrições e não reabre a excursão." action={async()=>{const actual=await acaoExcursao(e.id,'cancelamento',e.versao);await saved(actual.id,actual);}}/>
                 </>}
             </>}
