@@ -1,0 +1,27 @@
+Validação pelo aplicativo nativo no Motorola edge 60 neo, Android 16 (API 36).
+Data: 17/11/2026, America/Sao_Paulo.
+Ambiente configurado no app: development; API HTTPS existente, autorizada pelo usuário.
+O isolamento do banco como homologação não foi confirmado.
+Sem nomes, coordenadas, tokens, e-mails ou dados de passageiros neste registro.
+
+17:52:23 — POST /excursoes/{id}/planejamento?sentido=IDA&otimizar=false
+HTTP 200
+Quantidade de pontos: 4
+Tipos: ORIGEM, COLETA, COLETA, DESTINO
+Coordenadas de todos os pontos: números finitos, latitude [-90,90], longitude
+[-180,180], par diferente de (0,0). Validação executada antes da renderização.
+Mapa com estilo Dark, tiles e marcadores carregados; sem linha de trajeto.
+Excursão consultada já concluída, com execução de IDA persistida.
+
+17:52:49 — POST /excursoes/{id}/planejamento?sentido=VOLTA&otimizar=false
+HTTP 400
+Mensagem: Retorno exige horário de volta e origem operacional configurados.
+O mapa permaneceu montado com os locais salvos, sinalizados como cadastro,
+com origem/destino invertidos; nenhum roteiro de VOLTA foi anunciado como válido.
+
+17:54 — Editar locais da excursão > Ajustar ponto > Mudar posição no mapa
+Picker abriu na parada salva, com pin e descrição existentes.
+Nenhuma alteração foi confirmada ou salva; nenhuma execução foi iniciada.
+
+O HTTP 409 histórico da issue #39 não ocorreu nesta consulta do estado atual.
+409 estruturado e legado foram verificados com respostas simuladas nos testes.
