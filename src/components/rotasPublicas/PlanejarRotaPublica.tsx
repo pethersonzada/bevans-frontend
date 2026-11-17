@@ -29,7 +29,7 @@ export function PlanejarRotaPublica({initial,turmaId,motoristaId,onExit}:{initia
     const [d,setD]=useState(()=>initial?rascunhoDaRota(initial):novoRascunhoRota(turmaId||null));
     const [etapa,setEtapa]=useState<EtapaRota>('Informações'),[vista,setVista]=useState<'planejar'|'gestao'>('planejar');
     const [mapa,setMapa]=useState<Escolha|null>(null),[candidato,setCandidato]=useState<EnderecoEncontrado|null>(null),[selecionado,setSelecionado]=useState<string|null>(null);
-    const [erro,setErro]=useState(''),[mensagem,setMensagem]=useState(''),[busy,setBusy]=useState(false),[sair,setSair]=useState(false),[recarregar,setRecarregar]=useState(false);
+    const [erro,setErro]=useState(''),[mensagem,setMensagem]=useState(''),[busy,setBusy]=useState(false),[sair,setSair]=useState(false),[recarregar,setRecarregar]=useState(false),[conflito,setConflito]=useState(false);
     const [bases,setBases]=useState<Turma[]>([]),[baseErro,setBaseErro]=useState(''),[baseLoading,setBaseLoading]=useState(false),[retry,setRetry]=useState(0);
     const [previa,setPrevia]=useState<PontoPublico[]|null>(null),[confirmarPublicacao,setConfirmarPublicacao]=useState(false),[,render]=useState(0);
     const estado=useRef(estadoEdicaoRota(initial||null)),pending=useRef(false),mounted=useRef(true);
@@ -49,22 +49,23 @@ export function PlanejarRotaPublica({initial,turmaId,motoristaId,onExit}:{initia
     const back=()=>{
         if(pending.current)return;
         if(mapa){setMapa(null);setCandidato(null);return;}
+        if(recarregar){setRecarregar(false);return;}
         if(sair){setSair(false);return;}
         if(vista==='gestao'){setVista('planejar');return;}
         const index=etapasRota.indexOf(etapa);
         if(index>0){setEtapa(etapasRota[index-1]);setErro('');return;}
         leave();
     };
-    useFocusEffect(useCallback(()=>{const sub=BackHandler.addEventListener('hardwareBackPress',()=>{back();return true;});return()=>sub.remove();},[mapa,etapa,vista,dirty,sair,aguardandoConfirmacao]));
+    useFocusEffect(useCallback(()=>{const sub=BackHandler.addEventListener('hardwareBackPress',()=>{back();return true;});return()=>sub.remove();},[mapa,etapa,vista,dirty,sair,recarregar,aguardandoConfirmacao]));
     async function execute(action:()=>Promise<void>) {
         if(pending.current)return;pending.current=true;setBusy(true);setErro('');setMensagem('');
-        try{await action();}catch(e){if(mounted.current)setErro((e as {status?:number}).status===409?'A rota mudou ou há embarques/viagem que impedem esta alteração. Seu rascunho foi preservado. Confira a versão salva.':errorMessage(e));}
+        try{await action();}catch(e){if(mounted.current){setErro(errorMessage(e));if((e as {status?:number}).status===409)setConflito(true);}}
         finally{pending.current=false;if(mounted.current){setBusy(false);render(v=>v+1);}}
     }
     async function persist() {
         await execute(async()=>{
             const saved=await salvarPlanejamentoRota(estado.current,d,()=>mounted.current,()=>{if(mounted.current)render(v=>v+1);});
-            if(!mounted.current)return;setD(rascunhoDaRota(saved));setMensagem('Rota e itinerário salvos. Publicar é uma ação separada.');setVista('gestao');setPrevia(null);
+            if(!mounted.current)return;setD(rascunhoDaRota(saved));setConflito(false);setMensagem('Rota e itinerário salvos. Publicar é uma ação separada.');setVista('gestao');setPrevia(null);
         });
     }
     const openMap=(tipo:Escolha['tipo'],chave?:string)=>{setVista('planejar');setEtapa(tipo==='parada'?'Paradas':'Endereços');setMapa({tipo,chave});setCandidato(null);};
@@ -82,16 +83,19 @@ export function PlanejarRotaPublica({initial,turmaId,motoristaId,onExit}:{initia
     const ordered=<View style={{gap:12}}>{points.map(p=><Pressable key={p.chave} accessibilityRole="button" accessibilityLabel={`Revisar ${p.papel==='parada'?`parada ${p.ordem}`:p.papel}`} onPress={()=>{setSelecionado(p.chave);if(p.papel==='parada'){setEtapa('Paradas');setVista('planejar');}else openMap(p.papel);}} style={[trip.shortcut,selecionado===p.chave&&{borderColor:theme.colors.primary,borderWidth:2}]}><View style={trip.dateBadge}><Text style={trip.label}>{p.papel==='origem'?'O':p.papel==='destino'?'D':p.ordem}</Text></View><Text style={[trip.label,{flex:1}]}>{p.nome}</Text><Ionicons name="chevron-forward" size={20} color={theme.colors.primary}/></Pressable>)}</View>;
     if(mapa){
         const current=mapa.tipo==='parada'?d.paradas.find(p=>p.chaveLocal===mapa.chave):mapa.tipo==='origem'?{nome:d.origemNome,latitude:d.origemLatitude,longitude:d.origemLongitude}:{nome:d.destinoNome,latitude:d.destinoLatitude,longitude:d.destinoLongitude};
-        return <PaginaViagem title={mapa.tipo==='origem'?'Origem da rota':mapa.tipo==='destino'?'Destino da rota':'Ponto de parada'} onBack={back} footer={<><ActionButton title="Usar este ponto" variant="primary" disabled={!candidato||busy} onPress={usePoint}/><ActionButton title="Voltar ao planejamento" onPress={back}/></>}>
+        return <PaginaViagem title={mapa.tipo==='origem'?'Origem da rota':mapa.tipo==='destino'?'Destino da rota':'Ponto de parada'} onBack={back} footer={<ActionButton title="Usar este ponto" variant="primary" disabled={!candidato||busy} onPress={usePoint}/>}>
             <CabecalhoViagem title="Encontre o lugar" subtitle="Pesquise ou marque no mapa. Revise o endereço antes de confirmar."/>
             <View style={{minHeight:520,borderRadius:22,overflow:'hidden'}}><EnderecoMapaPicker localizacaoInicial={current} tipo={mapa.tipo==='parada'?'endereco':mapa.tipo} resolverEndereco={resolverEnderecoExcursao} onChange={setCandidato}/></View>
+            {!candidato&&<Notice>Selecione um lugar e confirme o ponto no mapa para continuar.</Notice>}
+            {!candidato&&<Notice>Selecione um lugar e confirme o ponto no mapa para continuar.</Notice>}
             {candidato&&<DadoViagem icon="location" text={candidato.nome}/>}
         </PaginaViagem>;
     }
     if(sair)return <PaginaViagem title="Seu planejamento" onBack={()=>setSair(false)}><CabecalhoViagem title="Há alterações não salvas" subtitle="O rascunho fica nesta tela enquanto você continua planejando."/><ActionButton title="Continuar planejando" variant="primary" onPress={()=>setSair(false)}/><ActionButton title="Sair e descartar rascunho" variant="danger" onPress={onExit}/></PaginaViagem>;
     const feedback=<>{offline&&<Notice>Sem conexão. Continue planejando; salvar e publicar exigem conexão.</Notice>}{!!erro&&<Notice>{erro}</Notice>}{!!mensagem&&<Notice>{mensagem}</Notice>}{busy&&<RemoteLoading title="Aguardando confirmação do servidor…"/>}{estado.current.parcial&&<Notice>Parte da rota foi salva. Seu rascunho foi preservado e a próxima tentativa usa a mesma rota.</Notice>}{estado.current.incerta&&<Notice>A resposta anterior não foi confirmada. A próxima tentativa fará uma consulta antes de qualquer nova gravação.</Notice>}{estado.current.conferir&&<Notice>A confirmação final do servidor está pendente. Salve novamente para conferir o resultado antes de publicar.</Notice>}</>;
+    if(recarregar&&salva)return <PaginaViagem title="Revisar versão salva" onBack={()=>setRecarregar(false)}>{feedback}<Notice>Carregar a versão do servidor descarta este rascunho. Em caso de falha, suas alterações continuam aqui.</Notice><ActionButton title="Manter meu rascunho" disabled={busy} onPress={()=>setRecarregar(false)}/><ActionButton title="Descartar e carregar versão salva" variant="danger" disabled={busy||offline} onPress={()=>void execute(async()=>{const actual=await buscarRotaPublica(salva.id);if(mounted.current){estado.current=estadoEdicaoRota(actual);setD(rascunhoDaRota(actual));setConflito(false);setRecarregar(false);setPrevia(null);setMensagem('Versão salva carregada.');}})}/></PaginaViagem>;
     if(vista==='gestao'&&salva)return <PaginaViagem title="Sua rota pública" onBack={back}>
-        <CabecalhoViagem title={salva.nome} subtitle={salva.publicada?'Rota publicada':'Salva · ainda não publicada'}/>{feedback}{dirty&&<Notice>Há alterações no seu planejamento. Salve antes de publicar, consultar prévias ou iniciar uma viagem.</Notice>}{summary}{itinerary}{ordered}
+        <CabecalhoViagem title={salva.nome} subtitle={salva.publicada?'Rota publicada':'Salva · ainda não publicada'}/>{feedback}{conflito&&<ActionButton title="Conferir versão do servidor" onPress={()=>setRecarregar(true)}/>} {dirty&&<Notice>Há alterações no seu planejamento. Salve antes de publicar, consultar prévias ou iniciar uma viagem.</Notice>}{summary}{itinerary}{ordered}
         <ActionButton title="Editar planejamento" icon="create-outline" onPress={()=>{setVista('planejar');setEtapa('Informações');}}/>
         <BlocoViagem title="Publicação"><Text style={trip.muted}>Salvar não publica. Se a rota já está publicada, salvar atualiza os dados desse serviço.</Text>
             {confirmarPublicacao&&<Notice>{salva.publicada?'Retirar esta rota do catálogo?':'Disponibilizar esta rota no catálogo para passageiros?'}</Notice>}
@@ -103,7 +107,16 @@ export function PlanejarRotaPublica({initial,turmaId,motoristaId,onExit}:{initia
         <BlocoViagem title="Trajeto salvo">{(['IDA','VOLTA'] as const).map(sentido=><ActionButton key={sentido} title={`${d.modo==='FLEXIVEL'?'Otimizar prévia':'Ver prévia'} de ${sentido==='IDA'?'ida':'volta'}`} disabled={busy||dirty||offline||aguardandoConfirmacao} onPress={()=>void execute(async()=>{const p=await planejarRotaPublica(salva.id,sentido,d.modo==='FLEXIVEL');if(mounted.current)setPrevia(p);})}/>)}
             {previa&&<><Text style={trip.caption}>Prévia do servidor. Não altera as paradas salvas.</Text><MapaItinerario pontos={previa.map((p,i)=>({...p,chave:`previa-${i}`,papel:i===0?'origem':i===previa.length-1?'destino':'parada',ordem:i}))} selecionado={null} onSelect={()=>{}}/></>}
         </BlocoViagem>
-        <BlocoViagem title="Operação e passageiros"><PedidosRota rotaId={salva.id}/>{(['IDA','VOLTA'] as const).map(sentido=><ActionButton key={sentido} title={`Iniciar viagem ${sentido}`} disabled={busy||dirty||offline||aguardandoConfirmacao} onPress={()=>void execute(async()=>{await iniciarViagem(salva.turmaId,sentido);if(mounted.current)router.push({pathname:'/mapa',params:{turmaId:String(salva.turmaId),sentido:sentido.toLowerCase()}});})}/>)}</BlocoViagem>
+        <BlocoViagem title="Operação e passageiros"><PedidosRota rotaId={salva.id}/>
+            {aguardandoConfirmacao&&<Notice>Confirme o salvamento da rota antes de iniciar uma viagem.</Notice>}
+            {(['IDA','VOLTA'] as const).map(sentido=>{
+                const horario=sentido==='IDA'?salva.horarioIda:salva.horarioVolta;
+                return <View key={sentido} style={{gap:6}}>
+                    <ActionButton title={`Iniciar viagem ${sentido}`} disabled={busy||dirty||offline||aguardandoConfirmacao||!horario} onPress={()=>void execute(async()=>{await iniciarViagem(salva.turmaId,sentido);if(mounted.current)router.push({pathname:'/mapa',params:{turmaId:String(salva.turmaId),rotaId:String(salva.id),sentido:sentido.toLowerCase()}});})}/>
+                    {!horario&&<Text style={trip.caption}>Configure e salve o horário de {sentido==='IDA'?'ida':'volta'} para iniciar este trecho.</Text>}
+                </View>;
+            })}
+        </BlocoViagem>
         <ActionButton title="Configurar capacidade" disabled={busy||dirty||aguardandoConfirmacao} onPress={()=>router.push({pathname:'/editar-turma',params:{id:String(salva.turmaId)}})}/><ActionButton title="Voltar às rotas" disabled={busy} onPress={leave}/>
     </PaginaViagem>;
     const index=etapasRota.indexOf(etapa);
@@ -148,7 +161,7 @@ export function PlanejarRotaPublica({initial,turmaId,motoristaId,onExit}:{initia
             <Text style={trip.muted}>Salvar não publica uma nova rota. Uma rota já publicada mantém a publicação ao salvar alterações.</Text>
             {salva&&<ActionButton title="Abrir gestão da versão salva" disabled={busy} onPress={()=>setVista('gestao')}/>}
         </>}
-        {salva&&<ActionButton title="Conferir versão do servidor" disabled={busy} onPress={()=>setRecarregar(true)}/>}
-        {recarregar&&<View style={trip.travelCard}><Notice>Carregar a versão do servidor descarta este rascunho. Em caso de falha, suas alterações continuam aqui.</Notice><ActionButton title="Manter meu rascunho" disabled={busy} onPress={()=>setRecarregar(false)}/><ActionButton title="Descartar e carregar versão salva" variant="danger" disabled={busy} onPress={()=>void execute(async()=>{const actual=await buscarRotaPublica(salva!.id);if(mounted.current){estado.current=estadoEdicaoRota(actual);setD(rascunhoDaRota(actual));setRecarregar(false);setPrevia(null);setMensagem('Versão salva carregada.');}})}/></View>}
+        {salva&&conflito&&<ActionButton title="Conferir versão do servidor" disabled={busy} onPress={()=>setRecarregar(true)}/>}
+
     </PaginaViagem>;
 }

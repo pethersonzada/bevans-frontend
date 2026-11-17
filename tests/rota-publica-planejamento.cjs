@@ -2,8 +2,19 @@ const {test}=require('node:test'),assert=require('node:assert/strict');
 const {harness,nodes,find,fixture,tick,press,input,point}=require('./helpers/rotasPublicas.cjs');
 const SERVICE='src/services/edicaoRotaPublica.ts',PLAN='src/services/itinerarioRotaPublica.ts';
 const clone=v=>JSON.parse(JSON.stringify(v));
+test('public route preserves specific server conflicts instead of replacing them with version errors',async()=>{
+ const h=harness({initial:fixture(),publicas:{publicarRota:async()=>{throw Object.assign(Error('Configure a capacidade antes de publicar.'),{status:409});}}});
+ review(h);press(h,'Abrir gestão da versão salva');press(h,'Publicar rota');press(h,'Confirmar publicação');await tick();
+ assert.ok(JSON.stringify(h.tree()).includes('Configure a capacidade antes de publicar.'));h.unmount();
+});
 function service(options={}){const h=harness(options),p=h.load(PLAN),s=h.load(SERVICE);return {...h,p,s};}
 function review(h){for(let i=0;i<4;i++)press(h,'Continuar');h.tree();}
+test('starting an unscheduled public direction is disabled with a concrete explanation',()=>{
+ const h=harness({initial:fixture()});review(h);press(h,'Abrir gestão da versão salva');
+ assert.equal(find(h.tree(),'Iniciar viagem VOLTA').props.disabled,true);
+ assert.equal(find(h.tree(),'Iniciar viagem IDA').props.disabled,false);
+ assert.ok(JSON.stringify(h.tree()).includes('Configure e salve o horário de '));h.unmount();
+});
 
 test('public route planner reuses excursion layout, headings, progress, cards and footer controls',()=>{
  const h=harness(),t=h.tree(),ui=h.load('src/components/excursoes/ViagemUI.tsx');
@@ -93,10 +104,16 @@ test('unknown creation that is not proven cannot issue another create request',a
  await assert.rejects(h.s.salvarPlanejamentoRota(state,d,()=>true));await assert.rejects(h.s.salvarPlanejamentoRota(state,d,()=>true),/criação anterior/);assert.equal(posts,1);assert.equal(state.incerta,'criacao');h.unmount();
 });
 test('failed server reload does not discard the unsaved edit',async()=>{
- const h=harness({initial:fixture(),publicas:{buscarRotaPublica:async()=>{throw Error('offline');}}});input(h,'Nome da rota','Meu planejamento');press(h,'Conferir versão do servidor');press(h,'Descartar e carregar versão salva');await tick();assert.equal(find(h.tree(),'Nome da rota').props.value,'Meu planejamento');assert.ok(JSON.stringify(h.tree()).includes('offline'));h.unmount();
+ let fail=false;
+ const h=harness({initial:fixture(),publicas:{buscarRotaPublica:async()=>{if(fail)throw Error('offline');return {...h.storage.current,nome:'Outra sessão'};}}});
+ assert.equal(find(h.tree(),'Conferir versão do servidor'),undefined);
+ input(h,'Nome da rota','Meu planejamento');review(h);press(h,'Salvar alterações');await tick();
+ press(h,'Conferir versão do servidor');assert.equal(find(h.tree(),'Continuar'),undefined);assert.equal(find(h.tree(),'Salvar alterações'),undefined);
+ fail=true;press(h,'Descartar e carregar versão salva');await tick();assert.ok(JSON.stringify(h.tree()).includes('offline'));
+ press(h,'Manter meu rascunho');for(let i=0;i<4;i++)press(h,'Etapa anterior');assert.equal(find(h.tree(),'Nome da rota').props.value,'Meu planejamento');h.unmount();
 });
 test('publication detects a changed saved route and never publishes the unreviewed server revision',async()=>{
- const h=harness({initial:fixture()});review(h);press(h,'Abrir gestão da versão salva');press(h,'Publicar rota');h.storage.current={...h.storage.current,nome:'Outra revisão'};press(h,'Confirmar publicação');await tick();assert.equal(h.published.length,0);assert.ok(JSON.stringify(h.tree()).includes('rascunho foi preservado'));h.unmount();
+ const h=harness({initial:fixture()});review(h);press(h,'Abrir gestão da versão salva');press(h,'Publicar rota');h.storage.current={...h.storage.current,nome:'Outra revisão'};press(h,'Confirmar publicação');await tick();assert.equal(h.published.length,0);assert.ok(JSON.stringify(h.tree()).includes('A versão salva mudou'));assert.ok(find(h.tree(),'Conferir versão do servidor'));h.unmount();
 });
 
 test('creation offers only available operational turmas in review and retains the draft on lookup failure',async()=>{

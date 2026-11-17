@@ -4,11 +4,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import MapboxGL from '@rnmapbox/maps';
 import * as Location from 'expo-location';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Linking,
+    ScrollView,
     
     StatusBar,
     StyleSheet,
@@ -19,12 +20,17 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { API_URL } from '../config/config';
-import { apiFetch, readApiJson, readApiError, errorMessage } from '../config/api';
+import { apiFetch, apiRequest, readApiJson, errorMessage } from '../config/api';
 import { AsyncState } from '../components/AsyncState';
 import { withDeadline } from '../services/asyncOperation';
 import { validCoordinates } from '../services/location';
 import { ensureNavigationLocation, NavigationLocationError } from '../services/navigationLocation';
 import { encerrarViagem } from '../services/viagens';
+import { assinaturaRoteiro, chaveCacheRoteiro, pontosParaDirecoes, validarRespostaDirecoes, geometriaCompativel, LIMITE_WAYPOINTS_MAPBOX, type PontoNavegacao, type ExecucaoRoteiro } from '../services/roteiroNavegacao';
+import { consultarRoteiroOperacional } from '../services/roteiroOperacional';
+import { atualizarChegada, chegadaAtual, conferirPainelParadas, impedimentoConclusao, restaurarConclusoes, type ChegadaPonto, type PainelParadas } from '../services/conclusaoParada';
+import { mensagemErroOperacao, rotulosEstado } from '../services/operacoes';
+import { useFocusedPolling } from '../hooks/useFocusedPolling';
 import { createPositionSender } from '../services/telemetria';
 import { theme } from '../styles/theme';
 import { useAuth } from '../contexts/AuthContext';
@@ -35,17 +41,6 @@ import { PainelManobra } from '../components/mapa/PainelManobra';
 
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
 MapboxGL.setAccessToken(MAPBOX_TOKEN);
-
-type PassageiroRota = {
-    id: number;
-    nome: string;
-    rua?: string;
-    numero?: string;
-    bairro?: string;
-    latitude: number;
-    longitude: number;
-    embarcado?: boolean;
-};
 
 type LatLng = {
     latitude: number;
@@ -70,7 +65,7 @@ type Projecao = {
 };
 
 type ParadaNavegacao = {
-    passageiroId: number | null;
+    chave: string;
     nome: string;
     ponto: LatLng;
     indiceRota: number;
@@ -81,29 +76,13 @@ type GeometriaSalva = {
     coordenadas: [number, number][];
     manobras: Manobra[];
     paradas: ParadaNavegacao[];
-    passageirosIds: number[];
-};
-
-const CACHE_KEYS = {
-    garagem: (turmaId: number) => `@bevans:garagem:${turmaId}`,
-    destino: (turmaId: number) => `@bevans:destino:${turmaId}`,
-    rota: (turmaId: number, sentido: string) => `@bevans:rota:${turmaId}:${sentido}`,
-    geometria: (turmaId: number, sentido: string) => `@bevans:geometria:v2:${turmaId}:${sentido}`,
-    visitadas: (turmaId: number, sentido: string) => {
-        const hoje = new Date();
-        const diaLocal = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
-        return `@bevans:visitadas:${turmaId}:${sentido}:${diaLocal}`;
-    },
+    assinatura: string;
+    pendentes: string[];
 };
 
 const RAIO_DESVIO_ROTA_METROS = 80;
-const RAIO_CHEGADA_PARADA_METROS = 30;
-const VELOCIDADE_MAXIMA_CHEGADA_KMH = 18;
-const PRECISAO_MAXIMA_CHEGADA_METROS = 45;
-const LEITURAS_PARA_CHEGADA = 2;
 const DURACAO_ANIMACAO_MS = 1600;
 const JANELA_BUSCA_PROJECAO = 40;
-const LIMITE_WAYPOINTS_MAPBOX = 25;
 const LIMIAR_TEMPO_FORA_ROTA_MS = 6000;
 const COOLDOWN_RECALCULO_MS = 20000;
 
@@ -309,6 +288,7 @@ export default function Mapa() {
     const { sentido, turmaId } = useLocalSearchParams<{
         sentido?: string;
         turmaId?: string;
+        rotaId?: string;
     }>();
 
     const { user } = useAuth();
@@ -323,7 +303,7 @@ export default function Mapa() {
     const [posicaoSuave, setPosicaoSuave] = useState<LatLng | null>(null);
     const [headingAtual, setHeadingAtual] = useState(0);
 
-    const [rota, setRota] = useState<PassageiroRota[]>([]);
+    const [rota, setRota] = useState<PontoNavegacao[]>([]);
 
     const [garagem, setGaragem] = useState<LatLng | null>(null);
     const [destino, setDestino] = useState<LatLng | null>(null);
@@ -348,6 +328,7 @@ export default function Mapa() {
 
     const [online, setOnline] = useState(true);
     const [erroRede, setErroRede] = useState<string | null>(null);
+    const [erroNavegacao, setErroNavegacao] = useState<string | null>(null);
 
     const [foraDaRota, setForaDaRota] = useState(false);
     const [recalculandoRota, setRecalculandoRota] = useState(false);
@@ -368,7 +349,7 @@ export default function Mapa() {
     const manobrasRef = useRef<Manobra[]>([]);
 
     const direcaoAtualRef = useRef<Sentido>(direcaoAtual);
-    const rotaRef = useRef<PassageiroRota[]>([]);
+    const rotaRef = useRef<PontoNavegacao[]>([]);
 
     const garagemRef = useRef<LatLng | null>(null);
     const destinoRef = useRef<LatLng | null>(null);
@@ -390,17 +371,38 @@ export default function Mapa() {
     const ultimaRecalculacaoRef = useRef<number | null>(null);
 
     const turmaIdRef = useRef<number | null>(null);
+    const viagemIdRef = useRef<number | null>(null);
     const publisherRef = useRef<ReturnType<typeof createPositionSender> | null>(null);
     if (!publisherRef.current) publisherRef.current = createPositionSender(user?.id || '', () => ({
         userId: usuarioAtualRef.current, turmaId: turmaIdRef.current, online: onlineRef.current,
         active: viagemAtivaRef.current && !encerrandoRef.current, mounted: montadoRef.current,
     }));
     const paradasRef = useRef<ParadaNavegacao[]>([]);
-    const visitadosRef = useRef<Set<number>>(new Set());
-    const leiturasChegadaRef = useRef(0);
+    const visitadosRef = useRef<Set<string>>(new Set());
+    const execucaoRef = useRef<ExecucaoRoteiro | null>(null);
+    const assinaturaRef = useRef('');
+    const chegadaRef = useRef<ChegadaPonto | null>(null);
+    const [chegada, setChegada] = useState<ChegadaPonto | null>(null);
+    const [painelOperacional, setPainelOperacional] = useState<PainelParadas | null>(null);
+    const [confirmandoParada, setConfirmandoParada] = useState(false);
+    const confirmandoParadaRef = useRef(false);
+    const leituraOperacaoRef = useRef(0);
+    const focadaRef = useRef(false);
+    const [feedbackParada, setFeedbackParada] = useState('');
     const indiceMinimoRef = useRef(0);
     const [proximaParada, setProximaParada] = useState<string | null>(null);
     const [paradasRestantes, setParadasRestantes] = useState(0);
+    const [alturaPainelParada, setAlturaPainelParada] = useState(0);
+
+    useFocusEffect(useCallback(() => {
+        focadaRef.current = true;
+        return () => {
+            focadaRef.current = false;
+            ++leituraOperacaoRef.current;
+            chegadaRef.current = null;
+            setChegada(null);
+        };
+    }, []));
 
 
     useEffect(() => {
@@ -492,12 +494,7 @@ export default function Mapa() {
         const res = await fetchComTimeout(url, {}, 15000);
 
         const data = await readApiJson<any>(res);
-
-        if (data.code !== 'Ok' || !data.routes?.length) {
-            throw new Error(
-                data.message || 'Directions API não retornou rota válida'
-            );
-        }
+        validarRespostaDirecoes(data, pontos.length);
 
         const rotaEscolhida = data.routes[0];
 
@@ -672,18 +669,115 @@ export default function Mapa() {
         paradasRef.current = paradas;
         indiceMinimoRef.current = 0;
         ultimoIndiceProjecaoRef.current = null;
-        leiturasChegadaRef.current = 0;
+        chegadaRef.current = null;
+        setChegada(null);
         setProximaParada(paradas[0]?.nome || null);
         setParadasRestantes(paradas.length);
     }
 
-    async function registrarParadaVisitada(parada: ParadaNavegacao) {
-        if (parada.passageiroId === null || !turmaIdRef.current) return;
-        visitadosRef.current.add(parada.passageiroId);
-        await salvarCache(
-            CACHE_KEYS.visitadas(turmaIdRef.current, direcaoAtualRef.current),
-            Array.from(visitadosRef.current)
+    async function lerPainelAtual(execucao: ExecucaoRoteiro, signal?: AbortSignal): Promise<PainelParadas> {
+        const status = await apiRequest<{ status: string; viagemId: number; sentido: string }>(
+            `/rota/status-atual?turmaId=${execucao.turmaId}`, { signal }
         );
+        if (status?.status !== 'ATIVA' || status.viagemId !== execucao.viagemId || status.sentido !== execucao.sentido) {
+            throw new Error('A execução da viagem mudou. Atualize a navegação antes de concluir.');
+        }
+        const painel = await apiRequest<PainelParadas>(`/operacoes/VIAGEM/${execucao.viagemId}`, { signal });
+        conferirPainelParadas(rotaRef.current, painel, execucao.viagemId, execucao.sentido);
+        return painel;
+    }
+
+    async function atualizarOperacao(signal: AbortSignal) {
+        const execucao = execucaoRef.current;
+        if (!execucao || confirmandoParadaRef.current) return;
+        const leitura = ++leituraOperacaoRef.current;
+        let reconciliando = false;
+        try {
+            const painel = await lerPainelAtual(execucao, signal);
+            if (signal.aborted || !montadoRef.current || execucao !== execucaoRef.current ||
+                leitura !== leituraOperacaoRef.current || confirmandoParadaRef.current) return;
+            setPainelOperacional(painel);
+            const validas = restaurarConclusoes({ confirmacao: 'MOTORISTA', assinatura: assinaturaRef.current,
+                chaves: Array.from(visitadosRef.current) }, assinaturaRef.current, rotaRef.current, painel);
+            if (validas.size !== visitadosRef.current.size) {
+                confirmandoParadaRef.current = true; setConfirmandoParada(true); reconciliando = true;
+                await AsyncStorage.setItem(chaveCacheRoteiro('visitadas', execucao), JSON.stringify({
+                    confirmacao: 'MOTORISTA', assinatura: assinaturaRef.current, chaves: Array.from(validas),
+                }));
+                if (signal.aborted || !montadoRef.current || execucao !== execucaoRef.current || leitura !== leituraOperacaoRef.current) return;
+                visitadosRef.current = validas;
+                chegadaRef.current = null; setChegada(null);
+                setFeedbackParada('Registro operacional alterado. A parada voltou a ficar pendente.');
+                paradasRef.current = [];
+                setGeometriaRota(null);
+                coordenadasRotaRef.current = []; setCoordenadasRota([]);
+                if (posicaoApresentadaRef.current) await carregarGeometriaRota(
+                    rotaRef.current.filter(p => !validas.has(p.chave)), posicaoApresentadaRef.current
+                );
+            }
+        } catch (error) {
+            if (!signal.aborted && montadoRef.current && execucao === execucaoRef.current && leitura === leituraOperacaoRef.current) {
+                setPainelOperacional(null);
+                setFeedbackParada(mensagemErroOperacao(error));
+            }
+        } finally {
+            if (reconciliando) {
+                confirmandoParadaRef.current = false;
+                if (montadoRef.current) setConfirmandoParada(false);
+            }
+        }
+    }
+    useFocusedPolling(atualizarOperacao, 10000, !loading && viagemAtiva && user?.id ? `${user.id}:${viagemIdRef.current}` : false);
+
+    async function registrarParadaVisitada(chave: string) {
+        if (confirmandoParadaRef.current) return;
+        const execucao = execucaoRef.current;
+        const parada = paradasRef.current[0];
+        if (!execucao || !parada || parada.chave !== chave) return;
+        const ponto = rotaRef.current.find(p => p.chave === chave);
+        if (!ponto) return;
+        confirmandoParadaRef.current = true;
+        setConfirmandoParada(true); setFeedbackParada('');
+        const leitura = ++leituraOperacaoRef.current;
+        try {
+            if (!onlineRef.current) throw new Error('Conecte-se para conferir a operação antes de concluir.');
+            if (!chegadaAtual(chegadaRef.current, chave, Date.now())) throw new Error('Aguardando chegada com GPS preciso e recente.');
+            setPainelOperacional(null);
+            const painel = await lerPainelAtual(execucao);
+            if (!montadoRef.current || !focadaRef.current || leitura !== leituraOperacaoRef.current ||
+                execucao !== execucaoRef.current || paradasRef.current[0]?.chave !== chave) return;
+            setPainelOperacional(painel);
+            const impedimento = impedimentoConclusao(ponto, painel);
+            if (impedimento) throw new Error(impedimento);
+            const prefixo = restaurarConclusoes({ confirmacao: 'MOTORISTA', assinatura: assinaturaRef.current,
+                chaves: Array.from(visitadosRef.current) }, assinaturaRef.current, rotaRef.current, painel);
+            if (prefixo.size !== visitadosRef.current.size) throw new Error('Uma parada anterior voltou a ficar pendente. Atualize o controle da viagem.');
+            if (!onlineRef.current || !chegadaAtual(chegadaRef.current, chave, Date.now())) {
+                throw new Error('A conexão ou a chegada mudou durante a consulta. Confira antes de concluir.');
+            }
+            const chaves = [...visitadosRef.current, chave];
+            // Persistência bem-sucedida é necessária: cache de GPS v4 nunca é aceito como conclusão.
+            await AsyncStorage.setItem(chaveCacheRoteiro('visitadas', execucao), JSON.stringify({
+                confirmacao: 'MOTORISTA', assinatura: assinaturaRef.current, chaves,
+            }));
+            if (!montadoRef.current || execucao !== execucaoRef.current || paradasRef.current[0]?.chave !== chave) return;
+            visitadosRef.current = new Set(chaves);
+            const concluida = paradasRef.current.shift()!;
+            indiceMinimoRef.current = Math.min(Math.max(0, coordenadasRotaRef.current.length - 2), concluida.indiceRota);
+            ultimoIndiceProjecaoRef.current = indiceMinimoRef.current;
+            chegadaRef.current = null; setChegada(null);
+            setProximaParada(paradasRef.current[0]?.nome || null);
+            setParadasRestantes(paradasRef.current.length);
+            if (!paradasRef.current.length) {
+                setDistanciaRestante(0); setEtaMinutos(0); setManobraAtual(null);
+            }
+            setFeedbackParada(`Parada concluída: ${ponto.nome}.`);
+        } catch (error) {
+            if (montadoRef.current && execucao === execucaoRef.current) setFeedbackParada(mensagemErroOperacao(error));
+        } finally {
+            confirmandoParadaRef.current = false;
+            if (montadoRef.current) setConfirmandoParada(false);
+        }
     }
 
     async function recalcularRotaAPartirDe(
@@ -703,35 +797,23 @@ export default function Mapa() {
         }
 
         try {
-            const idsPendentes = new Set(
-                paradasRef.current
-                    .filter((p) => p.passageiroId !== null)
-                    .map((p) => p.passageiroId)
-            );
-            const pendentes = rotaRef.current.filter(p => idsPendentes.has(p.id));
-
-            const destinoFinal =
-                direcaoAtualRef.current === 'ida'
-                    ? destinoAtual
-                    : garagemAtual;
-
-            const pontosOrdenados = [
-                origemAtual,
-                ...pendentes,
-                destinoFinal,
-            ];
+            const pendentes = rotaRef.current.filter(p => !visitadosRef.current.has(p.chave));
+            if (!pendentes.length) return;
+            const execucao = execucaoRef.current;
+            const assinatura = assinaturaRef.current;
+            const pontosOrdenados = pontosParaDirecoes(origemAtual, pendentes);
 
             const {
                 routeGeoJSON,
                 coordenadas,
                 manobras: manobrasCalculadas,
-                pontosAjustados,
                 indicesWaypoints,
             } = await buscarRotaMapbox(pontosOrdenados);
 
             if (!montadoRef.current) return;
-            const idsAindaPendentes = new Set(paradasRef.current.map(p => p.passageiroId));
-            if (pendentes.some(p => !idsAindaPendentes.has(p.id))) return;
+            if (execucao !== execucaoRef.current || assinatura !== assinaturaRef.current ||
+                JSON.stringify(pendentes.map(p => p.chave)) !== JSON.stringify(
+                    rotaRef.current.filter(p => !visitadosRef.current.has(p.chave)).map(p => p.chave))) return;
 
             const geoJsonValido = {
                 type: 'FeatureCollection',
@@ -744,38 +826,24 @@ export default function Mapa() {
                 ],
             };
 
-            const paradas: ParadaNavegacao[] = [
-                ...pendentes.map((p, i) => ({
-                    passageiroId: p.id,
-                    nome: p.nome,
-                    ponto: pontosAjustados[i + 1],
-                    indiceRota: indicesWaypoints[i + 1],
-                })),
-                {
-                    passageiroId: null,
-                    nome: 'Destino final',
-                    ponto: pontosAjustados[pontosAjustados.length - 1],
-                    indiceRota: indicesWaypoints[indicesWaypoints.length - 1],
-                },
-            ];
+            const paradas = pendentes.map((p, i) => ({
+                chave: p.chave, nome: p.nome, ponto: { latitude: p.latitude, longitude: p.longitude },
+                indiceRota: indicesWaypoints[i + 1],
+            }));
             aplicarGeometria(geoJsonValido, coordenadas, manobrasCalculadas, paradas);
-            const turmaId = turmaIdRef.current;
-            if (turmaId !== null) {
-                await salvarCache(CACHE_KEYS.geometria(turmaId, direcaoAtualRef.current), {
-                    geoJson: geoJsonValido, coordenadas, manobras: manobrasCalculadas,
-                    paradas, passageirosIds: rotaRef.current.map(p => p.id),
-                } as GeometriaSalva);
-            }
+            if (execucao) await salvarCache(chaveCacheRoteiro('geometria', execucao), {
+                geoJson: geoJsonValido, coordenadas, manobras: manobrasCalculadas,
+                paradas, assinatura, pendentes: pendentes.map(p => p.chave),
+            } as GeometriaSalva);
 
             primeiroTickForaRotaRef.current = null;
 
             setForaDaRota(false);
+            setErroNavegacao(null);
             setErroRede(null);
-        } catch {
+        } catch (error) {
             if (montadoRef.current) {
-                setErroRede(
-                    'Falha ao recalcular a rota automaticamente.'
-                );
+                setErroNavegacao(errorMessage(error, 'Falha ao recalcular a rota automaticamente.'));
             }
         } finally {
             recalculandoRef.current = false;
@@ -795,6 +863,23 @@ export default function Mapa() {
             | null = null;
 
         const iniciarSistema = async () => {
+            // Uma nova tentativa não mantém a geometria ou o progresso de uma consulta anterior.
+            setGaragem(null);
+            setDestino(null);
+            setRota([]);
+            rotaRef.current = [];
+            visitadosRef.current = new Set();
+            assinaturaRef.current = '';
+            setGeometriaRota(null);
+            setCoordenadasRota([]);
+            coordenadasRotaRef.current = [];
+            paradasRef.current = [];
+            setProximaParada(null);
+            setParadasRestantes(0);
+            execucaoRef.current = null;
+            chegadaRef.current = null; setChegada(null);
+            setPainelOperacional(null); setFeedbackParada('');
+            setErroNavegacao(null);
             let direcaoDefinitiva: Sentido =
                 (sentido as Sentido) || 'ida';
 
@@ -844,7 +929,8 @@ export default function Mapa() {
 
             await carregarGaragemERota(
                 direcaoDefinitiva,
-                posicaoInicial
+                posicaoInicial,
+                () => ativo
             );
 
             if (!ativo) return;
@@ -899,32 +985,14 @@ export default function Mapa() {
                             coordenadasRotaRef.current;
 
                         if (coords.length > 1 && paradasRef.current.length > 0) {
-                            let parada = paradasRef.current[0];
-                            const proximaDistancia = distanciaMetros(pontoBruto, parada.ponto);
-                            const precisao = loc.coords.accuracy ?? Infinity;
-                            const chegadaValida =
-                                parada.passageiroId !== null &&
-                                proximaDistancia <= RAIO_CHEGADA_PARADA_METROS &&
-                                precisao <= PRECISAO_MAXIMA_CHEGADA_METROS &&
-                                velocidadeKmh <= VELOCIDADE_MAXIMA_CHEGADA_KMH;
-
-                            leiturasChegadaRef.current = chegadaValida
-                                ? leiturasChegadaRef.current + 1 : 0;
-
-                            if (leiturasChegadaRef.current >= LEITURAS_PARA_CHEGADA) {
-                                const visitada = paradasRef.current.shift();
-                                if (visitada) {
-                                    void registrarParadaVisitada(visitada);
-                                    indiceMinimoRef.current = Math.min(
-                                        Math.max(0, coords.length - 2), visitada.indiceRota
-                                    );
-                                    ultimoIndiceProjecaoRef.current = indiceMinimoRef.current;
-                                }
-                                leiturasChegadaRef.current = 0;
-                                setProximaParada(paradasRef.current[0]?.nome || null);
-                                setParadasRestantes(paradasRef.current.length);
-                                parada = paradasRef.current[0];
-                            }
+                            const parada = paradasRef.current[0];
+                            const novaChegada = focadaRef.current ? atualizarChegada(chegadaRef.current, parada.chave,
+                                distanciaMetros(pontoBruto, parada.ponto), loc.coords.accuracy ?? Infinity,
+                                loc.coords.speed === null || loc.coords.speed === undefined ? Infinity : loc.coords.speed * 3.6,
+                                loc.timestamp, Date.now()) : null;
+                            chegadaRef.current = novaChegada;
+                            setChegada(novaChegada);
+                            // O GPS só indica chegada. Apenas a ação explícita pode remover o próximo ponto.
 
                             const limite = parada
                                 ? Math.max(indiceMinimoRef.current, parada.indiceRota - 1)
@@ -1079,16 +1147,19 @@ export default function Mapa() {
 
             controladoresAtivosRef.current.clear();
         };
-    }, [tentativaInicial]);
+    }, [tentativaInicial, turmaId, sentido, user?.id]);
 
     async function carregarGaragemERota(
         direcaoUsada: Sentido,
-        posicaoInicial: LatLng
+        posicaoInicial: LatLng,
+        vigente: () => boolean
     ) {
         let garagemCarregada: LatLng | null = null;
         let destinoCarregado: LatLng | null = null;
 
-        let rotaCarregada: PassageiroRota[] = [];
+        let rotaCarregada: PontoNavegacao[] = [];
+        let painelCarregado: PainelParadas | null = null;
+
 
         try {
             if (!user?.id) {
@@ -1118,6 +1189,7 @@ export default function Mapa() {
 
             // O contrato do backend exige turmaId. Consulta após localizar as turmas.
             let turmaIdAtiva: number | null = null;
+            let viagemIdAtiva: number | null = null;
             const idSolicitado = turmaId ? Number(turmaId) : null;
             if (idSolicitado !== null && (!Number.isSafeInteger(idSolicitado) || idSolicitado <= 0)) throw new Error('Turma invalida.');
             const candidatas = idSolicitado !== null ? turmas.filter((item: { id: number }) => Number(item.id) === idSolicitado) : turmas;
@@ -1126,14 +1198,14 @@ export default function Mapa() {
                     `${API_URL}/rota/status-atual?turmaId=${turma.id}`,
                     { headers: HEADERS_PADRAO }, 6000
                 );
-                if (!resStatus.ok) continue;
                 const status = await readApiJson<any>(resStatus);
                 if (status?.status === 'ATIVA') {
+                    if (!Number.isSafeInteger(status.viagemId) || status.viagemId <= 0) throw new Error('Viagem ativa sem identificador válido.');
+                    viagemIdAtiva = status.viagemId;
                     turmaIdAtiva = Number(turma.id);
                     const sentidoServidor = String(status.sentido || '').toLowerCase();
-                    if (sentidoServidor === 'ida' || sentidoServidor === 'volta') {
-                        direcaoUsada = sentidoServidor;
-                    }
+                    if (sentidoServidor !== 'ida' && sentidoServidor !== 'volta') throw new Error('Sentido da viagem ativa inválido.');
+                    direcaoUsada = sentidoServidor;
                     break;
                 }
             }
@@ -1143,159 +1215,65 @@ export default function Mapa() {
                 ? turmas.find((t: any) => Number(t.id) === idEscolhido)
                 : null;
 
-            if (!turmaAtual) {
-                throw new Error(
-                    'Turma da viagem ativa não encontrada'
-                );
+            if (!turmaAtual || turmaIdAtiva !== Number(turmaAtual.id) || viagemIdAtiva === null) {
+                throw new Error('Não há viagem ativa confirmada para esta turma.');
             }
+            if (!vigente()) return;
 
             viagemAtivaRef.current = turmaIdAtiva === Number(turmaAtual.id);
             setViagemAtiva(viagemAtivaRef.current);
 
             setTurmaIdAtual(turmaAtual.id);
             turmaIdRef.current = turmaAtual.id;
+            viagemIdRef.current = viagemIdAtiva;
 
-            const visitadasSalvas = await lerCache<number[]>(
-                CACHE_KEYS.visitadas(Number(turmaAtual.id), direcaoUsada)
-            );
-            visitadosRef.current = new Set(visitadasSalvas || []);
-
-            const origemLat = Number(
-                turmaAtual.origemLatitude
-            );
-
-            const origemLng = Number(
-                turmaAtual.origemLongitude
-            );
-
-            if (
-                !Number.isFinite(origemLat) ||
-                !Number.isFinite(origemLng) ||
-                (origemLat === 0 && origemLng === 0)
-            ) {
-                throw new Error(
-                    'Coordenadas de origem da turma inválidas'
+            const controller = new AbortController();
+            controladoresAtivosRef.current.add(controller);
+            try {
+                rotaCarregada = await consultarRoteiroOperacional(viagemIdAtiva, controller.signal);
+                const operacao = await apiRequest<PainelParadas>(
+                    `/operacoes/VIAGEM/${viagemIdAtiva}`, { signal: controller.signal }
                 );
+                conferirPainelParadas(rotaCarregada, operacao, viagemIdAtiva, direcaoUsada.toUpperCase());
+                if (vigente()) setPainelOperacional(operacao);
+                painelCarregado = operacao;
+            } finally {
+                controladoresAtivosRef.current.delete(controller);
             }
-
-            garagemCarregada = {
-                latitude: origemLat,
-                longitude: origemLng,
+            if (!vigente()) return;
+            // Os extremos já representam o sentido desta execução, inclusive na VOLTA.
+            garagemCarregada = rotaCarregada[0];
+            destinoCarregado = rotaCarregada[rotaCarregada.length - 1];
+            const execucao: ExecucaoRoteiro = {
+                usuarioId: user.id, turmaId: Number(turmaAtual.id), viagemId: viagemIdAtiva,
+                sentido: direcaoUsada.toUpperCase() as 'IDA' | 'VOLTA',
             };
-
-            const destinoLat = Number(
-                turmaAtual.destinoLatitude
-            );
-
-            const destinoLng = Number(
-                turmaAtual.destinoLongitude
-            );
-
-            if (
-                !Number.isFinite(destinoLat) ||
-                !Number.isFinite(destinoLng) ||
-                (destinoLat === 0 && destinoLng === 0)
-            ) {
-                throw new Error(
-                    'Coordenadas de destino da turma inválidas'
-                );
-            }
-
-            destinoCarregado = {
-                latitude: destinoLat,
-                longitude: destinoLng,
-            };
-
-            const urlOtimizar =
-                `${API_URL}/rota/otimizar` +
-                `?sentido=${direcaoUsada}&turmaId=${turmaAtual.id}`;
-
-            const resPassageiros = await fetchComTimeout(
-                urlOtimizar,
-                {
-                    headers: HEADERS_PADRAO,
-                }
-            );
-
-            if (!resPassageiros.ok) {
-                const respostaErro = (await readApiError(resPassageiros)).message;
-
-                let mensagem = respostaErro;
-
-                try {
-                    const dados = JSON.parse(respostaErro);
-                    mensagem = dados.erro || dados.message || respostaErro;
-                } catch {
-                    // Mantém a resposta original.
-                }
-
-                throw new Error(`Falha na otimização: ${mensagem}`);
-            }
-
-            const lista = await readApiJson<any>(resPassageiros);
-
-            if (!Array.isArray(lista)) {
-                throw new Error(
-                    'Resposta inválida da otimização de rota'
-                );
-            }
-
-            rotaCarregada = lista
-                .map((p: any) => ({
-                    id: Number(p.id || p.usuarioId),
-                    nome: p.nome || 'Passageiro',
-                    latitude: Number(
-                        p.latitude ?? p.lat ?? 0
-                    ),
-                    longitude: Number(
-                        p.longitude ?? p.lng ?? 0
-                    ),
-                    embarcado: false,
-                }))
-                .filter(
-                    (p: PassageiroRota) =>
-                        Number.isFinite(p.id) &&
-                        Number.isFinite(p.latitude) &&
-                        Number.isFinite(p.longitude) &&
-                        p.latitude !== 0 &&
-                        p.longitude !== 0
-                );
-
-            await salvarCache(
-                CACHE_KEYS.garagem(Number(turmaAtual.id)), garagemCarregada
-            );
-
-            await salvarCache(
-                CACHE_KEYS.destino(Number(turmaAtual.id)), destinoCarregado
-            );
-
-            await salvarCache(
-                CACHE_KEYS.rota(Number(turmaAtual.id), direcaoUsada), rotaCarregada
-            );
+            const assinatura = assinaturaRoteiro(execucao, rotaCarregada);
+            const visitasSalvas = await lerCache(chaveCacheRoteiro('visitadas', execucao));
+            if (!vigente()) return;
+            execucaoRef.current = execucao;
+            assinaturaRef.current = assinatura;
+            if (!painelCarregado) throw new Error('Estado operacional indisponível.');
+            visitadosRef.current = restaurarConclusoes(visitasSalvas, assinatura, rotaCarregada, painelCarregado);
         } catch (e) {
+            if (!vigente()) return;
 
-            const idCache = turmaIdRef.current;
-            if (idCache !== null) {
-                garagemCarregada = await lerCache<LatLng>(CACHE_KEYS.garagem(idCache));
-                destinoCarregado = await lerCache<LatLng>(CACHE_KEYS.destino(idCache));
-                rotaCarregada = (await lerCache<PassageiroRota[]>(
-                    CACHE_KEYS.rota(idCache, direcaoUsada)
-                )) || [];
-            }
-
-            if (montadoRef.current) {
-                setErroRede(
-                    idCache !== null ? 'Falha ao carregar dados. Tentando cache da turma.' : 'Não foi possível identificar a turma. Verifique a conexão.'
-                );
-            }
+            // Nunca navegar com lista de passageiros ou destinos em cache de outra execução.
+            garagemCarregada = null;
+            destinoCarregado = null;
+            rotaCarregada = [];
+            execucaoRef.current = null;
+            assinaturaRef.current = '';
+            visitadosRef.current = new Set();
+            if (montadoRef.current) setErroNavegacao(errorMessage(e));
         }
 
-        if (!montadoRef.current) return;
+        if (!montadoRef.current || !vigente()) return;
 
         if (!garagemCarregada || !destinoCarregado) {
             Alert.alert(
-                'Endereço não cadastrado',
-                'Você precisa configurar a origem e o destino da sua turma para traçar a rota corretamente.'
+                'Navegação indisponível',
+                'Não foi possível confirmar os pontos desta viagem. Atualize a rota antes de navegar.'
             );
 
             setLoading(false);
@@ -1315,103 +1293,43 @@ export default function Mapa() {
         direcaoAtualRef.current = direcaoUsada;
 
         await carregarGeometriaRota(
-            direcaoUsada,
-            garagemCarregada,
-            destinoCarregado,
-            rotaCarregada.filter(p => !visitadosRef.current.has(p.id)),
+            rotaCarregada.filter(p => !visitadosRef.current.has(p.chave)),
             posicaoInicial
         );
 
-        if (montadoRef.current) {
+        if (montadoRef.current && vigente()) {
             setLoading(false);
         }
     }
 
-    async function carregarGeometriaRota(
-        direcaoUsada: Sentido,
-        garagemPonto: LatLng,
-        destinoPonto: LatLng,
-        passageiros: PassageiroRota[],
-        posicaoAtual: LatLng
-    ) {
-        const destinoFinal =
-            direcaoUsada === 'ida'
-                ? destinoPonto
-                : garagemPonto;
-
-        // O backend já retorna os passageiros na ordem otimizada.
-        // Não invertemos novamente a lista na VOLTA.
-        const pontosOrdenados: LatLng[] = [
-            posicaoAtual,
-            ...passageiros,
-            destinoFinal,
-        ];
-
+    async function carregarGeometriaRota(pendentes: PontoNavegacao[], posicaoAtual: LatLng) {
+        const execucao = execucaoRef.current;
+        const assinatura = assinaturaRef.current;
+        if (!execucao || !pendentes.length) return;
         try {
-            const {
-                routeGeoJSON,
-                coordenadas,
-                manobras: manobrasCalculadas,
-                pontosAjustados,
-                indicesWaypoints,
-            } = await buscarRotaMapbox(pontosOrdenados);
-
-            if (!montadoRef.current) return;
-
-            const geoJsonValido = {
-                type: 'FeatureCollection',
-                features: [
-                    {
-                        type: 'Feature',
-                        properties: {},
-                        geometry: routeGeoJSON.geometry,
-                    },
-                ],
-            };
-
-            const paradas: ParadaNavegacao[] = [
-                ...passageiros.map((p, i) => ({
-                    passageiroId: p.id, nome: p.nome,
-                    ponto: pontosAjustados[i + 1], indiceRota: indicesWaypoints[i + 1],
-                })),
-                {
-                    passageiroId: null, nome: 'Destino final',
-                    ponto: pontosAjustados[pontosAjustados.length - 1],
-                    indiceRota: indicesWaypoints[indicesWaypoints.length - 1],
-                },
-            ];
+            const pontosOrdenados = pontosParaDirecoes(posicaoAtual, pendentes);
+            const { routeGeoJSON, coordenadas, manobras: manobrasCalculadas, indicesWaypoints } =
+                await buscarRotaMapbox(pontosOrdenados);
+            if (!montadoRef.current || execucao !== execucaoRef.current) return;
+            const geoJsonValido = { type: 'FeatureCollection', features: [routeGeoJSON] };
+            // A chegada usa o ponto original do snapshot, nunca o snap da rua do Mapbox.
+            const paradas = pendentes.map((p, i) => ({
+                chave: p.chave, nome: p.nome, ponto: { latitude: p.latitude, longitude: p.longitude },
+                indiceRota: indicesWaypoints[i + 1],
+            }));
             aplicarGeometria(geoJsonValido, coordenadas, manobrasCalculadas, paradas);
-            if (turmaIdRef.current !== null) {
-                await salvarCache(CACHE_KEYS.geometria(turmaIdRef.current, direcaoUsada), {
-                    geoJson: geoJsonValido, coordenadas, manobras: manobrasCalculadas,
-                    paradas, passageirosIds: rotaRef.current.map(p => p.id),
-                } as GeometriaSalva);
-            }
-        } catch {
-            if (
-                pontosOrdenados.length >
-                LIMITE_WAYPOINTS_MAPBOX
-            ) {
-                Alert.alert(
-                    'Rota muito extensa',
-                    `Esta rota tem ${pontosOrdenados.length} pontos, acima do limite de ${LIMITE_WAYPOINTS_MAPBOX} da API de direções.`
-                );
-            }
-
-            const turmaId = turmaIdRef.current;
-            const cache = turmaId === null ? null : await lerCache<GeometriaSalva>(
-                CACHE_KEYS.geometria(turmaId, direcaoUsada)
-            );
-            if (!montadoRef.current) return;
-            const idsAtuais = rotaRef.current.map(p => p.id);
-            if (cache &&
-                JSON.stringify(cache.passageirosIds) === JSON.stringify(idsAtuais) &&
-                cache.paradas?.length === passageiros.length + 1 &&
-                cache.coordenadas?.length > 1) {
+            await salvarCache(chaveCacheRoteiro('geometria', execucao), {
+                geoJson: geoJsonValido, coordenadas, manobras: manobrasCalculadas,
+                paradas, assinatura, pendentes: pendentes.map(p => p.chave),
+            } as GeometriaSalva);
+        } catch (error) {
+            const cache = await lerCache<GeometriaSalva>(chaveCacheRoteiro('geometria', execucao));
+            if (!montadoRef.current || execucao !== execucaoRef.current) return;
+            if (cache && geometriaCompativel(cache, assinatura, pendentes)) {
                 aplicarGeometria(cache.geoJson, cache.coordenadas, cache.manobras, cache.paradas);
-                setErroRede('Navegação offline com geometria salva.');
+                setErroNavegacao('Navegação offline com geometria salva para este snapshot.');
             } else {
-                setErroRede('Não foi possível montar a rota. Cache incompatível ou indisponível.');
+                setErroNavegacao(errorMessage(error, 'Não foi possível montar a rota. Cache incompatível ou indisponível.'));
             }
         }
     }
@@ -1484,29 +1402,20 @@ export default function Mapa() {
         }
     }, [posicaoSuave, localizacao]);
 
-    const passageirosGeoJSON = useMemo(
+    const pontosOperacionaisGeoJSON = useMemo(
         () => ({
             type: 'FeatureCollection' as const,
 
             features: rota
-                .filter(
-                    (p) =>
-                        p.latitude &&
-                        p.longitude &&
-                        p.latitude !== 0 &&
-                        p.longitude !== 0
-                )
                 .map((p, index) => ({
                     type: 'Feature' as const,
 
                     properties: {
-                        id: p.id,
-                        label: p.embarcado
-                            ? '✓'
-                            : String(index + 1),
-                        cor: p.embarcado
-                            ? '#10B981'
-                            : '#3B82F6',
+                        id: p.chave,
+                        label: visitadosRef.current.has(p.chave) ? '✓' : String(index + 1),
+                        nome: p.nome, tipo: p.tipo, paradaId: p.paradaId,
+                        passageiros: p.passageiros.map(a => a.nome).join(', '),
+                        cor: visitadosRef.current.has(p.chave) ? '#10B981' : '#3B82F6',
                     },
 
                     geometry: {
@@ -1518,7 +1427,7 @@ export default function Mapa() {
                     },
                 })),
         }),
-        [rota]
+        [rota, paradasRestantes]
     );
 
     let geometriaPercorrida: any = null;
@@ -1573,10 +1482,10 @@ export default function Mapa() {
         );
     }
 
-    if (!garagem || !destino) {
+    if (!garagem || !destino || (!geometriaRota && rota.length > visitadosRef.current.size)) {
         return (
             <View style={styles.loadingContainer}>
-                <AsyncState appearance="map" title="Navegação indisponível" message={erroRede || 'Não foi possível carregar a origem e o destino da rota.'}
+                <AsyncState appearance="map" title="Navegação indisponível" message={erroNavegacao || erroRede || 'Não foi possível carregar a origem e o destino da rota.'}
                     onRetry={() => { setErroRede(null); setLoading(true); setTentativaInicial(value => value + 1); }} />
                 {localizacaoBloqueada && <TouchableOpacity accessibilityRole="button" style={{ minHeight: 48, justifyContent: 'center' }}
                     onPress={() => { void Linking.openSettings().catch(error => Alert.alert('Erro', errorMessage(error))); }}>
@@ -1592,6 +1501,9 @@ export default function Mapa() {
 
     const posicaoExibida =
         posicaoSuave || localizacao;
+    const proximoPonto = rota.find(p => p.chave === paradasRef.current[0]?.chave);
+    const impedimento = proximoPonto ? impedimentoConclusao(proximoPonto, painelOperacional) : null;
+    const podeConcluir = !!proximoPonto && chegadaAtual(chegada, proximoPonto.chave, Date.now()) && !impedimento && online;
 
     return (
         <View style={styles.fullScreenContainer}>
@@ -1662,7 +1574,7 @@ export default function Mapa() {
                         automaticamente...
                     </Text>
                 </View>
-            ) : erroRede ? (
+            ) : (erroNavegacao || erroRede) ? (
                 <View
                     style={[
                         styles.bannerNotificacao,
@@ -1679,7 +1591,7 @@ export default function Mapa() {
                             { color: '#60A5FA' },
                         ]}
                     >
-                        {erroRede}
+                        {erroNavegacao || erroRede}
                     </Text>
                 </View>
             ) : null}
@@ -1838,11 +1750,11 @@ export default function Mapa() {
                 </MapboxGL.PointAnnotation>
 
                 <MapboxGL.ShapeSource
-                    id="passageirosSource"
-                    shape={passageirosGeoJSON}
+                    id="pontosOperacionaisSource"
+                    shape={pontosOperacionaisGeoJSON}
                 >
                     <MapboxGL.CircleLayer
-                        id="passageirosCirculo"
+                        id="pontosOperacionaisCirculo"
                         style={{
                             circleRadius: 14,
                             circleColor: ['get', 'cor'],
@@ -1852,7 +1764,7 @@ export default function Mapa() {
                     />
 
                     <MapboxGL.SymbolLayer
-                        id="passageirosLabel"
+                        id="pontosOperacionaisLabel"
                         style={{
                             textField: ['get', 'label'],
                             textSize: 12,
@@ -1869,10 +1781,12 @@ export default function Mapa() {
                 style={[
                     styles.locateButton,
                     {
-                        bottom: insets.bottom + 170,
+                        bottom: insets.bottom + 128 + alturaPainelParada,
                     },
                 ]}
                 onPress={centralizarNaVan}
+                accessibilityRole="button"
+                accessibilityLabel="Centralizar na van"
                 activeOpacity={0.8}
             >
                 <Ionicons
@@ -1882,12 +1796,45 @@ export default function Mapa() {
                 />
             </TouchableOpacity>
 
-            {proximaParada && (
-                <View style={[styles.proximaParadaBox, { bottom: insets.bottom + 116 }]}>
-                    <Text style={styles.proximaParadaTexto} numberOfLines={1}>
+            {(proximaParada || feedbackParada) && (
+                <ScrollView style={[styles.proximaParadaBox, { bottom: insets.bottom + 116 }]} contentContainerStyle={{ gap: 8, paddingBottom: 12 }}
+                    onLayout={event => setAlturaPainelParada(event.nativeEvent.layout.height)}>
+                    {proximaParada && <Text style={styles.proximaParadaTexto} accessibilityRole="header">
                         Próxima parada: {proximaParada} ({paradasRestantes} restantes)
-                    </Text>
-                </View>
+                    </Text>}
+                    {proximoPonto && <Text style={styles.proximaParadaTexto}>
+                        {proximoPonto.passageiros.length
+                            ? `Passageiros (${proximoPonto.passageiros.length}): ${proximoPonto.passageiros.map(a => a.nome).join(', ')}`
+                            : 'Sem passageiros previstos neste ponto'}
+                    </Text>}
+                    {proximoPonto && <>
+                        <Text style={styles.proximaParadaTexto} accessibilityLiveRegion="polite">
+                            {chegada?.chave === proximoPonto.chave && chegadaAtual(chegada, proximoPonto.chave, Date.now())
+                                ? 'Chegou ao ponto · aguardando conclusão do motorista'
+                                : chegada?.chave === proximoPonto.chave && chegada.situacao === 'PROXIMO'
+                                    ? 'Próximo da parada' : 'Aguardando chegada com GPS preciso'}
+                        </Text>
+                        {proximoPonto.passageiros.map(p => <Text key={p.id} style={styles.proximaParadaTexto}>
+                            {p.nome}: {painelOperacional ? rotulosEstado[painelOperacional.registros.find(r => r.alunoId === p.id)!.estado] : 'Estado indisponível'}
+                        </Text>)}
+                        {!!impedimento && <Text style={styles.proximaParadaTexto}>{impedimento}</Text>}
+                        {(proximoPonto.passageiros.length > 0 || proximoPonto.tipo === 'DESTINO') && <TouchableOpacity
+                            accessibilityRole="button" accessibilityLabel="Controle de embarque" disabled={confirmandoParada}
+                            style={styles.acaoParada} onPress={() => {
+                                if (!execucaoRef.current || confirmandoParadaRef.current) return;
+                                chegadaRef.current = null; setChegada(null);
+                                router.push({ pathname: '/controle-viagem', params: { tipo: 'VIAGEM', id: String(execucaoRef.current.viagemId) } });
+                            }}><Text style={styles.proximaParadaTexto}>Controle de embarque</Text></TouchableOpacity>}
+                        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Concluir parada"
+                            accessibilityState={{ disabled: !podeConcluir || confirmandoParada, busy: confirmandoParada }}
+                            disabled={!podeConcluir || confirmandoParada}
+                            style={[styles.acaoParada, (!podeConcluir || confirmandoParada) && { opacity: 0.45 }]}
+                            onPress={() => void registrarParadaVisitada(proximoPonto.chave)}>
+                            <Text style={styles.proximaParadaTexto}>{confirmandoParada ? 'Conferindo operação…' : 'Concluir parada'}</Text>
+                        </TouchableOpacity>
+                    </>}
+                    {!!feedbackParada && <Text style={styles.proximaParadaTexto} accessibilityLiveRegion="polite">{feedbackParada}</Text>}
+                </ScrollView>
             )}
 
             <ControlesViagem
@@ -1981,7 +1928,10 @@ const styles = StyleSheet.create({
         position: 'absolute', left: theme.spacing.md, right: theme.spacing.md,
         backgroundColor: '#0F172A', borderRadius: 10, padding: 10,
         zIndex: 10, borderWidth: 1, borderColor: '#00D2FF',
+        maxHeight: '38%',
     },
+    acaoParada: { minHeight: 48, padding: 10, justifyContent: 'center', alignItems: 'center',
+        backgroundColor: '#1E293B', borderRadius: 8, borderWidth: 1, borderColor: '#00D2FF' },
     proximaParadaTexto: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
     locateButton: {
         position: 'absolute',

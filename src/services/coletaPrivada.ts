@@ -1,6 +1,6 @@
 import { apiRequest } from '../config/api';
 import { recursoId } from './catalogo';
-export type ParadaPrivada={id:number|null;nome:string;latitude:number;longitude:number;horario:string|null};
+export type ParadaPrivada={id:number|null;nome:string;latitude:number;longitude:number;horario:string|null;ordem?:number};
 export type ColetaPrivada={turmaId:number;sentido:string;modo:'PORTA_A_PORTA'|'PARADAS_DEFINIDAS';versao:number;paradas:ParadaPrivada[];escolhidaId:number|null;sugestao:{parada:ParadaPrivada;distanciaMetros:number;metodo:string}|null;viagemId:number|null};
 function prefixo(id:string,sentido:string){if(!['IDA','VOLTA'].includes(sentido))throw new Error('Sentido inválido.');return `/turmas/${recursoId(id)}/coleta/${sentido}`;}
 export async function consultarColetaPrivada(id:string,sentido:string,enderecoId:string,signal?:AbortSignal){

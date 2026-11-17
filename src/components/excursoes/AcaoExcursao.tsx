@@ -12,7 +12,7 @@ export function AsyncAction({title,action,confirmMessage,disabled=false,variant=
             if(disabled||pending.current||lock?.current)return;
             if(confirmMessage&&!confirmar){setConfirmar(true);return;}
             pending.current=true;if(lock)lock.current=true;setBusy(true);setError('');
-            void action().catch(e=>{if(mounted.current)setError(e?.status===409?'A viagem mudou ou esta ação está bloqueada. Seu planejamento foi preservado. Atualize a versão salva para revisar.':errorMessage(e));})
+            void action().catch(e=>{if(mounted.current)setError(errorMessage(e));})
                 .finally(()=>{pending.current=false;if(lock)lock.current=false;if(mounted.current){setBusy(false);setConfirmar(false);}});
         }}/>
         {confirmar&&<ActionButton title="Cancelar ação" disabled={busy} onPress={()=>setConfirmar(false)}/>}

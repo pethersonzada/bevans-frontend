@@ -74,11 +74,22 @@ export default function HomePassageiro() {
         const subscription=AppState.addEventListener('change',state=>{if(state!=='active')clear();});
         return()=>{subscription.remove();clear();};
     },[]));
-    const [statusViagem, setStatusViagem] = useState('INATIVA');
-    const [statusGps, setStatusGps] = useState('GARAGEM');
+    const [statusViagem, setStatusViagem] = useState('CARREGANDO');
+    const [statusGps, setStatusGps] = useState('AGUARDANDO');
+    const [erroRadar, setErroRadar] = useState('');
 
     const [turma, setTurma] = useState<any>(null);
     const [enderecos, setEnderecos] = useState<any[]>([]);
+    useEffect(() => {
+        primeiraCarga.current = true;
+        gpsSolicitadoRef.current = false;
+        turmaSelecionadaRef.current = null;
+        setTurmaSelecionadaId(null); setTurma(null); setTurmasPassageiro([]);
+        setConfirmacao(null); setEnderecos([]); setMinhaLocalizacao(null);
+        setPosicaoVan(null); setStatusViagem('CARREGANDO'); setStatusGps('AGUARDANDO');
+        setErroRadar(''); setLoading(true);
+        return () => { dadosRequestRef.current++; gpsController.current?.abort(); if(gpsExpiryTimer.current)clearTimeout(gpsExpiryTimer.current); };
+    }, [user?.id]);
 
     const buscarLocalizacaoPassageiro = useCallback(async () => {
         gpsController.current?.abort();
@@ -151,17 +162,6 @@ export default function HomePassageiro() {
                 const turmaAtualId =
                     turmaAtual?.id ?? null;
 
-                // Descarta dados de outra turma se a seleção
-                // mudou durante a requisição.
-                if (
-                    turmaPreferidaId === undefined &&
-                    turmaSelecionadaRef.current !== null &&
-                    turmaAtualId !==
-                    turmaSelecionadaRef.current
-                ) {
-                    return null;
-                }
-
                 turmaSelecionadaRef.current = turmaAtualId;
                 setTurmaSelecionadaId(turmaAtualId);
                 setTurma(turmaAtual);
@@ -221,12 +221,13 @@ export default function HomePassageiro() {
             if (signal.aborted || turmaSelecionadaRef.current !== turmaId) return;
             setStatusViagem(radar.status);
             setStatusGps(radar.gps);
+            setErroRadar('');
             if(gpsExpiryTimer.current)clearTimeout(gpsExpiryTimer.current);
             if(radar.position)gpsExpiryTimer.current=setTimeout(()=>{setPosicaoVan(null);setStatusGps('AGUARDANDO');},Math.max(0,radar.position.expiresAt-Date.now()));
             setPosicaoVan(previous => previous?.latitude === radar.position?.latitude && previous?.longitude === radar.position?.longitude ? previous : radar.position);
 
         } catch (error) {
-            if (!signal.aborted) {setStatusGps('AGUARDANDO');setPosicaoVan(null);}
+            if (!signal.aborted && turmaSelecionadaRef.current === turmaId) {setStatusViagem('INDETERMINADO');setStatusGps('AGUARDANDO');setPosicaoVan(null);setErroRadar(errorMessage(error));}
         }
     }, 10000, pollingKey);
 
@@ -414,8 +415,9 @@ export default function HomePassageiro() {
                                             setTurma(item);
                                             setConfirmacao(null);
                                             setPosicaoVan(null);
-                                            setStatusViagem('INATIVA');
-                                            setStatusGps('GARAGEM');
+                                            setStatusViagem('CARREGANDO');
+                                            setStatusGps('AGUARDANDO');
+                                            setErroRadar('');
 
                                             carregarDadosSilencioso(item.id);
                                         }}
@@ -494,7 +496,11 @@ export default function HomePassageiro() {
                         </View>
 
                         <View style={styles.radarCard}>
-                            {statusViagem === 'INATIVA' ? (
+                            {statusViagem === 'CARREGANDO' ? (
+                                <AsyncState loading title="Consultando a viagem" message="Verificando o estado atual da van." />
+                            ) : statusViagem === 'INDETERMINADO' ? (
+                                <AsyncState title="Estado da viagem indisponível" message={erroRadar || 'Aguardando uma resposta válida do servidor.'} />
+                            ) : statusViagem === 'INATIVA' ? (
                                 <View style={styles.cadeadoBox}>
                                     <View style={styles.busIconContainer}>
                                         <Ionicons name="bus-outline" size={36} color={theme.colors.textLight} />
@@ -502,11 +508,11 @@ export default function HomePassageiro() {
                                     <Text style={styles.cadeadoTitulo}>A van está na garagem</Text>
                                     <Text style={styles.cadeadoSubtitulo}>O radar será ativado quando a viagem começar.</Text>
                                 </View>
-                            ) : centroMapa ? (
+                            ) : centroMapa && posicaoVan ? (
                                 <MapaRadarPassageiro centroMapa={centroMapa} minhaLocalizacao={minhaLocalizacao} posicaoVan={posicaoVan} />
                             ) : (
                                 <View style={styles.center}>
-                                    <AsyncState status="empty" title="Localização indisponível" message="Aguardando uma localização válida. O radar tenta atualizar automaticamente." />
+                                    <AsyncState status="empty" title="Viagem em andamento; localização indisponível" message="Aguardando uma localização recente da van. O radar tenta atualizar automaticamente." />
                                 </View>
                             )}
                         </View>

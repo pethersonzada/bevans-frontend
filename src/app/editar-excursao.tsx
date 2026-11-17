@@ -59,6 +59,7 @@ export function TelaExcursao({id,motorista}:{id?:string;motorista:boolean}) {
     const e=snapshot;
     const offline=network.isConnected===false||network.isInternetReachable===false;
     const active=execucoes.data?.find(v=>v.estado==='EM_ANDAMENTO');
+    const idaFinalizada=execucoes.data?.some(v=>v.sentido==='IDA'&&v.estado==='FINALIZADA')===true;
     if(!motorista)return <PaginaViagem title="Excursão" onBack={()=>router.back()}><AsyncState message="A gestão exige perfil de motorista."/></PaginaViagem>;
     return <ExcursaoActionContext.Provider value={lock}>
         {(e||!id)&&<PlanejarExcursao key={revision} initial={e||undefined} visible={vista==='planejar'} initialMoment={momento} command={command} latestVersion={resource.data?.versao} onClose={back} onPersisted={updateSaved} onSaved={saved} onDirty={onDirty} locked={locked}/>}
@@ -76,8 +77,22 @@ export function TelaExcursao({id,motorista}:{id?:string;motorista:boolean}) {
                     {!!execucoes.error&&<AsyncState message={execucoes.error} onRetry={execucoes.reload}/>}
                     {!execucoes.data&&!execucoes.error&&<RemoteLoading/>}
                     {execucoes.data?.map(v=><View key={v.id} style={trip.travelCard}><Text style={trip.eyebrow}>{v.sentido==='IDA'?'Ida':'Volta'}</Text><Text style={trip.sectionTitle}>{v.estado==='EM_ANDAMENTO'?'Em andamento':v.estado==='FINALIZADA'?'Finalizada':'Cancelada'}</Text><ActionButton variant={v.estado==='EM_ANDAMENTO'?'primary':'secondary'} title="Controle de embarque" onPress={()=>router.push({pathname:'/controle-viagem',params:{tipo:'EXCURSAO',id:String(v.id)}})}/>{v.estado==='EM_ANDAMENTO'&&<AsyncAction variant="secondary" title="Finalizar execução" confirmMessage="Encerrar esta execução? Confirme os desembarques reais antes de finalizar." action={async()=>{await finalizarExcursao(e.id,v.id);resource.reload();execucoes.reload();}}/>}</View>)}
-                    <BlocoViagem title="Iniciar um trecho">{(['IDA','VOLTA'] as const).map(sentido=><AsyncAction key={sentido} title={`Iniciar execução ${sentido}`} disabled={offline||dirty} confirmMessage="Iniciar com os participantes confirmados? A execução bloqueia alterações dos embarques." action={async()=>{await iniciarExcursao(e.id,sentido);resource.reload();execucoes.reload();}}/>)}</BlocoViagem>
-                    <GestaoExcursao id={e.id} secao="roteiro"/>
+                    <BlocoViagem title="Iniciar um trecho">
+                        {e.estado!=='PUBLICADA'&&<Notice>Publique a excursão antes de iniciar. O roteiro pode ser conferido abaixo.</Notice>}
+                        {active&&<Notice>Há uma execução em andamento. Finalize-a e registre os desembarques antes de iniciar outro trecho.</Notice>}
+                        {(['IDA','VOLTA'] as const).map(sentido=>{
+                            const jaExecutada=execucoes.data?.some(v=>v.sentido===sentido)===true;
+                            const faltaOrigem=sentido==='VOLTA'&&(e.retornoEm==null||e.origemLatitude==null||e.origemLongitude==null);
+                            const faltaIda=sentido==='VOLTA'&&!idaFinalizada;
+                            const permitido=!!execucoes.data&&!active&&!jaExecutada&&!faltaOrigem&&!faltaIda&&e.estado==='PUBLICADA';
+                            const motivo=!execucoes.data?'Aguardando o estado da execução.':jaExecutada?'Este trecho já foi iniciado ou encerrado.':faltaIda?'Finalize a ida antes da volta.':faltaOrigem?'Configure a origem e o horário de retorno.':null;
+                            return <View key={sentido} style={{gap:6}}>
+                                <AsyncAction title={`Iniciar execução ${sentido}`} disabled={offline||dirty||!permitido} confirmMessage="Iniciar com os participantes confirmados? A execução bloqueia alterações dos embarques." action={async()=>{await iniciarExcursao(e.id,sentido);resource.reload();execucoes.reload();}}/>
+                                {motivo&&<Text style={trip.caption}>{motivo}</Text>}
+                            </View>;
+                        })}
+                    </BlocoViagem>
+                    <GestaoExcursao id={e.id} secao="roteiro" origemConfigurada={e.origemLatitude!=null&&e.origemLongitude!=null} onConfigurarOrigem={()=>edit('Destino')} executados={execucoes.data?.map(v=>v.sentido)}/>
                     <AsyncAction variant="danger" title="Cancelar excursão" disabled={offline} confirmMessage="Cancelar esta viagem? A ação afeta as inscrições e não reabre a excursão." action={async()=>{const actual=await acaoExcursao(e.id,'cancelamento',e.versao);await saved(actual.id,actual);}}/>
                 </>}
             </>}
