@@ -1,5 +1,7 @@
 # Estabilização das rotas para 18/11/2026
 
+Atualização de 17/11: a montagem do mapa foi substituída pelo snapshot completo de `/operacoes/VIAGEM/{viagemId}/roteiro`, conforme o backend `2396d3c`. Contrato, testes, cache e bloqueios atuais estão em [Roteiro operacional no mapa](roteiro-operacional-mapa.md). As referências a `/rota/otimizar` abaixo descrevem a validação anterior.
+
 ## Correções adicionais na PR #47
 
 - O mapa bloqueia pontos obrigatórios inválidos em vez de removê-los silenciosamente.
