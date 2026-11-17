@@ -11,7 +11,7 @@ import { ActionButton, AtalhoViagem, BlocoViagem, CabecalhoViagem, DadoViagem, E
 import { nomeLocalExibicao, nomeLocalGenerico, resolverEnderecoExcursao } from '../../services/enderecoReversoExcursao';
 import { listarTurmasMotorista } from '../../services/turmas';
 import { buscarRotaPublica, listarMinhasRotas, planejarRotaPublica, publicarRota } from '../../services/rotasPublicas';
-import { iniciarViagem } from '../../services/viagens';
+import { iniciarViagemPublica } from '../../services/viagens';
 import { estadoEdicaoRota, salvarPlanejamentoRota } from '../../services/edicaoRotaPublica';
 import { dadosParaApi, diasRota, etapasRota, mesmaVersaoVisivel, mesmosDados, mesmasParadas, novoRascunhoRota, paradaLocal, paradasParaApi, pontosItinerario, rascunhoDaRota, reordenarParada, validarEtapaRota, type EtapaRota, type RascunhoRota } from '../../services/itinerarioRotaPublica';
 import type { EnderecoEncontrado } from '../../services/enderecoSearch';
@@ -112,7 +112,7 @@ export function PlanejarRotaPublica({initial,turmaId,motoristaId,onExit}:{initia
             {(['IDA','VOLTA'] as const).map(sentido=>{
                 const horario=sentido==='IDA'?salva.horarioIda:salva.horarioVolta;
                 return <View key={sentido} style={{gap:6}}>
-                    <ActionButton title={`Iniciar viagem ${sentido}`} disabled={busy||dirty||offline||aguardandoConfirmacao||!horario} onPress={()=>void execute(async()=>{await iniciarViagem(salva.turmaId,sentido);if(mounted.current)router.push({pathname:'/mapa',params:{turmaId:String(salva.turmaId),rotaId:String(salva.id),sentido:sentido.toLowerCase()}});})}/>
+                    <ActionButton title={`Iniciar viagem ${sentido}`} disabled={busy||dirty||offline||aguardandoConfirmacao||!horario} onPress={()=>void execute(async()=>{await iniciarViagemPublica(salva.id,sentido);if(mounted.current)router.push({pathname:'/mapa',params:{turmaId:String(salva.turmaId),rotaId:String(salva.id),sentido:sentido.toLowerCase()}});})}/>
                     {!horario&&<Text style={trip.caption}>Configure e salve o horário de {sentido==='IDA'?'ida':'volta'} para iniciar este trecho.</Text>}
                 </View>;
             })}

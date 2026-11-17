@@ -669,7 +669,7 @@ test('trip requests send only the backend contract and distinguish 400 from conf
     } }, { URLSearchParams });
     await service.iniciarViagem(7, 'IDA');
     await service.encerrarViagem(7);
-    assert.deepEqual(JSON.parse(calls[0].body), { turmaId: 7, sentido: 'IDA' });
+    assert.deepEqual(JSON.parse(calls[0].body), { turmaId: 7, sentido: 'IDA', modalidade: 'PRIVADA' });
     assert.equal(calls[1].path, '/rota/encerrar?turmaId=7');
     assert.equal(calls[1].body, undefined);
     status = 400;

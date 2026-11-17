@@ -38,33 +38,31 @@ for (const sentido of ['IDA', 'VOLTA']) test(`${sentido}: passar devagar perto n
     const dados = fixture('PRIVADA_PARADAS', sentido), h = await start({ dados, sentido });
     for (const p of dados) for (let i = 0; i < 4; i++) h.tick(p, { speed: 2 });
     await flush(); assert.equal(saved(h).length, 0);
-    assert.match(texto(h), new RegExp(`Próxima parada: ${sentido} origem`));
+    assert.match(texto(h), new RegExp(`Próxima parada: ${dados[1].nome}`));
     assert.equal(h.requests.some(url => url.includes('/estado')), false); h.unmount();
 });
 
-test('mesmo parado e com chegada confirmada, o GPS não avança a origem', async () => {
+test('garagem nunca exige chegada nem conclusão manual', async () => {
     const dados = fixture('FIXA', 'IDA'), h = await start({ dados });
-    chegar(h, dados[0]); await flush();
-    assert.match(texto(h), /Chegou ao ponto/); assert.equal(saved(h).length, 0);
-    assert.equal(botao(h).props.disabled, false);
-    await botao(h).props.onPress(); await flush();
-    assert.equal(saved(h).length, 1); assert.match(texto(h), /Parada concluída: IDA origem/); h.unmount();
+    assert.deepEqual(h.direcoes[0].slice(1), dados.slice(1).map(p => [p.longitude, p.latitude]));
+    assert.match(texto(h), new RegExp(`Próxima parada: ${dados[1].nome}`));
+    assert.equal(saved(h).length, 0); h.unmount();
 });
 
 test('dois pontos coincidentes exigem duas ações distintas; callback antigo não conclui o seguinte', async () => {
-    const dados = fixture('PRIVADA_PARADAS', 'IDA'); dados[1].latitude = dados[0].latitude; dados[1].longitude = dados[0].longitude;
-    const h = await start({ dados }), first = chegar(h, dados[0]).props.onPress;
+    const dados = fixture('PRIVADA_PARADAS', 'IDA'); dados[2].latitude = dados[1].latitude; dados[2].longitude = dados[1].longitude;
+    const h = await start({ dados, estados: { 11: 'NAO_EMBARCOU', 33: 'NAO_EMBARCOU' } }), first = chegar(h, dados[1]).props.onPress;
     first(); first(); await flush(); assert.equal(saved(h).length, 1);
     assert.equal(botao(h).props.disabled, true);
-    chegar(h, dados[1]); first(); await flush(); assert.equal(saved(h).length, 1);
+    chegar(h, dados[2]); first(); await flush(); assert.equal(saved(h).length, 1);
     await botao(h).props.onPress(); await flush(); assert.equal(saved(h).length, 2); h.unmount();
 });
 
 test('passageiro aguardando bloqueia conclusão e acesso ao controle não inventa confirmação', async () => {
-    const dados = fixture('PORTA_A_PORTA', 'IDA'), h = await start({ dados }); await h.concluir(dados[0]);
+    const dados = fixture('PORTA_A_PORTA', 'IDA'), h = await start({ dados });
     const button = chegar(h, dados[1]); assert.equal(button.props.disabled, true);
     assert.match(texto(h), /Pessoa 11: Aguardando/); assert.match(texto(h), /Há passageiros aguardando/);
-    await button.props.onPress(); await flush(); assert.equal(saved(h).length, 1);
+    await button.props.onPress(); await flush(); assert.equal(saved(h).length, 0);
     nodes(h.render()).find(n => n.props.accessibilityLabel === 'Controle de embarque').props.onPress();
     assert.equal(h.paths[0].pathname, '/controle-viagem'); assert.equal(h.paths[0].params.id, '42');
     assert.equal(h.requests.some(url => url.includes('/estado')), false); h.unmount();
@@ -72,41 +70,41 @@ test('passageiro aguardando bloqueia conclusão e acesso ao controle não invent
 
 test('embarque compartilhado só libera depois de todos os registros oficiais resolvidos', async () => {
     const dados = fixture('PRIVADA_PARADAS', 'IDA'), h = await start({ dados });
-    await h.concluir(dados[0]); await h.concluir(dados[1]); chegar(h, dados[2]);
+     await h.concluir(dados[1]); chegar(h, dados[2]);
     await h.confirmar(11, 'EMBARCADO'); await h.refresh();
-    assert.equal(botao(h).props.disabled, true); assert.equal(saved(h).length, 2);
+    assert.equal(botao(h).props.disabled, true); assert.equal(saved(h).length, 1);
     await h.confirmar(33, 'NAO_EMBARCOU'); await h.refresh();
     assert.match(texto(h), /Pessoa 11: Embarcado/); assert.match(texto(h), /Pessoa 33: Não embarcou/);
-    await h.concluir(dados[2]); assert.equal(saved(h).length, 3); h.unmount();
+    await h.concluir(dados[2]); assert.equal(saved(h).length, 2); h.unmount();
 });
 
 for (const estado of ['NAO_EMBARCOU', 'DESEMBARCADO']) test(`ponto individual com ${estado} respeita estado oficial e exige conclusão manual`, async () => {
     const dados = fixture('PORTA_A_PORTA', 'IDA'), h = await start({ dados, estados: { 11: estado } });
-    await h.concluir(dados[0]); chegar(h, dados[1]); assert.equal(saved(h).length, 1);
-    await botao(h).props.onPress(); await flush(); assert.equal(saved(h).length, 2);
+     chegar(h, dados[1]); assert.equal(saved(h).length, 0);
+    await botao(h).props.onPress(); await flush(); assert.equal(saved(h).length, 1);
     assert.equal(h.requests.some(url => url.includes('/estado')), false); h.unmount();
 });
 
 test('destino exige desembarques; conclusão não encerra viagem nem muda registros', async () => {
     const dados = fixture('PORTA_A_PORTA', 'IDA'), h = await start({ dados, estados: { 11: 'EMBARCADO' } });
-    await h.concluir(dados[0]); await h.concluir(dados[1]); chegar(h, dados[2]);
+     await h.concluir(dados[1]); chegar(h, dados[2]);
     assert.equal(botao(h).props.disabled, true); assert.match(texto(h), /Confirme os desembarques/);
     await h.confirmar(11, 'DESEMBARCADO'); await h.refresh(); await h.concluir(dados[2]);
-    assert.equal(saved(h).length, 3); assert.match(texto(h), /Parada concluída: IDA destino/);
+    assert.equal(saved(h).length, 2); assert.match(texto(h), /Parada concluída: IDA destino/);
     assert.equal(nodes(h.render()).find(n => n.type === 'Controls').props.distanciaRestante, 0);
     assert.equal(h.requests.some(url => /finalizar|encerrar/.test(url)), false); h.unmount();
 });
 
 test('parada sem passageiros requer ação explícita e não cria registro operacional', async () => {
-    const dados = fixture('PRIVADA_PARADAS', 'IDA'), h = await start({ dados }); await h.concluir(dados[0]);
-    chegar(h, dados[1]); assert.equal(saved(h).length, 1); assert.match(texto(h), /Sem passageiros previstos/);
-    await botao(h).props.onPress(); await flush(); assert.equal(saved(h).length, 2);
+    const dados = fixture('PRIVADA_PARADAS', 'IDA'), h = await start({ dados });
+    chegar(h, dados[1]); assert.equal(saved(h).length, 0); assert.match(texto(h), /Sem passageiros previstos/);
+    await botao(h).props.onPress(); await flush(); assert.equal(saved(h).length, 1);
     assert.equal(h.requests.some(url => url.includes('/estado')), false); h.unmount();
 });
 
 test('toque duplo serializa consulta e só conclui um ponto', async () => {
     const dados = fixture('FIXA', 'IDA'), h = await start({ dados });
-    const click = chegar(h, dados[0]).props.onPress, before = h.requests.length;
+    const click = chegar(h, dados[1]).props.onPress, before = h.requests.length;
     click(); click(); assert.equal(botao(h).props.accessibilityState.busy, true); await flush();
     assert.equal(saved(h).length, 1); assert.equal(h.requests.length - before, 2); h.unmount();
 });
@@ -114,36 +112,36 @@ test('toque duplo serializa consulta e só conclui um ponto', async () => {
 test('GPS impreciso, velocidade desconhecida e chegada expirada mantêm o ponto pendente', async () => {
     const dados = fixture('FIXA', 'IDA'), h = await start({ dados });
     for (const options of [{ accuracy: 100 }, { speed: null }, { timestamp: 1 }, { speed: 3 }]) {
-        assert.equal(chegar(h, dados[0], options).props.disabled, true);
+        assert.equal(chegar(h, dados[1], options).props.disabled, true);
     }
-    const click = chegar(h, dados[0]).props.onPress; h.advance(16000); await click(); await flush();
+    const click = chegar(h, dados[1]).props.onPress; h.advance(16000); await click(); await flush();
     assert.equal(saved(h).length, 0); h.unmount();
 });
 
 test('offline bloqueia a conclusão; reconexão revalida sem avançar automaticamente', async () => {
-    const dados = fixture('FIXA', 'IDA'), h = await start({ dados }); const click = chegar(h, dados[0]).props.onPress;
+    const dados = fixture('FIXA', 'IDA'), h = await start({ dados }); const click = chegar(h, dados[1]).props.onPress;
     h.setOnline(false); assert.equal(botao(h).props.disabled, true); await click(); await flush();
     assert.equal(saved(h).length, 0); h.setOnline(true); await h.refresh(); assert.equal(saved(h).length, 0);
-    await h.concluir(dados[0]); assert.equal(saved(h).length, 1); h.unmount();
+    await h.concluir(dados[1]); assert.equal(saved(h).length, 1); h.unmount();
 });
 
 test('falha de confirmação operacional mantém passageiro aguardando e ponto pendente', async () => {
-    const dados = fixture('PORTA_A_PORTA', 'IDA'), h = await start({ dados }); await h.concluir(dados[0]);
+    const dados = fixture('PORTA_A_PORTA', 'IDA'), h = await start({ dados });
     h.setConfirmationError(503); await assert.rejects(h.confirmar(11, 'EMBARCADO')); await h.refresh();
-    chegar(h, dados[1]); assert.equal(botao(h).props.disabled, true); assert.equal(saved(h).length, 1);
+    chegar(h, dados[1]); assert.equal(botao(h).props.disabled, true); assert.equal(saved(h).length, 0);
     assert.equal(h.official.registros[0].estado, 'AGUARDANDO'); h.unmount();
 });
 
 for (const status of [403, 409, 503]) test(`falha HTTP ${status} na conferência final não salva nem avança`, async () => {
-    const dados = fixture('FIXA', 'IDA'), h = await start({ dados }); const click = chegar(h, dados[0]).props.onPress;
+    const dados = fixture('FIXA', 'IDA'), h = await start({ dados }); const click = chegar(h, dados[1]).props.onPress;
     h.setPainelError(status); await click(); await flush(); assert.equal(saved(h).length, 0);
     assert.equal(botao(h).props.disabled, true); assert.doesNotMatch(texto(h), /Parada concluída/); h.unmount();
 });
 
 test('falha ao persistir conclusão mantém o ponto pendente e permite nova tentativa segura', async () => {
     const dados = fixture('FIXA', 'IDA'), h = await start({ dados, storageFailure: true });
-    await chegar(h, dados[0]).props.onPress(); await flush(); assert.equal(saved(h).length, 0);
-    assert.match(texto(h), /Falha ao salvar conclusão/); assert.match(texto(h), /Próxima parada: IDA origem/); h.unmount();
+    await chegar(h, dados[1]).props.onPress(); await flush(); assert.equal(saved(h).length, 0);
+    assert.match(texto(h), /Falha ao salvar conclusão/); assert.match(texto(h), new RegExp(`Próxima parada: ${dados[1].nome}`)); h.unmount();
 });
 
 test('reinício não restaura chegada GPS e ignora cache v4 e v5 sem confirmação explícita', async () => {
@@ -151,14 +149,14 @@ test('reinício não restaura chegada GPS e ignora cache v4 e v5 sem confirmaç�
     const storage = new Map(), assinatura = r.assinaturaRoteiro(execucao, pontos);
     storage.set(key().replace(':v5:', ':v4:'), JSON.stringify({ assinatura, chaves: pontos.map(p => p.chave) }));
     storage.set(key(), JSON.stringify({ assinatura, chaves: pontos.map(p => p.chave) }));
-    const h = await start({ dados, storage }); assert.deepEqual(h.direcoes[0].slice(1), dados.map(p => [p.longitude, p.latitude]));
-    chegar(h, dados[0]); h.unmount(); const retomada = await start({ dados });
-    assert.equal(botao(retomada).props.disabled, true); assert.match(texto(retomada), /Próxima parada: IDA origem/); retomada.unmount();
+    const h = await start({ dados, storage }); assert.deepEqual(h.direcoes[0].slice(1), dados.slice(1).map(p => [p.longitude, p.latitude]));
+    chegar(h, dados[1]); h.unmount(); const retomada = await start({ dados });
+    assert.equal(botao(retomada).props.disabled, true); assert.match(texto(retomada), new RegExp(`Próxima parada: ${dados[1].nome}`)); retomada.unmount();
 });
 
 test('correção concorrente para aguardando reabre ponto concluído e mantém todo o sufixo no recálculo', async () => {
     const dados = fixture('PORTA_A_PORTA', 'IDA'), h = await start({ dados, estados: { 11: 'EMBARCADO' } });
-    await h.concluir(dados[0]); await h.concluir(dados[1]); h.setEstado(11, 'AGUARDANDO'); await h.refresh();
+     await h.concluir(dados[1]); h.setEstado(11, 'AGUARDANDO'); await h.refresh();
     assert.deepEqual(h.direcoes.at(-1).slice(1), dados.slice(1).map(p => [p.longitude, p.latitude]));
     assert.match(texto(h), /parada voltou a ficar pendente/);
     h.unmount(); const retomada = await start({ dados, storage: h.storage });
@@ -167,33 +165,33 @@ test('correção concorrente para aguardando reabre ponto concluído e mantém t
 
 test('estado alterado entre exibição e clique é conferido novamente antes da conclusão', async () => {
     const dados = fixture('PORTA_A_PORTA', 'IDA'), h = await start({ dados, estados: { 11: 'EMBARCADO' } });
-    await h.concluir(dados[0]); const click = chegar(h, dados[1]).props.onPress; h.setEstado(11, 'AGUARDANDO');
-    await click(); await flush(); assert.equal(saved(h).length, 1); assert.equal(botao(h).props.disabled, true); h.unmount();
+     const click = chegar(h, dados[1]).props.onPress; h.setEstado(11, 'AGUARDANDO');
+    await click(); await flush(); assert.equal(saved(h).length, 0); assert.equal(botao(h).props.disabled, true); h.unmount();
 });
 
 test('troca de execução antes do clique bloqueia conclusão da execução anterior', async () => {
-    const dados = fixture('FIXA', 'IDA'), h = await start({ dados }); const click = chegar(h, dados[0]).props.onPress;
+    const dados = fixture('FIXA', 'IDA'), h = await start({ dados }); const click = chegar(h, dados[1]).props.onPress;
     h.setViagemId(43); await click(); await flush(); assert.equal(saved(h).length, 0); assert.match(texto(h), /execução da viagem mudou/); h.unmount();
 });
 
 test('desvio após passar perto recalcula incluindo o mesmo ponto não concluído', async () => {
-    const dados = fixture('FIXA', 'IDA'), h = await start({ dados }); chegar(h, dados[0]);
+    const dados = fixture('FIXA', 'IDA'), h = await start({ dados }); chegar(h, dados[1]);
     h.tick({ latitude: -9, longitude: -36 }); h.tick({ latitude: -9, longitude: -36 }, { advance: 7000 }); await flush();
-    assert.deepEqual(h.direcoes.at(-1).slice(1), dados.map(p => [p.longitude, p.latitude])); assert.equal(saved(h).length, 0); h.unmount();
+    assert.deepEqual(h.direcoes.at(-1).slice(1), dados.slice(1).map(p => [p.longitude, p.latitude])); assert.equal(saved(h).length, 0); h.unmount();
 });
 
 test('conclusão aguardando consulta não avança depois de sair do mapa', async () => {
     let aguardar = false, concluir;
     const dados = fixture('FIXA', 'IDA'), h = await start({ dados, panelHandler: p => !aguardar ? Response.json(p) : new Promise(resolve => { concluir = () => resolve(Response.json(p)); }) });
-    const click = chegar(h, dados[0]).props.onPress; aguardar = true; click(); await flush(); h.blur(); concluir(); await flush();
+    const click = chegar(h, dados[1]).props.onPress; aguardar = true; click(); await flush(); h.blur(); concluir(); await flush();
     assert.equal(saved(h).length, 0);
-    h.tick(dados[0]); h.tick(dados[0]); h.focus(); assert.equal(botao(h).props.disabled, true); h.unmount();
+    h.tick(dados[1]); h.tick(dados[1]); h.focus(); assert.equal(botao(h).props.disabled, true); h.unmount();
 });
 
 for (const mudanca of ['GPS distante', 'rede perdida', 'posição expirada']) test(`${mudanca} durante a consulta final impede a conclusão`, async () => {
     let aguardar = false, concluir;
     const dados = fixture('FIXA', 'IDA'), h = await start({ dados, panelHandler: p => !aguardar ? Response.json(p) : new Promise(resolve => { concluir = () => resolve(Response.json(p)); }) });
-    const click = chegar(h, dados[0]).props.onPress; aguardar = true; click(); await flush();
+    const click = chegar(h, dados[1]).props.onPress; aguardar = true; click(); await flush();
     if (mudanca === 'GPS distante') h.tick({ latitude: -9, longitude: -36 });
     if (mudanca === 'rede perdida') h.setOnline(false);
     if (mudanca === 'posição expirada') h.advance(16000);
@@ -205,9 +203,9 @@ test('recálculo anterior à correção operacional não oculta ponto reaberto',
     const response = coords => Response.json({ code: 'Ok', routes: [{ geometry: { type: 'LineString', coordinates: coords }, legs: coords.slice(1).map(() => ({ steps: [] })) }], waypoints: coords.map(location => ({ location })) });
     const dados = fixture('PORTA_A_PORTA', 'IDA'), h = await start({ dados, estados: { 11: 'EMBARCADO' },
         mapboxHandler: (coords, n) => n === 2 ? new Promise(resolve => { concluir = () => resolve(response(coords)); }) : response(coords) });
-    await h.concluir(dados[0]); await h.concluir(dados[1]);
+     await h.concluir(dados[1]);
     h.tick({ latitude: -9, longitude: -36 }); h.tick({ latitude: -9, longitude: -36 }, { advance: 7000 }); await flush();
-    h.setEstado(11, 'AGUARDANDO'); await h.refresh(); assert.equal(saved(h).length, 1);
+    h.setEstado(11, 'AGUARDANDO'); await h.refresh(); assert.equal(saved(h).length, 0);
     concluir(); await flush();
     const geometryKey = r.chaveCacheRoteiro('geometria', { usuarioId: 'driver', turmaId: 7, viagemId: 42, sentido: 'IDA' });
     assert.deepEqual(JSON.parse(h.storage.get(geometryKey)).pendentes, r.validarRoteiroOperacional(dados).slice(1).map(p => p.chave));
@@ -224,10 +222,10 @@ test('validação do painel rejeita estados e versões desconhecidos em vez de l
 test('VOLTA conclui cada ponto explicitamente na sequência oficial, incluindo compartilhada, vazia e destino', async () => {
     const dados = fixture('FIXA', 'VOLTA'), h = await start({ dados, sentido: 'VOLTA', estados: { 11: 'NAO_EMBARCOU', 33: 'NAO_EMBARCOU', 44: 'NAO_EMBARCOU' } });
     const cacheKey = r.chaveCacheRoteiro('visitadas', { usuarioId: 'driver', turmaId: 7, viagemId: 42, sentido: 'VOLTA' });
-    for (const [i, ponto] of dados.entries()) {
+    for (const [i, ponto] of dados.slice(1).entries()) {
         chegar(h, ponto); assert.equal(JSON.parse(h.storage.get(cacheKey) || '{"chaves":[]}').chaves.length, i);
         await botao(h).props.onPress(); await flush();
         assert.equal(JSON.parse(h.storage.get(cacheKey)).chaves.length, i + 1);
     }
-    assert.deepEqual(JSON.parse(h.storage.get(cacheKey)).chaves, r.validarRoteiroOperacional(dados).map(p => p.chave)); h.unmount();
+    assert.deepEqual(JSON.parse(h.storage.get(cacheKey)).chaves, r.validarRoteiroOperacional(dados).slice(1).map(p => p.chave)); h.unmount();
 });

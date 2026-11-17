@@ -7,28 +7,28 @@ for (const modalidade of ['PORTA_A_PORTA', 'PRIVADA_PARADAS', 'FIXA', 'FLEXIVEL'
         const dados = fixture(modalidade, sentido), h = harness({ dados, sentido });
         h.render(); await flush(); const tree = h.render();
         assert.equal(nodes(tree).some(n => n.type === 'Map'), true);
-        assert.deepEqual(h.direcoes[0].slice(1), dados.map(p => [p.longitude, p.latitude]));
+        assert.deepEqual(h.direcoes[0].slice(1), dados.slice(1).map(p => [p.longitude, p.latitude]));
         const features = nodes(tree).find(n => n.type === 'Shape' && n.props.id === 'pontosOperacionaisSource').props.shape.features;
-        assert.equal(features.length, dados.length);
-        assert.deepEqual(Array.from(features, p => p.properties.paradaId), dados.map(p => p.paradaId));
+        assert.equal(features.length, dados.length - 1);
+        assert.deepEqual(Array.from(features, p => p.properties.paradaId), dados.slice(1).map(p => p.paradaId));
         assert.equal(nodes(tree).find(n => n.type === 'Header').props.direcaoAtual, sentido.toLowerCase());
         assert.equal(h.requests.some(url => /otimizar|rotas-publicas|coleta/.test(url)), false);
         h.unmount();
     });
 }
 
-test('visita por ponto inclui origem, parada vazia e compartilhada; retoma execução sem esconder passageiros', async () => {
+test('origem é referência e a visita abrange paradas vazias, compartilhadas e destino', async () => {
     const dados = fixture('FIXA', 'IDA'), estados = { 11: 'EMBARCADO', 33: 'EMBARCADO', 44: 'EMBARCADO' }, h = harness({ dados, estados });
     h.render(); await flush(); h.render();
     h.tick(dados[0], { accuracy: 100 }); h.tick(dados[0], { speed: 20 }); await flush();
     assert.equal([...h.storage.keys()].some(k => k.includes('visitadas')), false);
-    for (const [i, p] of dados.slice(0, 3).entries()) {
+    for (const [i, p] of dados.slice(1, 3).entries()) {
         const tree = await h.concluir(p);
-        if (i === 1) assert.equal(nodes(tree).some(n => typeof n.props.children === 'string' && n.props.children.includes('Passageiros (2): Pessoa 11, Pessoa 33')), true);
+        if (i === 0) assert.equal(nodes(tree).some(n => typeof n.props.children === 'string' && n.props.children.includes('Passageiros (2): Pessoa 11, Pessoa 33')), true);
     }
     const key = r.chaveCacheRoteiro('visitadas', { usuarioId: 'driver', turmaId: 7, viagemId: 42, sentido: 'IDA' });
     const cache = JSON.parse(h.storage.get(key));
-    assert.deepEqual(cache.chaves, r.validarRoteiroOperacional(dados).slice(0, 3).map(p => p.chave));
+    assert.deepEqual(cache.chaves, r.validarRoteiroOperacional(dados).slice(1, 3).map(p => p.chave));
     h.unmount();
     const retomada = harness({ dados, estados, storage: h.storage }); retomada.render(); await flush();
     assert.deepEqual(retomada.direcoes[0].slice(1), dados.slice(3).map(p => [p.longitude, p.latitude]));
@@ -36,16 +36,15 @@ test('visita por ponto inclui origem, parada vazia e compartilhada; retoma execu
         if (p.tipo === 'DESTINO') { for (const id of [11, 33, 44]) retomada.setEstado(id, 'DESEMBARCADO'); await retomada.refresh(); }
         await retomada.concluir(p);
     }
-    assert.deepEqual(JSON.parse(h.storage.get(key)).chaves, r.validarRoteiroOperacional(dados).map(p => p.chave));
+    assert.deepEqual(JSON.parse(h.storage.get(key)).chaves, r.validarRoteiroOperacional(dados).slice(1).map(p => p.chave));
     retomada.unmount();
     const nova = harness({ dados, viagemId: 43, storage: h.storage }); nova.render(); await flush();
-    assert.deepEqual(nova.direcoes[0].slice(1), dados.map(p => [p.longitude, p.latitude])); nova.unmount();
+    assert.deepEqual(nova.direcoes[0].slice(1), dados.slice(1).map(p => [p.longitude, p.latitude])); nova.unmount();
 });
 
 test('recalcular após desvio preserva sequência de todos os pontos pendentes', async () => {
     const dados = fixture('FLEXIVEL', 'VOLTA'), h = harness({ dados, sentido: 'VOLTA' });
     h.render(); await flush(); h.render();
-    await h.concluir(dados[0]);
     h.tick({ latitude: -9, longitude: -36 }); h.tick({ latitude: -9, longitude: -36 }, { advance: 7000 });
     await flush(); h.render();
     assert.equal(h.direcoes.length, 2);
@@ -90,7 +89,7 @@ test('resposta de recálculo atrasada não ressuscita ponto visitado durante a c
     const dados = fixture('FIXA', 'IDA'); let concluir;
     const response = coords => Response.json({ code: 'Ok', routes: [{ geometry: { type: 'LineString', coordinates: coords }, legs: coords.slice(1).map(() => ({ steps: [] })) }], waypoints: coords.map(location => ({ location })) });
     const h = harness({ dados, mapboxHandler: (coords, chamada) => chamada === 1 ? response(coords) : new Promise(resolve => { concluir = () => resolve(response(coords)); }) });
-    h.render(); await flush(); h.render(); await h.concluir(dados[0]);
+    h.render(); await flush(); h.render();
     h.tick({ latitude: -9, longitude: -36 }); h.tick({ latitude: -9, longitude: -36 }, { advance: 7000 }); await flush();
     assert.equal(typeof concluir, 'function');
     await h.concluir(dados[1]); concluir(); await flush();

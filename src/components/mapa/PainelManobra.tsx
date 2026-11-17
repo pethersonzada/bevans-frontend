@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { ReactNode } from 'react';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -12,6 +13,7 @@ type Manobra = { instrucao: string; tipo: string };
 type PainelManobraProps = {
     manobraAtual: Manobra | null;
     velocidadeAtual: number;
+    children?: ReactNode;
 };
 
 function iconePorManobra(tipo: string): keyof typeof Ionicons.glyphMap {
@@ -22,24 +24,31 @@ function iconePorManobra(tipo: string): keyof typeof Ionicons.glyphMap {
     return 'arrow-up';
 }
 
-export function PainelManobra({ manobraAtual, velocidadeAtual }: PainelManobraProps) {
+export function PainelManobra({ manobraAtual, velocidadeAtual, children }: PainelManobraProps) {
     const insets = useSafeAreaInsets();
 
     return (
         <View style={[styles.container, { top: insets.top + 66 }]}>
-            <View style={styles.iconeContainer}>
-                <Ionicons name={manobraAtual ? iconePorManobra(manobraAtual.tipo) : 'navigate-outline'} size={22} color="#0F172A" />
+            <View style={styles.linhaManobra}>
+                <View style={styles.iconeContainer}>
+                    <Ionicons
+                        name={manobraAtual ? iconePorManobra(manobraAtual.tipo) : 'navigate-outline'}
+                        size={22}
+                        color="#0F172A"
+                    />
+                </View>
+                <View style={styles.textoContainer}>
+                    <Text style={styles.rotuloManobra}>Próxima manobra</Text>
+                    <Text style={styles.instrucaoManobra} numberOfLines={2}>
+                        {manobraAtual?.instrucao || 'Calculando rota...'}
+                    </Text>
+                </View>
+                <View style={styles.velocidadeContainer}>
+                    <Text style={styles.valorVelocidade}>{velocidadeAtual}</Text>
+                    <Text style={styles.unidadeVelocidade}>KM/H</Text>
+                </View>
             </View>
-            <View style={styles.textoContainer}>
-                <Text style={styles.rotuloManobra}>Próxima manobra</Text>
-                <Text style={styles.instrucaoManobra} numberOfLines={2}>
-                    {manobraAtual?.instrucao || 'Calculando rota...'}
-                </Text>
-            </View>
-            <View style={styles.velocidadeContainer}>
-                <Text style={styles.valorVelocidade}>{velocidadeAtual}</Text>
-                <Text style={styles.unidadeVelocidade}>KM/H</Text>
-            </View>
+            {children ? <View style={styles.secaoParada}>{children}</View> : null}
         </View>
     );
 }
@@ -49,19 +58,27 @@ const styles = StyleSheet.create({
         position: 'absolute',
         left: theme.spacing.md,
         right: theme.spacing.md,
-        zIndex: 10,
+        zIndex: 30,
         backgroundColor: '#1E293B',
         padding: theme.spacing.md,
         borderRadius: 16,
         borderWidth: 1,
         borderColor: '#334155',
-        flexDirection: 'row',
-        alignItems: 'center',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.4,
         shadowRadius: 8,
-        elevation: 10,
+        elevation: 15,
+    },
+    linhaManobra: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    secaoParada: {
+        marginTop: 10,
+        paddingTop: 4,
+        borderTopWidth: 1,
+        borderTopColor: '#334155',
     },
     iconeContainer: {
         backgroundColor: '#00D2FF',

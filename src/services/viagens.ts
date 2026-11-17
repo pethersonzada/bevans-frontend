@@ -8,7 +8,18 @@ export async function iniciarViagem(turmaId: number, sentido: 'IDA' | 'VOLTA') {
     turmaIdValido(turmaId);
     if (sentido !== 'IDA' && sentido !== 'VOLTA') throw new Error('Sentido de viagem invÃ¡lido.');
     const response = await apiFetch('/rota/iniciar', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ turmaId, sentido }) });
+        body: JSON.stringify({ turmaId, sentido, modalidade: 'PRIVADA' }) });
+    if (!response.ok) throw await readApiError(response);
+}
+
+// Publicações possuem execução própria e não devem iniciar viagens privadas.
+export async function iniciarViagemPublica(rotaPublicaId: number, sentido: 'IDA' | 'VOLTA') {
+    turmaIdValido(rotaPublicaId);
+    if (sentido !== 'IDA' && sentido !== 'VOLTA') throw new Error('Sentido de viagem inválido.');
+    const response = await apiFetch(`/rotas-publicas/${rotaPublicaId}/iniciar`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sentido }),
+    });
     if (!response.ok) throw await readApiError(response);
 }
 

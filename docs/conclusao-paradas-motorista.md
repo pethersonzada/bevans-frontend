@@ -26,7 +26,7 @@ O cartão mostra nome do próximo ponto, passageiros previstos, estados oficiais
 - `EMBARCADO`, `NAO_EMBARCOU` e `DESEMBARCADO` são estados resolvidos para o ponto de coleta. A conclusão local não altera esses estados.
 - Embarque compartilhado exige que todos os passageiros associados estejam resolvidos.
 - Pontos individuais, excepcionais e paradas sem passageiros seguem a mesma sequência e exigem ação explícita.
-- Origem exige chegada e conclusão explícita. Destino também exige que não existam passageiros aguardando ou embarcados na operação; os desembarques permanecem explícitos.
+- Origem é apenas referência do snapshot; não exige retorno à garagem, chegada nem conclusão e fica fora da contagem de embarques. As direções começam no GPS atual. Destino exige que não existam passageiros aguardando ou embarcados na operação; os desembarques permanecem explícitos.
 - Concluir o destino zera distância/estimativa, mas não encerra a viagem automaticamente.
 
 O botão de conclusão só fica disponível com chegada válida, conexão e painel operacional válido. No clique, o app consulta novamente status e painel, confere viagem, sentido, IDs dos passageiros, parada e ordem, e reavalia os impedimentos. Falhas de rede, autorização, conflito, leitura do painel ou persistência local mantêm o ponto pendente. O aplicativo não registra ausência, não enfileira embarques offline e não assume sucesso de uma confirmação operacional que falhou.

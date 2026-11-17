@@ -1,4 +1,3 @@
-import { useAppAlert } from '../contexts/AppAlertContext';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
@@ -10,7 +9,7 @@ import {
     ActivityIndicator,
     Linking,
     ScrollView,
-    
+
     StatusBar,
     StyleSheet,
     Text,
@@ -18,22 +17,23 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAppAlert } from '../contexts/AppAlertContext';
 
-import { API_URL } from '../config/config';
-import { apiFetch, apiRequest, readApiJson, errorMessage } from '../config/api';
 import { AsyncState } from '../components/AsyncState';
+import { apiFetch, apiRequest, errorMessage, readApiJson } from '../config/api';
+import { API_URL } from '../config/config';
+import { useAuth } from '../contexts/AuthContext';
+import { useFocusedPolling } from '../hooks/useFocusedPolling';
 import { withDeadline } from '../services/asyncOperation';
+import { atualizarChegada, chegadaAtual, conferirPainelParadas, impedimentoConclusao, restaurarConclusoes, type ChegadaPonto, type PainelParadas } from '../services/conclusaoParada';
 import { validCoordinates } from '../services/location';
 import { ensureNavigationLocation, NavigationLocationError } from '../services/navigationLocation';
-import { encerrarViagem } from '../services/viagens';
-import { assinaturaRoteiro, chaveCacheRoteiro, pontosParaDirecoes, validarRespostaDirecoes, geometriaCompativel, LIMITE_WAYPOINTS_MAPBOX, type PontoNavegacao, type ExecucaoRoteiro } from '../services/roteiroNavegacao';
-import { consultarRoteiroOperacional } from '../services/roteiroOperacional';
-import { atualizarChegada, chegadaAtual, conferirPainelParadas, impedimentoConclusao, restaurarConclusoes, type ChegadaPonto, type PainelParadas } from '../services/conclusaoParada';
 import { mensagemErroOperacao, rotulosEstado } from '../services/operacoes';
-import { useFocusedPolling } from '../hooks/useFocusedPolling';
+import { assinaturaRoteiro, chaveCacheRoteiro, geometriaCompativel, LIMITE_WAYPOINTS_MAPBOX, pontosParaDirecoes, validarRespostaDirecoes, type ExecucaoRoteiro, type PontoNavegacao } from '../services/roteiroNavegacao';
+import { consultarRoteiroOperacional } from '../services/roteiroOperacional';
 import { createPositionSender } from '../services/telemetria';
+import { encerrarViagem } from '../services/viagens';
 import { theme } from '../styles/theme';
-import { useAuth } from '../contexts/AuthContext';
 
 import { CabecalhoMapa } from '../components/mapa/CabecalhoMapa';
 import { ControlesViagem } from '../components/mapa/ControlesViagem';
@@ -392,7 +392,7 @@ export default function Mapa() {
     const indiceMinimoRef = useRef(0);
     const [proximaParada, setProximaParada] = useState<string | null>(null);
     const [paradasRestantes, setParadasRestantes] = useState(0);
-    const [alturaPainelParada, setAlturaPainelParada] = useState(0);
+    const [painelAberto, setPainelAberto] = useState(false);
 
     useFocusEffect(useCallback(() => {
         focadaRef.current = true;
@@ -448,7 +448,7 @@ export default function Mapa() {
         );
 
         try {
-            if(!API_URL && !url.startsWith('https://api.mapbox.com/'))throw new Error('O endereço do servidor não está configurado.');
+            if (!API_URL && !url.startsWith('https://api.mapbox.com/')) throw new Error('O endereço do servidor não está configurado.');
             if (API_URL && url.startsWith(API_URL + '/')) {
                 return await apiFetch(url.slice(API_URL.length), {
                     ...options, signal: controller.signal, timeoutMs,
@@ -594,7 +594,7 @@ export default function Mapa() {
 
     useEffect(() => {
         // Old queue entries have no identity/turma/trip context and must never be replayed.
-        void AsyncStorage.removeItem('@bevans:fila_localizacoes').catch(() => {});
+        void AsyncStorage.removeItem('@bevans:fila_localizacoes').catch(() => { });
         const unsubscribe = NetInfo.addEventListener(state => {
             const available = state.isConnected !== false && state.isInternetReachable !== false;
             onlineRef.current = available;
@@ -604,7 +604,7 @@ export default function Mapa() {
         return unsubscribe;
     }, []);
 
-    async function enviarLocalizacao(ponto: LatLng & {precisao?:number;observadoEm?:string}) {
+    async function enviarLocalizacao(ponto: LatLng & { precisao?: number; observadoEm?: string }) {
         return publisherRef.current?.send(ponto) ?? false;
     }
 
@@ -654,6 +654,14 @@ export default function Mapa() {
         passo();
     }
 
+    // A origem do snapshot é referência cadastral, não uma parada a concluir.
+    // A van pode começar de onde estiver. O destino é o fim, não embarque.
+    function quantidadeParadasEmbarque(paradas: ParadaNavegacao[]): number {
+        return paradas.filter(parada => rotaRef.current.some(p =>
+            p.chave === parada.chave && p.tipo !== 'ORIGEM' && p.tipo !== 'DESTINO'
+        )).length;
+    }
+
     function aplicarGeometria(
         geoJson: any,
         coordenadas: [number, number][],
@@ -672,7 +680,7 @@ export default function Mapa() {
         chegadaRef.current = null;
         setChegada(null);
         setProximaParada(paradas[0]?.nome || null);
-        setParadasRestantes(paradas.length);
+        setParadasRestantes(quantidadeParadasEmbarque(paradas));
     }
 
     async function lerPainelAtual(execucao: ExecucaoRoteiro, signal?: AbortSignal): Promise<PainelParadas> {
@@ -697,8 +705,10 @@ export default function Mapa() {
             if (signal.aborted || !montadoRef.current || execucao !== execucaoRef.current ||
                 leitura !== leituraOperacaoRef.current || confirmandoParadaRef.current) return;
             setPainelOperacional(painel);
-            const validas = restaurarConclusoes({ confirmacao: 'MOTORISTA', assinatura: assinaturaRef.current,
-                chaves: Array.from(visitadosRef.current) }, assinaturaRef.current, rotaRef.current, painel);
+            const validas = restaurarConclusoes({
+                confirmacao: 'MOTORISTA', assinatura: assinaturaRef.current,
+                chaves: Array.from(visitadosRef.current)
+            }, assinaturaRef.current, rotaRef.current, painel);
             if (validas.size !== visitadosRef.current.size) {
                 confirmandoParadaRef.current = true; setConfirmandoParada(true); reconciliando = true;
                 await AsyncStorage.setItem(chaveCacheRoteiro('visitadas', execucao), JSON.stringify({
@@ -712,7 +722,7 @@ export default function Mapa() {
                 setGeometriaRota(null);
                 coordenadasRotaRef.current = []; setCoordenadasRota([]);
                 if (posicaoApresentadaRef.current) await carregarGeometriaRota(
-                    rotaRef.current.filter(p => !validas.has(p.chave)), posicaoApresentadaRef.current
+                    rotaRef.current.filter(p => p.tipo !== 'ORIGEM' && !validas.has(p.chave)), posicaoApresentadaRef.current
                 );
             }
         } catch (error) {
@@ -749,8 +759,10 @@ export default function Mapa() {
             setPainelOperacional(painel);
             const impedimento = impedimentoConclusao(ponto, painel);
             if (impedimento) throw new Error(impedimento);
-            const prefixo = restaurarConclusoes({ confirmacao: 'MOTORISTA', assinatura: assinaturaRef.current,
-                chaves: Array.from(visitadosRef.current) }, assinaturaRef.current, rotaRef.current, painel);
+            const prefixo = restaurarConclusoes({
+                confirmacao: 'MOTORISTA', assinatura: assinaturaRef.current,
+                chaves: Array.from(visitadosRef.current)
+            }, assinaturaRef.current, rotaRef.current, painel);
             if (prefixo.size !== visitadosRef.current.size) throw new Error('Uma parada anterior voltou a ficar pendente. Atualize o controle da viagem.');
             if (!onlineRef.current || !chegadaAtual(chegadaRef.current, chave, Date.now())) {
                 throw new Error('A conexão ou a chegada mudou durante a consulta. Confira antes de concluir.');
@@ -767,7 +779,7 @@ export default function Mapa() {
             ultimoIndiceProjecaoRef.current = indiceMinimoRef.current;
             chegadaRef.current = null; setChegada(null);
             setProximaParada(paradasRef.current[0]?.nome || null);
-            setParadasRestantes(paradasRef.current.length);
+            setParadasRestantes(quantidadeParadasEmbarque(paradasRef.current));
             if (!paradasRef.current.length) {
                 setDistanciaRestante(0); setEtaMinutos(0); setManobraAtual(null);
             }
@@ -797,7 +809,7 @@ export default function Mapa() {
         }
 
         try {
-            const pendentes = rotaRef.current.filter(p => !visitadosRef.current.has(p.chave));
+            const pendentes = rotaRef.current.filter(p => p.tipo !== 'ORIGEM' && !visitadosRef.current.has(p.chave));
             if (!pendentes.length) return;
             const execucao = execucaoRef.current;
             const assinatura = assinaturaRef.current;
@@ -813,7 +825,7 @@ export default function Mapa() {
             if (!montadoRef.current) return;
             if (execucao !== execucaoRef.current || assinatura !== assinaturaRef.current ||
                 JSON.stringify(pendentes.map(p => p.chave)) !== JSON.stringify(
-                    rotaRef.current.filter(p => !visitadosRef.current.has(p.chave)).map(p => p.chave))) return;
+                    rotaRef.current.filter(p => p.tipo !== 'ORIGEM' && !visitadosRef.current.has(p.chave)).map(p => p.chave))) return;
 
             const geoJsonValido = {
                 type: 'FeatureCollection',
@@ -1102,7 +1114,7 @@ export default function Mapa() {
                         // A proximidade do GPS não confirma embarque.
                         // A confirmação será implementada com persistência no backend.
 
-                        enviarLocalizacao({...pontoBruto,precisao:loc.coords.accuracy??undefined,observadoEm:new Date(loc.timestamp).toISOString()})
+                        enviarLocalizacao({ ...pontoBruto, precisao: loc.coords.accuracy ?? undefined, observadoEm: new Date(loc.timestamp).toISOString() })
                             .then(enviado => {
                                 if (ativo && enviado) {
                                     setErroRede(null);
@@ -1293,7 +1305,7 @@ export default function Mapa() {
         direcaoAtualRef.current = direcaoUsada;
 
         await carregarGeometriaRota(
-            rotaCarregada.filter(p => !visitadosRef.current.has(p.chave)),
+            rotaCarregada.filter(p => p.tipo !== 'ORIGEM' && !visitadosRef.current.has(p.chave)),
             posicaoInicial
         );
 
@@ -1407,12 +1419,13 @@ export default function Mapa() {
             type: 'FeatureCollection' as const,
 
             features: rota
+                .filter(p => p.tipo !== 'ORIGEM')
                 .map((p, index) => ({
                     type: 'Feature' as const,
 
                     properties: {
                         id: p.chave,
-                        label: visitadosRef.current.has(p.chave) ? '✓' : String(index + 1),
+                        label: p.tipo === 'DESTINO' ? 'D' : visitadosRef.current.has(p.chave) ? '✓' : String(index + 1),
                         nome: p.nome, tipo: p.tipo, paradaId: p.paradaId,
                         passageiros: p.passageiros.map(a => a.nome).join(', '),
                         cor: visitadosRef.current.has(p.chave) ? '#10B981' : '#3B82F6',
@@ -1482,7 +1495,7 @@ export default function Mapa() {
         );
     }
 
-    if (!garagem || !destino || (!geometriaRota && rota.length > visitadosRef.current.size)) {
+    if (!garagem || !destino || (!geometriaRota && rota.some(p => p.tipo !== 'ORIGEM' && !visitadosRef.current.has(p.chave)))) {
         return (
             <View style={styles.loadingContainer}>
                 <AsyncState appearance="map" title="Navegação indisponível" message={erroNavegacao || erroRede || 'Não foi possível carregar a origem e o destino da rota.'}
@@ -1525,14 +1538,204 @@ export default function Mapa() {
             <PainelManobra
                 manobraAtual={manobraAtual}
                 velocidadeAtual={velocidadeAtual}
-            />
+            >
+            {(proximaParada || feedbackParada) && (
+                <View style={{ width: '100%' }}>
+                    <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityLabel={
+                            painelAberto
+                                ? 'Recolher detalhes da parada'
+                                : 'Expandir detalhes da parada'
+                        }
+                        onPress={() => setPainelAberto(valor => !valor)}
+                        style={{
+                            minHeight: 44,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 8,
+                        }}
+                    >
+                        <Ionicons
+                            name="navigate-outline"
+                            size={18}
+                            color="#00D2FF"
+                        />
+
+                        <Text
+                            numberOfLines={1}
+                            style={{
+                                flex: 1,
+                                color: '#FFFFFF',
+                                fontSize: 12,
+                                fontWeight: '700',
+                            }}
+                        >
+                            {proximaParada
+                                ? proximoPonto?.tipo === 'DESTINO'
+                                    ? `Destino final: ${proximaParada}`
+                                    : `Próxima parada: ${proximaParada} (${paradasRestantes} ${paradasRestantes === 1 ? 'restante' : 'restantes'})`
+                                : feedbackParada}
+                        </Text>
+
+                        <Ionicons
+                            name={painelAberto ? 'chevron-down' : 'chevron-up'}
+                            size={18}
+                            color="#94A3B8"
+                        />
+                    </TouchableOpacity>
+
+                    <ScrollView
+                        style={{ display: painelAberto ? 'flex' : 'none', maxHeight: 230 }}
+                        contentContainerStyle={{ gap: 8, paddingTop: 8 }}
+                        nestedScrollEnabled
+                    >
+                        {proximoPonto && (
+                            <Text style={styles.proximaParadaTexto}>
+                                {proximoPonto.passageiros.length
+                                    ? `Passageiros (${proximoPonto.passageiros.length}): ${proximoPonto.passageiros.map(a => a.nome).join(', ')}`
+                                    : proximoPonto.tipo === 'DESTINO'
+                                        ? 'Destino do itinerário'
+                                        : 'Sem passageiros previstos neste ponto'}
+                            </Text>
+                        )}
+
+                        {proximoPonto && (
+                            <>
+                                <Text
+                                    style={styles.proximaParadaTexto}
+                                    accessibilityLiveRegion="polite"
+                                >
+                                    {chegada?.chave === proximoPonto.chave &&
+                                        chegadaAtual(
+                                            chegada,
+                                            proximoPonto.chave,
+                                            Date.now()
+                                        )
+                                        ? 'Chegou ao ponto'
+                                        : chegada?.chave === proximoPonto.chave &&
+                                            chegada.situacao === 'PROXIMO'
+                                            ? 'Próximo da parada'
+                                            : 'Aguardando chegada com GPS preciso'}
+                                </Text>
+
+                                {proximoPonto.passageiros.map(p => (
+                                    <Text
+                                        key={p.id}
+                                        style={styles.proximaParadaTexto}
+                                    >
+                                        {p.nome}: {painelOperacional
+                                            ? rotulosEstado[
+                                            painelOperacional.registros.find(
+                                                r => r.alunoId === p.id
+                                            )!.estado
+                                            ]
+                                            : 'Estado indisponível'}
+                                    </Text>
+                                ))}
+
+                                {!!impedimento && (
+                                    <Text style={styles.proximaParadaTexto}>
+                                        {impedimento}
+                                    </Text>
+                                )}
+
+                                <View
+                                    style={{
+                                        flexDirection: 'row',
+                                        gap: 8,
+                                    }}
+                                >
+                                    {(proximoPonto.passageiros.length > 0 ||
+                                        proximoPonto.tipo === 'DESTINO') && (
+                                            <TouchableOpacity
+                                                accessibilityRole="button"
+                                                accessibilityLabel="Controle de embarque"
+                                                disabled={confirmandoParada}
+                                                style={[
+                                                    styles.acaoParada,
+                                                    { flex: 1 },
+                                                ]}
+                                                onPress={() => {
+                                                    if (
+                                                        !execucaoRef.current ||
+                                                        confirmandoParadaRef.current
+                                                    ) return;
+
+                                                    chegadaRef.current = null;
+                                                    setChegada(null);
+
+                                                    router.push({
+                                                        pathname: '/controle-viagem',
+                                                        params: {
+                                                            tipo: 'VIAGEM',
+                                                            id: String(
+                                                                execucaoRef.current.viagemId
+                                                            ),
+                                                        },
+                                                    });
+                                                }}
+                                            >
+                                                <Text style={styles.proximaParadaTexto}>
+                                                    Embarques
+                                                </Text>
+                                            </TouchableOpacity>
+                                        )}
+
+                                    <TouchableOpacity
+                                        accessibilityRole="button"
+                                        accessibilityLabel="Concluir parada"
+                                        accessibilityState={{
+                                            disabled:
+                                                !podeConcluir || confirmandoParada,
+                                            busy: confirmandoParada,
+                                        }}
+                                        disabled={
+                                            !podeConcluir || confirmandoParada
+                                        }
+                                        style={[
+                                            styles.acaoParada,
+                                            { flex: 1 },
+                                            (!podeConcluir || confirmandoParada) && {
+                                                opacity: 0.45,
+                                            },
+                                        ]}
+                                        onPress={() =>
+                                            void registrarParadaVisitada(
+                                                proximoPonto.chave
+                                            )
+                                        }
+                                    >
+                                        <Text style={styles.proximaParadaTexto}>
+                                            {confirmandoParada
+                                                ? 'Conferindo…'
+                                                : 'Concluir'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </>
+                        )}
+
+                        {!!feedbackParada && (
+                            <Text
+                                style={styles.proximaParadaTexto}
+                                accessibilityLiveRegion="polite"
+                            >
+                                {feedbackParada}
+                            </Text>
+                        )}
+                    </ScrollView>
+                </View>
+            )}
+            </PainelManobra>
 
             {recalculandoRota ? (
                 <View
                     style={[
                         styles.bannerNotificacao,
                         {
-                            top: insets.top + 215,
+                            top: insets.top + (painelAberto ? 402 : 225),
                             backgroundColor: '#0D2B3A',
                             borderColor: '#29B6F6',
                         },
@@ -1558,7 +1761,7 @@ export default function Mapa() {
                     style={[
                         styles.bannerNotificacao,
                         {
-                            top: insets.top + 215,
+                            top: insets.top + (painelAberto ? 402 : 225),
                             backgroundColor: '#3A1A00',
                             borderColor: '#FF9800',
                         },
@@ -1579,7 +1782,7 @@ export default function Mapa() {
                     style={[
                         styles.bannerNotificacao,
                         {
-                            top: insets.top + 215,
+                            top: insets.top + (painelAberto ? 402 : 225),
                             backgroundColor: '#1E293B',
                             borderColor: '#3B82F6',
                         },
@@ -1781,7 +1984,7 @@ export default function Mapa() {
                 style={[
                     styles.locateButton,
                     {
-                        bottom: insets.bottom + 128 + alturaPainelParada,
+                        bottom: insets.bottom + 128,
                     },
                 ]}
                 onPress={centralizarNaVan}
@@ -1796,46 +1999,6 @@ export default function Mapa() {
                 />
             </TouchableOpacity>
 
-            {(proximaParada || feedbackParada) && (
-                <ScrollView style={[styles.proximaParadaBox, { bottom: insets.bottom + 116 }]} contentContainerStyle={{ gap: 8, paddingBottom: 12 }}
-                    onLayout={event => setAlturaPainelParada(event.nativeEvent.layout.height)}>
-                    {proximaParada && <Text style={styles.proximaParadaTexto} accessibilityRole="header">
-                        Próxima parada: {proximaParada} ({paradasRestantes} restantes)
-                    </Text>}
-                    {proximoPonto && <Text style={styles.proximaParadaTexto}>
-                        {proximoPonto.passageiros.length
-                            ? `Passageiros (${proximoPonto.passageiros.length}): ${proximoPonto.passageiros.map(a => a.nome).join(', ')}`
-                            : 'Sem passageiros previstos neste ponto'}
-                    </Text>}
-                    {proximoPonto && <>
-                        <Text style={styles.proximaParadaTexto} accessibilityLiveRegion="polite">
-                            {chegada?.chave === proximoPonto.chave && chegadaAtual(chegada, proximoPonto.chave, Date.now())
-                                ? 'Chegou ao ponto · aguardando conclusão do motorista'
-                                : chegada?.chave === proximoPonto.chave && chegada.situacao === 'PROXIMO'
-                                    ? 'Próximo da parada' : 'Aguardando chegada com GPS preciso'}
-                        </Text>
-                        {proximoPonto.passageiros.map(p => <Text key={p.id} style={styles.proximaParadaTexto}>
-                            {p.nome}: {painelOperacional ? rotulosEstado[painelOperacional.registros.find(r => r.alunoId === p.id)!.estado] : 'Estado indisponível'}
-                        </Text>)}
-                        {!!impedimento && <Text style={styles.proximaParadaTexto}>{impedimento}</Text>}
-                        {(proximoPonto.passageiros.length > 0 || proximoPonto.tipo === 'DESTINO') && <TouchableOpacity
-                            accessibilityRole="button" accessibilityLabel="Controle de embarque" disabled={confirmandoParada}
-                            style={styles.acaoParada} onPress={() => {
-                                if (!execucaoRef.current || confirmandoParadaRef.current) return;
-                                chegadaRef.current = null; setChegada(null);
-                                router.push({ pathname: '/controle-viagem', params: { tipo: 'VIAGEM', id: String(execucaoRef.current.viagemId) } });
-                            }}><Text style={styles.proximaParadaTexto}>Controle de embarque</Text></TouchableOpacity>}
-                        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Concluir parada"
-                            accessibilityState={{ disabled: !podeConcluir || confirmandoParada, busy: confirmandoParada }}
-                            disabled={!podeConcluir || confirmandoParada}
-                            style={[styles.acaoParada, (!podeConcluir || confirmandoParada) && { opacity: 0.45 }]}
-                            onPress={() => void registrarParadaVisitada(proximoPonto.chave)}>
-                            <Text style={styles.proximaParadaTexto}>{confirmandoParada ? 'Conferindo operação…' : 'Concluir parada'}</Text>
-                        </TouchableOpacity>
-                    </>}
-                    {!!feedbackParada && <Text style={styles.proximaParadaTexto} accessibilityLiveRegion="polite">{feedbackParada}</Text>}
-                </ScrollView>
-            )}
 
             <ControlesViagem
                 distanciaRestante={distanciaRestante}
@@ -1924,14 +2087,10 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
 
-    proximaParadaBox: {
-        position: 'absolute', left: theme.spacing.md, right: theme.spacing.md,
-        backgroundColor: '#0F172A', borderRadius: 10, padding: 10,
-        zIndex: 10, borderWidth: 1, borderColor: '#00D2FF',
-        maxHeight: '38%',
+    acaoParada: {
+        minHeight: 48, padding: 10, justifyContent: 'center', alignItems: 'center',
+        backgroundColor: '#1E293B', borderRadius: 8, borderWidth: 1, borderColor: '#00D2FF'
     },
-    acaoParada: { minHeight: 48, padding: 10, justifyContent: 'center', alignItems: 'center',
-        backgroundColor: '#1E293B', borderRadius: 8, borderWidth: 1, borderColor: '#00D2FF' },
     proximaParadaTexto: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
     locateButton: {
         position: 'absolute',
