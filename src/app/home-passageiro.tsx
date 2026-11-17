@@ -80,6 +80,16 @@ export default function HomePassageiro() {
 
     const [turma, setTurma] = useState<any>(null);
     const [enderecos, setEnderecos] = useState<any[]>([]);
+    useEffect(() => {
+        primeiraCarga.current = true;
+        gpsSolicitadoRef.current = false;
+        turmaSelecionadaRef.current = null;
+        setTurmaSelecionadaId(null); setTurma(null); setTurmasPassageiro([]);
+        setConfirmacao(null); setEnderecos([]); setMinhaLocalizacao(null);
+        setPosicaoVan(null); setStatusViagem('CARREGANDO'); setStatusGps('AGUARDANDO');
+        setErroRadar(''); setLoading(true);
+        return () => { dadosRequestRef.current++; gpsController.current?.abort(); if(gpsExpiryTimer.current)clearTimeout(gpsExpiryTimer.current); };
+    }, [user?.id]);
 
     const buscarLocalizacaoPassageiro = useCallback(async () => {
         gpsController.current?.abort();
@@ -152,17 +162,6 @@ export default function HomePassageiro() {
                 const turmaAtualId =
                     turmaAtual?.id ?? null;
 
-                // Descarta dados de outra turma se a seleção
-                // mudou durante a requisição.
-                if (
-                    turmaPreferidaId === undefined &&
-                    turmaSelecionadaRef.current !== null &&
-                    turmaAtualId !==
-                    turmaSelecionadaRef.current
-                ) {
-                    return null;
-                }
-
                 turmaSelecionadaRef.current = turmaAtualId;
                 setTurmaSelecionadaId(turmaAtualId);
                 setTurma(turmaAtual);
@@ -228,7 +227,7 @@ export default function HomePassageiro() {
             setPosicaoVan(previous => previous?.latitude === radar.position?.latitude && previous?.longitude === radar.position?.longitude ? previous : radar.position);
 
         } catch (error) {
-            if (!signal.aborted) {setStatusViagem('INDETERMINADO');setStatusGps('AGUARDANDO');setPosicaoVan(null);setErroRadar(errorMessage(error));}
+            if (!signal.aborted && turmaSelecionadaRef.current === turmaId) {setStatusViagem('INDETERMINADO');setStatusGps('AGUARDANDO');setPosicaoVan(null);setErroRadar(errorMessage(error));}
         }
     }, 10000, pollingKey);
 

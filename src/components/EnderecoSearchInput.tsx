@@ -220,6 +220,7 @@ export default function EnderecoSearchInput({
         </View>
       )}
 
+      {!process.env.EXPO_PUBLIC_GEOAPIFY_API_KEY && <Text style={styles.dica}>A busca por estabelecimentos está indisponível neste aplicativo. Pesquise o endereço ou marque o local no mapa.</Text>}
       {semResultados && !buscando && <AsyncState appearance="map" status="empty" title="Nenhum endereço encontrado" message="Tente informar o nome completo e a cidade ou marque o ponto diretamente no mapa." />}
       {!!erro && <AsyncState appearance="map" title="Confira o endereço" message={erro}
         onRetry={!base && texto.trim().length >= 3 ? () => setTentativa(value => value + 1) : undefined} />}

@@ -4,6 +4,14 @@ const fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
 const ui=require('./helpers/ui.cjs');
 const themeExports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/styles/theme.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{exports:themeExports});
 const nodes=t=>!t||typeof t!=='object'?[]:[t,...[t.props?.children,t.props?.action].flat(Infinity).flatMap(nodes)];
+test('trip shortcut rejects invalid execution identifiers and distinguishes status errors from loading',()=>{
+ for(const viagemId of [-1,0,1.5,'7',null,7]){
+  const h=harness('src/components/AtalhosTurma.tsx',{'../hooks/useRemoteResource':{useRemoteResource:()=>({data:{status:'ATIVA',viagemId},error:''})}});
+  const t=h.render('AtalhosTurma',{turmaId:7});assert.equal(nodes(t).some(n=>n.props?.title==='Acompanhar viagem'),viagemId===7);
+ }
+ const h=harness('src/components/AtalhosTurma.tsx',{'../hooks/useRemoteResource':{useRemoteResource:()=>({data:null,error:'offline'})}});
+ assert.ok(JSON.stringify(h.render('AtalhosTurma',{turmaId:7})).includes('Não foi possível confirmar a viagem'));
+});
 function harness(file,overrides={}){
     const slots=[],deps=[],cleanups=[];let cursor=0,effects=[];
     const react={useState:initial=>{const i=cursor++;if(!(i in slots))slots[i]=typeof initial==='function'?initial():initial;return [slots[i],v=>slots[i]=typeof v==='function'?v(slots[i]):v];},useRef:value=>{const i=cursor++;return slots[i]??(slots[i]={current:value});},useEffect:(fn,next=[])=>{const i=cursor++;if(!deps[i]||next.some((v,j)=>v!==deps[i][j]))effects.push(()=>{cleanups[i]?.();cleanups[i]=fn();});deps[i]=next;},useCallback:fn=>fn,useContext:()=>({current:false})};

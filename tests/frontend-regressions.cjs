@@ -889,6 +889,41 @@ test('inactive passenger radar only queries status and never refetches turmas or
     assert.deepEqual(paths, ['/rota/status-atual?turmaId=7']);
 });
 
+test('radar preserves a confirmed active trip on GPS network errors but propagates authorization failures', async () => {
+    for (const kind of ['network','timeout','session']) {
+        const service = load('src/services/passageiroHome.ts', { '../config/api': {
+            apiFetch: async path => {
+                if (path.includes('status-atual')) return new Response('{"status":"ATIVA","viagemId":7}');
+                throw Object.assign(Error(kind), { kind });
+            }, readApiJson: response => response.json(),
+        } });
+        const task = service.fetchPassengerRadar(7, new AbortController().signal);
+        if(kind === 'session') await assert.rejects(task, /session/);
+        else { const result=await task;assert.equal(result.status,'ATIVA');assert.equal(result.gps,'AGUARDANDO');assert.equal(result.position,null); }
+    }
+});
+
+test('radar refuses contradictory trip states and never requests GPS for a negative trip ID', async () => {
+    for(const data of [{status:'INATIVA',ativa:true},{status:'ATIVA',ativa:false},{status:'ATIVA',viagemId:-7}]) {
+        const paths=[];
+        const service=load('src/services/passageiroHome.ts', { '../config/api': {
+            apiFetch:async path=>{paths.push(path);return new Response(JSON.stringify(data));},readApiJson:response=>response.json(),
+        } });
+        const task=service.fetchPassengerRadar(7,new AbortController().signal);
+        if(data.viagemId===-7)assert.equal((await task).gps,'AGUARDANDO');
+        else await assert.rejects(task,/não confirmou/);
+        assert.equal(paths.length,1);
+    }
+});
+
+test('POI provider street approximations cannot be presented as establishments',async()=>{
+    const service=addressService(async url=>new Response(url.includes('mapbox')?'{"features":[]}':JSON.stringify({results:[
+        {result_type:'street',name:'Rua da Escola',lat:-8,lon:-35},
+        {result_type:'amenity',name:'Escola',lat:-8.1,lon:-35.1},
+    ]})),{EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN:'test',EXPO_PUBLIC_GEOAPIFY_API_KEY:'test'});
+    const results=await service.pesquisarEnderecos('Escola');assert.equal(results.length,1);assert.equal(results[0].nome,'Escola');
+});
+
 // Exercise the component's hooks and event handlers without native services.
 function presenceHarness() {
     const state = [], deps = [];

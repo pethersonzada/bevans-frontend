@@ -142,12 +142,15 @@ async function pesquisarEstabelecimentos(termo: string, signal?: AbortSignal, pr
     `apiKey=${encodeURIComponent(key)}`,
   ].join('&');
   type Local = { place_id?: string; name?: string; address_line1?: string; formatted?: string;
-    lat?: number; lon?: number; street?: string; housenumber?: string; suburb?: string; district?: string };
+    lat?: number; lon?: number; street?: string; housenumber?: string; suburb?: string; district?: string; result_type?: string };
   // A busca completa encontra instituições ausentes no autocomplete, inclusive
   // nomes completos de escolas e universidades. O debounce fica no componente.
   const data = await searchJson<{ results?: Local[] }>(`https://api.geoapify.com/v1/geocode/search?${params}`, signal);
   if (!Array.isArray(data?.results)) throw new Error('O serviço de estabelecimentos retornou resultados inválidos.');
   return data.results.flatMap((p, i) => {
+    // Uma consulta por nome também pode retornar ruas como aproximação.
+    // Não apresentar esses candidatos como se fossem o estabelecimento.
+    if (p.result_type && p.result_type !== 'amenity') return [];
     if (!Number.isFinite(p.lat) || !Number.isFinite(p.lon) ||
       Math.abs(p.lat!) > 90 || Math.abs(p.lon!) > 180 ||
       (p.lat === 0 && p.lon === 0)) return [];
