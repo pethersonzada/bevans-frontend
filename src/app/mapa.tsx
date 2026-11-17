@@ -1159,6 +1159,7 @@ export default function Mapa() {
 
         let rotaCarregada: PontoNavegacao[] = [];
         let painelCarregado: PainelParadas | null = null;
+        let causaIndisponibilidade: string | null = null;
 
 
         try {
@@ -1265,7 +1266,8 @@ export default function Mapa() {
             execucaoRef.current = null;
             assinaturaRef.current = '';
             visitadosRef.current = new Set();
-            if (montadoRef.current) setErroNavegacao(errorMessage(e));
+            causaIndisponibilidade = errorMessage(e);
+            if (montadoRef.current) setErroNavegacao(causaIndisponibilidade);
         }
 
         if (!montadoRef.current || !vigente()) return;
@@ -1273,7 +1275,7 @@ export default function Mapa() {
         if (!garagemCarregada || !destinoCarregado) {
             Alert.alert(
                 'Navegação indisponível',
-                'Não foi possível confirmar os pontos desta viagem. Atualize a rota antes de navegar.'
+                causaIndisponibilidade || 'Não foi possível confirmar os pontos desta viagem. Atualize a rota antes de navegar.'
             );
 
             setLoading(false);

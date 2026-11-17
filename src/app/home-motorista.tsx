@@ -20,10 +20,11 @@ import { AppModal as Modal } from '../components/AppModal';
 import { useAppAlert } from '../contexts/AppAlertContext';
 import { useHomeRefresh } from '../hooks/useHomeRefresh';
 import { fetchPassageirosTurma, fetchSolicitacoesTurma, fetchTurmasMotorista } from '../services/motoristaHome';
-import { consultarEstadoViagem, iniciarViagem, reiniciarViagem, TrocaViagemError } from '../services/viagens';
+import { consultarEstadoViagem, encerrarViagem, iniciarViagem, reiniciarViagem, TrocaViagemError, type EstadoViagem } from '../services/viagens';
+import { chaveCacheRoteiro } from '../services/roteiroNavegacao';
 
 import { AsyncState } from '../components/AsyncState';
-import { apiFetch, errorMessage, readApiJson } from '../config/api';
+import { apiFetch, errorMessage } from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
 import { theme } from '../styles/theme';
 
@@ -56,6 +57,11 @@ export default function HomeMotorista() {
     const passageirosRequest = useRef(0);
     const pendentesRequest = useRef(0);
     const [viagemAtiva, setViagemAtiva] = useState(false);
+    const estadoViagemRef = useRef<{ turmaId: number; estado: EstadoViagem } | null>(null);
+    const estadoRequest = useRef(0);
+    const [erroEstadoViagem, setErroEstadoViagem] = useState<string | null>(null);
+    const [encerrando, setEncerrando] = useState(false);
+    const encerramentoPendente = useRef<object | null>(null);
 
     const [modalNotificacoesVisible, setModalNotificacoesVisible] = useState(false);
     const [mostrarPassageiros, setMostrarPassageiros] = useState(false);
@@ -66,7 +72,13 @@ export default function HomeMotorista() {
     const emFoco = useRef(false);
     useFocusEffect(useCallback(() => {
         emFoco.current = true;
-        const dismiss = () => { if (!inicioExecutando.current) inicioPendente.current = false; };
+        const dismiss = () => {
+            if (!inicioExecutando.current) {
+                inicioPendente.current = false;
+                encerramentoPendente.current = null;
+                setEncerrando(false);
+            }
+        };
         const subscription = AppState.addEventListener('change', state => { if (state !== 'active') dismiss(); });
         return () => { emFoco.current = false; dismiss(); subscription.remove(); };
     }, []));
@@ -89,6 +101,9 @@ export default function HomeMotorista() {
             setTurmas(data);
 
             if (data.length === 0) {
+                ++estadoRequest.current;
+                estadoViagemRef.current = null;
+                setErroEstadoViagem(null);
                 turmaSelecionadaRef.current = null;
                 setTurmaSelecionada(null);
                 setPassageiros([]);
@@ -207,37 +222,109 @@ export default function HomeMotorista() {
     }
 
     async function checarAmnesia(turmaId: number) {
-        if (!user?.id || !turmaId) return;
-
+        if (!user?.id || !turmaId || (encerramentoPendente.current && inicioExecutando.current)) return;
+        const request = ++estadoRequest.current;
+        const vigente = () => turmaSelecionadaRef.current?.id === turmaId && request === estadoRequest.current;
         try {
-            const chaveStorage = `@vanbora:viagem_ativa_${user.id}`;
-
-            const res = await apiFetch(`/rota/status-atual?turmaId=${turmaId}`, {
-                headers: { 'Bypass-Tunnel-Reminder': 'true' }
-            });
-            if (turmaSelecionadaRef.current?.id !== turmaId) return;
-
-            if (res.ok) {
-                const data = await readApiJson<any>(res);
-                if (turmaSelecionadaRef.current?.id !== turmaId) return;
-                const statusStr = (data?.status || data?.situacao || '').toUpperCase();
-
-                const ativo = statusStr === 'ATIVA' || statusStr === 'EM_CURSO' || data?.ativa === true;
-
-                setViagemAtiva(ativo);
-
-                if (ativo) {
-                    await AsyncStorage.setItem(chaveStorage, 'true');
-                } else {
-                    await AsyncStorage.removeItem(chaveStorage);
-                }
-            } else {
-                setViagemAtiva(false);
-                await AsyncStorage.removeItem(chaveStorage);
-            }
-        } catch (e: any) {
+            const estado = await consultarEstadoViagem(turmaId);
+            if (!vigente()) return;
+            estadoViagemRef.current = { turmaId, estado };
+            setViagemAtiva(estado.status === 'ATIVA');
+            setErroEstadoViagem(null);
+        } catch (error) {
+            if (!vigente()) return;
+            estadoViagemRef.current = null;
             setViagemAtiva(false);
+            setErroEstadoViagem(errorMessage(error));
         }
+    }
+
+    function confirmarEncerramento() {
+        const oficial = estadoViagemRef.current;
+        if (!user?.id || !turmaSelecionada || oficial?.turmaId !== turmaSelecionada.id ||
+            oficial.estado.status !== 'ATIVA' || inicioPendente.current || encerramentoPendente.current) return;
+        const turmaId = oficial.turmaId;
+        const viagemId = oficial.estado.viagemId!;
+        const motoristaId = user.id;
+        const token = {};
+        encerramentoPendente.current = token;
+        setEncerrando(true);
+        const vigente = () => emFoco.current && turmaSelecionadaRef.current?.id === turmaId;
+        const liberar = () => {
+            if (encerramentoPendente.current !== token || inicioExecutando.current) return;
+            encerramentoPendente.current = null;
+            setEncerrando(false);
+        };
+        let executando = false;
+        const executar = async () => {
+            if (executando || encerramentoPendente.current !== token) return;
+            executando = true;
+            if (!vigente()) { liberar(); return; }
+            inicioExecutando.current = true;
+            ++estadoRequest.current; // Invalida leituras iniciadas antes do encerramento.
+            try {
+                const antes = await consultarEstadoViagem(turmaId);
+                if (!vigente()) return;
+                if (antes.status !== 'ATIVA' || antes.viagemId !== viagemId) {
+                    estadoViagemRef.current = { turmaId, estado: antes };
+                    setViagemAtiva(antes.status === 'ATIVA');
+                    setErroEstadoViagem(null);
+                    Alert.alert('A viagem mudou', 'Confira o estado atualizado antes de encerrar uma viagem.');
+                    return;
+                }
+                let falha: unknown;
+                try { await encerrarViagem(turmaId); } catch (error) { falha = error; }
+                let depois: EstadoViagem;
+                try { depois = await consultarEstadoViagem(turmaId); }
+                catch (error) {
+                    if (vigente()) {
+                        estadoViagemRef.current = null;
+                        setViagemAtiva(false);
+                        setErroEstadoViagem(errorMessage(error));
+                        Alert.alert('Encerramento não confirmado',
+                            (falha ? errorMessage(falha) + ' ' : '') + errorMessage(error) + ' Atualize o estado antes de tentar novamente.');
+                    }
+                    return;
+                }
+                if (vigente()) {
+                    estadoViagemRef.current = { turmaId, estado: depois };
+                    setViagemAtiva(depois.status === 'ATIVA');
+                    setErroEstadoViagem(null);
+                }
+                if (depois.status === 'INATIVA' || depois.viagemId !== viagemId) {
+                    const chaves = (['IDA', 'VOLTA'] as const).flatMap(sentido =>
+                        (['visitadas', 'geometria'] as const).map(tipo => chaveCacheRoteiro(tipo,
+                            { usuarioId: motoristaId, turmaId, viagemId, sentido })));
+                    // O marcador legado só pode ser removido para a turma ainda selecionada e inativa.
+                    if (vigente() && depois.status === 'INATIVA') chaves.push('@vanbora:viagem_ativa_' + motoristaId);
+                    try { await AsyncStorage.multiRemove(chaves); }
+                    catch (error) {
+                        if (vigente()) Alert.alert('Falha ao limpar dados locais', errorMessage(error));
+                    }
+                }
+                if (vigente()) {
+                    if (falha) Alert.alert('Resposta do encerramento', errorMessage(falha));
+                    else if (depois.status === 'ATIVA' && depois.viagemId === viagemId)
+                        Alert.alert('Encerramento não confirmado', 'O servidor ainda informa esta viagem como ativa. Atualize antes de tentar novamente.');
+                    else Alert.alert('Viagem encerrada', 'O acompanhamento desta viagem foi interrompido.');
+                }
+            } catch (error) {
+                if (vigente()) {
+                    estadoViagemRef.current = null;
+                    setViagemAtiva(false);
+                    setErroEstadoViagem(errorMessage(error));
+                    Alert.alert('Estado indisponível', errorMessage(error));
+                }
+            } finally {
+                inicioExecutando.current = false;
+                liberar();
+            }
+        };
+        Alert.alert('Encerrar viagem ativa?',
+            'O encerramento interrompe o acompanhamento e o envio de localização desta viagem. Se houver passageiros embarcados, o servidor bloqueará a ação. Deseja continuar?',
+            [{ text: 'Cancelar', style: 'cancel', onPress: liberar },
+                { text: 'Encerrar viagem', style: 'destructive', onPress: executar }],
+            { onDismiss: liberar });
     }
 
     const removerAluno = useCallback(async (alunoId: number, nomeAluno: string) => {
@@ -275,7 +362,7 @@ export default function HomeMotorista() {
         [totalPassageiros, totalRespostas, carregandoPassageiros, erroPassageiros]);
 
     const iniciarRota = useCallback(async (sentido: 'IDA' | 'VOLTA') => {
-        if (!user.id || !turmaSelecionada || inicioPendente.current) return;
+        if (!user.id || !turmaSelecionada || inicioPendente.current || encerramentoPendente.current) return;
         const turmaId = turmaSelecionada.id;
         const vigente = () => emFoco.current && turmaSelecionadaRef.current?.id === turmaId;
         inicioPendente.current = true;
@@ -284,6 +371,8 @@ export default function HomeMotorista() {
             const atual = await consultarEstadoViagem(turmaId);
             if (!vigente()) { liberar(); return; }
             setViagemAtiva(atual.status === 'ATIVA');
+            estadoViagemRef.current = { turmaId, estado: atual };
+            setErroEstadoViagem(null);
             let executando = false;
             const executar = async () => {
                 if (executando) return;
@@ -292,13 +381,17 @@ export default function HomeMotorista() {
                 inicioExecutando.current = true;
                 try {
                     if (atual.status === 'ATIVA') await reiniciarViagem(turmaId, sentido, atual.viagemId!, () => {
-                        if (vigente()) setViagemAtiva(false);
+                        if (vigente()) {
+                            setViagemAtiva(false);
+                            estadoViagemRef.current = null;
+                        }
                         void AsyncStorage.removeItem('@vanbora:viagem_ativa_' + user.id).catch(() => {});
                     });
                     else await iniciarViagem(turmaId, sentido);
                     const oficial = await consultarEstadoViagem(turmaId);
                     if (!vigente()) return;
                     setViagemAtiva(oficial.status === 'ATIVA');
+                    estadoViagemRef.current = { turmaId, estado: oficial };
                     const cache = '@vanbora:viagem_ativa_' + user.id;
                     void (oficial.status === 'ATIVA' ? AsyncStorage.setItem(cache, 'true') : AsyncStorage.removeItem(cache)).catch(() => {});
                     if (oficial.status === 'ATIVA') router.push({ pathname: '/mapa', params: { sentido: oficial.sentido?.toLowerCase(), turmaId: String(turmaId) } });
@@ -306,6 +399,7 @@ export default function HomeMotorista() {
                     if (!vigente()) return;
                     if (error instanceof TrocaViagemError) {
                         setViagemAtiva(error.estado?.status === 'ATIVA');
+                        estadoViagemRef.current = error.estado ? { turmaId, estado: error.estado } : null;
                         if (error.anteriorEncerrada) await AsyncStorage.removeItem('@vanbora:viagem_ativa_' + user.id);
                         Alert.alert(error.anteriorEncerrada ? 'Viagem anterior encerrada' : error.etapa === 'encerrar' ? 'Encerramento não confirmado' : 'Troca não concluída', error.message + ' ' + errorMessage(error.original));
                     } else {
@@ -348,9 +442,21 @@ export default function HomeMotorista() {
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
 
                 {erroCarga && <AsyncState message={erroCarga} onRetry={refresh} />}
+                {erroEstadoViagem && <AsyncState title="Estado da viagem indisponível" message={erroEstadoViagem} onRetry={refresh} />}
+                {viagemAtiva && <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Encerrar viagem ativa"
+                    accessibilityState={{ disabled: encerrando, busy: encerrando }}
+                    disabled={encerrando}
+                    onPress={confirmarEncerramento}
+                    style={({ pressed }) => [styles.encerrarButton, pressed && styles.pressed]}
+                >
+                    {encerrando && <ActivityIndicator color={theme.colors.danger} />}
+                    <Text style={styles.encerrarLabel}>{encerrando ? 'Aguardando encerramento...' : 'Encerrar viagem ativa'}</Text>
+                </Pressable>}
                 {viagemAtiva && <BannerRotaAtiva
                     onPress={() => {
-                        if (!turmaSelecionada) return;
+                        if (!turmaSelecionada || encerramentoPendente.current) return;
 
                         router.push({
                             pathname: '/mapa',
@@ -365,6 +471,10 @@ export default function HomeMotorista() {
                     turmas={turmas}
                     turmaSelecionada={turmaSelecionada}
                     onSelecionarTurma={async (t) => {
+                        if (inicioExecutando.current) return;
+                        ++estadoRequest.current;
+                        estadoViagemRef.current = null;
+                        setErroEstadoViagem(null);
                         turmaSelecionadaRef.current = t;
                         setTurmaSelecionada(t);
                         setPassageiros([]);
@@ -612,6 +722,12 @@ export default function HomeMotorista() {
 }
 
 const styles = StyleSheet.create({
+    encerrarButton: {
+        minHeight: 52, padding: 16, marginBottom: 16, borderRadius: 12,
+        borderWidth: 1, borderColor: theme.colors.danger, backgroundColor: theme.colors.surface,
+        flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8,
+    },
+    encerrarLabel: { color: theme.colors.danger, fontSize: 16, fontWeight: '700' },
     sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: theme.spacing.sm },
     sectionHeaderText: { flex: 1, gap: 3 },
     eyebrow: { color: theme.colors.textLight, fontSize: 11, fontWeight: '700', letterSpacing: 1.2 },
