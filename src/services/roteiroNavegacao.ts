@@ -58,7 +58,7 @@ export function assinaturaRoteiro(execucao: ExecucaoRoteiro, pontos: PontoNavega
 }
 
 export function chaveCacheRoteiro(tipo: 'visitadas' | 'geometria', execucao: ExecucaoRoteiro): string {
-    return `@bevans:roteiro:v4:${tipo}:${encodeURIComponent(execucao.usuarioId)}:${execucao.turmaId}:${execucao.viagemId}:${execucao.sentido}`;
+    return `@bevans:roteiro:v5:${tipo}:${encodeURIComponent(execucao.usuarioId)}:${execucao.turmaId}:${execucao.viagemId}:${execucao.sentido}`;
 }
 
 // Só aceita progresso contíguo do mesmo snapshot. Cache desconhecido nunca elimina pontos.

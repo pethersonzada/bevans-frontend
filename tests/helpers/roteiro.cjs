@@ -25,7 +25,7 @@ function fixture(modalidade, sentido) {
     return sentido === 'IDA' ? [origem, excepcional, vazia, compartilhada, destino] : [origem, vazia, excepcional, compartilhada, destino];
 }
 function painel(pontos, viagemId = 42, sentido = 'IDA') {
-    const registros = pontos.flatMap((p, ordem) => p.passageiros.map(a => ({ id: 900 + a.id, alunoId: a.id, paradaId: p.paradaId, ordem })));
+    const registros = pontos.flatMap((p, ordem) => p.passageiros.map(a => ({ id: 900 + a.id, alunoId: a.id, nome: a.nome, paradaId: p.paradaId, ordem, estado: 'AGUARDANDO', versao: 0 })));
     return { referenciaId: viagemId, tipo: 'VIAGEM', sentido, registros, contadores: { esperados: registros.length } };
 }
 module.exports = { load, passageiro, ponto, fixture, painel };
