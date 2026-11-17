@@ -3,6 +3,16 @@ const {harness,nodes,find,fixture}=require('./helpers/excursoes.cjs');
 const WIZ='src/components/excursoes/PlanejarExcursao.tsx';
 const props=(e=fixture())=>({initial:e,onClose(){},onPersisted(){},onSaved:async()=>{}});
 const turn=()=>new Promise(setImmediate);
+test('excursion preview ignores a late response from another excursion and reports empty itineraries',async()=>{
+ let finish;
+ const h=harness('src/components/GestaoExcursao.tsx',{services:{planejarExcursao:()=>new Promise(resolve=>finish=resolve)}});
+ const p={id:7,secao:'roteiro'};
+ let t=h.render('GestaoExcursao',p);find(t,'Ver sequência dos pontos').props.onPress();
+ h.render('GestaoExcursao',{...p,id:8});finish([{nome:'Ponto antigo',latitude:-8,longitude:-35}]);await turn();
+ t=h.render('GestaoExcursao',{...p,id:8});assert.equal(nodes(t).some(n=>n.type==='MapPreview'),false);
+ find(t,'Ver sequência dos pontos').props.onPress();finish([]);await turn();t=h.render('GestaoExcursao',{...p,id:8});
+ assert.ok(JSON.stringify(t).includes('Nenhum ponto retornado'));h.unmount();
+});
 test('date and time selection preserves local calendar and emits an ISO instant without manual input',()=>{
  const {mod:form}=harness('src/services/excursaoFormulario.ts');const original=new Date(2027,4,10,9,35),chosen=new Date(2027,5,12,17,45);
  const date=new Date(form.selecionarDataHora(original.toISOString(),chosen,'date'));assert.equal(date.getMonth(),5);assert.equal(date.getDate(),12);assert.equal(date.getHours(),9);

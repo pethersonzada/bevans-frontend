@@ -25,11 +25,24 @@ export function GestaoExcursao({id,secao='participantes',origemConfigurada=true,
     const [revogar,setRevogar]=useState<number|null>(null);
     const [sentido,setSentido]=useState<'IDA'|'VOLTA'>('IDA');
     const [page,setPage]=useState(0),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[pontos,setPontos]=useState<PontoPublico[]>([]);const pending=useRef(false);
+    const contexto=`${id}:${secao}:${sentido}`;
+    const atual=useRef(contexto);atual.current=contexto;
+    const mounted=useRef(true);
+    useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
+    useEffect(()=>{setPontos([]);setMessage('');},[contexto]);
     const participantes=useRemoteResource(secao==='participantes'?`participantes-excursao:${id}:${page}`:false,signal=>participantesExcursao(id,page,signal));
     const convites=useRemoteResource(secao==='convites'?`convites-excursao:${id}`:false,signal=>convitesExcursao(id,signal));
     const error=secao==='participantes'?participantes.error:convites.error;
     const reload=secao==='participantes'?participantes.reload:secao==='convites'?convites.reload:()=>{};
-    const run=async(task:()=>Promise<unknown>)=>{if(pending.current||lock?.current)return;pending.current=true;if(lock)lock.current=true;setBusy(true);setMessage('');try{await task();reload();}catch(e){setMessage(errorMessage(e));}finally{pending.current=false;if(lock)lock.current=false;setBusy(false);}};
+    const run=async(task:()=>Promise<unknown>)=>{if(pending.current||lock?.current)return;pending.current=true;if(lock)lock.current=true;setBusy(true);setMessage('');try{await task();if(mounted.current&&atual.current===contexto)reload();}catch(e){if(mounted.current&&atual.current===contexto)setMessage(errorMessage(e));}finally{pending.current=false;if(lock)lock.current=false;if(mounted.current)setBusy(false);}};
+    const consultarRoteiro=async(otimizar:boolean)=>{
+        setPontos([]);
+        const resultado=await planejarExcursao(id,sentido,otimizar);
+        if(mounted.current&&atual.current===contexto){
+            setPontos(resultado);
+            if(!resultado.length)setMessage('Nenhum ponto retornado. Revise os locais e participantes da excursão.');
+        }
+    };
     const estados:Record<string,string>={SOLICITADA:'Reserva solicitada',CONFIRMADA:'Inscrição confirmada',CANCELADA:'Inscrição cancelada',EXPIRADA:'Reserva expirada'};
     return <Section title={secao==='participantes'?'Reservas do grupo':secao==='convites'?'Links do grupo':'Explore o roteiro'}>
         {secao!=='roteiro'&&<Button title={secao==='participantes'?'Atualizar reservas':'Atualizar convites'} icon="refresh-outline" disabled={busy} onPress={reload}/>}
@@ -48,8 +61,8 @@ export function GestaoExcursao({id,secao='participantes',origemConfigurada=true,
         {!origemConfigurada&&<><Text style={trip.body}>Para otimizar, configure o ponto de saída da excursão.</Text>
             {onConfigurarOrigem&&<Button title="Configurar ponto de saída" onPress={onConfigurarOrigem} disabled={busy}/>}</>}
         {executados.includes(sentido)&&<Text style={trip.body}>Este trecho já possui execução. O roteiro exibido será o snapshot salvo; não é possível reotimizar uma viagem iniciada.</Text>}
-        <Button title={executados.includes(sentido)?"Ver roteiro da execução":"Ver sequência dos pontos"} disabled={busy} onPress={()=>void run(async()=>{setPontos([]);setPontos(await planejarExcursao(id,sentido,false));})}/>
-        {!executados.includes(sentido)&&<Button title="Otimizar prévia dos pontos" disabled={busy||!origemConfigurada} onPress={()=>void run(async()=>{setPontos([]);setPontos(await planejarExcursao(id,sentido,true));})}/>}
+        <Button title={executados.includes(sentido)?"Ver roteiro da execução":"Ver sequência dos pontos"} disabled={busy} onPress={()=>void run(()=>consultarRoteiro(false))}/>
+        {!executados.includes(sentido)&&<Button title="Otimizar prévia dos pontos" disabled={busy||!origemConfigurada} onPress={()=>void run(()=>consultarRoteiro(true))}/>}
         {!!pontos.length&&<><MapaPreviaPublica pontos={pontos}/><Text style={trip.caption}>Roteiro consultado no servidor. Nenhuma parada foi alterada.</Text></>}</>}
     </Section>;
 }
