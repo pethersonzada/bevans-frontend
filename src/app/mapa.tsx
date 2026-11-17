@@ -19,14 +19,14 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { API_URL } from '../config/config';
-import { apiFetch, readApiJson, readApiError, errorMessage } from '../config/api';
+import { apiFetch, apiRequest, readApiJson, readApiError, errorMessage } from '../config/api';
 import { AsyncState } from '../components/AsyncState';
 import { withDeadline } from '../services/asyncOperation';
 import { validCoordinates } from '../services/location';
 import { ensureNavigationLocation, NavigationLocationError } from '../services/navigationLocation';
 import { encerrarViagem } from '../services/viagens';
 import { buscarRotaPublica, listarMinhasRotas } from '../services/rotasPublicas';
-import { montarParadasDefinidas, type ParadaPublicaNavegacao } from '../services/roteiroNavegacao';
+import { conferirSnapshotRoteiro, assinaturaRoteiro, validarPontoRoteiro, montarParadasDefinidas, type ParadaPublicaNavegacao } from '../services/roteiroNavegacao';
 import { consultarColetaPrivada } from '../services/coletaPrivada';
 import { createPositionSender } from '../services/telemetria';
 import { theme } from '../styles/theme';
@@ -85,6 +85,7 @@ type GeometriaSalva = {
     manobras: Manobra[];
     paradas: ParadaNavegacao[];
     passageirosIds: number[];
+    assinatura: string;
 };
 
 const CACHE_KEYS = {
@@ -765,6 +766,7 @@ export default function Mapa() {
                 await salvarCache(CACHE_KEYS.geometria(turmaId, direcaoAtualRef.current, viagemIdRef.current), {
                     geoJson: geoJsonValido, coordenadas, manobras: manobrasCalculadas,
                     paradas, passageirosIds: rotaRef.current.map(p => p.id),
+                    assinatura: assinaturaRoteiro(pendentes, destinoFinal),
                 } as GeometriaSalva);
             }
 
@@ -1165,12 +1167,19 @@ export default function Mapa() {
             );
             visitadosRef.current = new Set(visitadasSalvas || []);
 
+            const rotaPublica = rotaId
+                ? await buscarRotaPublica(rotaId)
+                : (await listarMinhasRotas()).find(r => r.turmaId === Number(turmaAtual.id));
+            if (rotaPublica && rotaPublica.turmaId !== Number(turmaAtual.id)) {
+                throw new Error('A rota pública não pertence à turma da viagem.');
+            }
+
             const origemLat = Number(
-                turmaAtual.origemLatitude
+                rotaPublica?.origemLatitude ?? turmaAtual.origemLatitude
             );
 
             const origemLng = Number(
-                turmaAtual.origemLongitude
+                rotaPublica?.origemLongitude ?? turmaAtual.origemLongitude
             );
 
             if (
@@ -1189,11 +1198,11 @@ export default function Mapa() {
             };
 
             const destinoLat = Number(
-                turmaAtual.destinoLatitude
+                rotaPublica?.destinoLatitude ?? turmaAtual.destinoLatitude
             );
 
             const destinoLng = Number(
-                turmaAtual.destinoLongitude
+                rotaPublica?.destinoLongitude ?? turmaAtual.destinoLongitude
             );
 
             if (
@@ -1212,9 +1221,6 @@ export default function Mapa() {
             };
 
             // Rotas públicas compartilham o mapa, mas possuem origem e destino próprios.
-            const rotaPublica = rotaId
-                ? await buscarRotaPublica(rotaId)
-                : (await listarMinhasRotas()).find(r => r.turmaId === Number(turmaAtual.id));
             if (rotaPublica) {
                 if (rotaPublica.turmaId !== Number(turmaAtual.id)) throw new Error('A rota pública não pertence à turma da viagem.');
                 possuiParadasDefinidas = true;
@@ -1283,15 +1289,15 @@ export default function Mapa() {
                     ),
                     embarcado: false,
                 }))
-                .filter(
-                    (p: PassageiroRota) =>
-                        Number.isSafeInteger(p.id) &&
-                        p.id > 0 &&
-                        Number.isFinite(p.latitude) &&
-                        Number.isFinite(p.longitude) &&
-                        p.latitude !== 0 &&
-                        p.longitude !== 0
-                );
+                .map(validarPontoRoteiro);
+
+            // O otimizador deve servir o snapshot ativo, inclusive para públicas.
+            // Se o backend cair no cálculo privado legado, a operação denuncia
+            // passageiros ausentes ou indevidos antes de gerar a geometria.
+            const operacao = await apiRequest<Parameters<typeof conferirSnapshotRoteiro>[1]>(
+                `/operacoes/VIAGEM/${viagemIdAtiva}`
+            );
+            conferirSnapshotRoteiro(rotaCarregada, operacao, viagemIdAtiva, direcaoUsada.toUpperCase());
 
             // O snapshot traz os embarques aprovados; a rota pública também
             // exige as paradas cadastradas, mesmo quando ainda não há reserva.
@@ -1416,6 +1422,7 @@ export default function Mapa() {
                 await salvarCache(CACHE_KEYS.geometria(turmaIdRef.current, direcaoUsada, viagemIdRef.current), {
                     geoJson: geoJsonValido, coordenadas, manobras: manobrasCalculadas,
                     paradas, passageirosIds: rotaRef.current.map(p => p.id),
+                    assinatura: assinaturaRoteiro(passageiros, destinoFinal),
                 } as GeometriaSalva);
             }
         } catch {
@@ -1436,6 +1443,7 @@ export default function Mapa() {
             if (!montadoRef.current) return;
             const idsAtuais = rotaRef.current.map(p => p.id);
             if (cache &&
+                cache.assinatura === assinaturaRoteiro(passageiros, destinoFinal) &&
                 JSON.stringify(cache.passageirosIds) === JSON.stringify(idsAtuais) &&
                 cache.paradas?.length === passageiros.length + 1 &&
                 cache.coordenadas?.length > 1) {

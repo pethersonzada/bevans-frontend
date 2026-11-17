@@ -593,6 +593,20 @@ test('address search can use a configured optional provider when the primary fai
     assert.equal(results[0].tipo, 'estabelecimento');
 });
 
+test('POI search expands ETE and uses full search with the current map proximity', async () => {
+    const urls = [];
+    const service = addressService(async url => {
+        urls.push(url);
+        return new Response(url.includes('geoapify') ? '{"results":[]}' : '{"features":[]}');
+    }, { EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN: 'test', EXPO_PUBLIC_GEOAPIFY_API_KEY: 'test' });
+    await service.pesquisarEnderecos('ETE Cícero Dias Recife', undefined, { latitude: -8.1, longitude: -34.9 });
+    const poi = new URL(urls.find(url => url.includes('geoapify')));
+    assert.equal(poi.pathname, '/v1/geocode/search');
+    assert.equal(poi.searchParams.get('text'), 'Escola Técnica Estadual Cícero Dias Recife');
+    assert.equal(poi.searchParams.get('bias'), 'proximity:-34.9,-8.1');
+    assert.equal(poi.searchParams.get('filter'), 'countrycode:br');
+});
+
 test('driver services scope endpoints and distinguish empty lists from invalid payloads', async () => {
     const paths = []; let body = null;
     const api = { apiRequest: async path => { paths.push(path); return body; } };
@@ -827,6 +841,41 @@ test('turma search accepts code or name without adding results outside the autho
     assert.equal(filterTurmas(turmas, 'unknown').length, 0);
     assert.equal(filterTurmas(turmas, '').length, 2);
     assert.equal(turmas.length, 2);
+});
+
+test('active passenger radar rejects stale, future and invalid GPS without showing garagem', async () => {
+    for (const pos of [
+        { estado: 'ATUALIZADA', observadoEm: new Date(Date.now() - 31000).toISOString(), latitude: -8, longitude: -35 },
+        { estado: 'ATUALIZADA', observadoEm: new Date(Date.now() + 60000).toISOString(), latitude: -8, longitude: -35 },
+        { estado: 'ATUALIZADA', observadoEm: new Date().toISOString(), latitude: 95, longitude: -35 },
+        { estado: 'DESATUALIZADA', observadoEm: new Date().toISOString(), latitude: -8, longitude: -35 },
+    ]) {
+        const { fetchPassengerRadar } = load('src/services/passageiroHome.ts', { '../config/api': {
+            apiFetch: async path => new Response(JSON.stringify(path.includes('status-atual') ? { status: 'ATIVA', viagemId: 7 } : pos)),
+            readApiJson: async response => response.json(),
+        } });
+        const result = await fetchPassengerRadar(7, new AbortController().signal);
+        assert.equal(result.status, 'ATIVA');
+        assert.equal(result.gps, 'AGUARDANDO');
+        assert.equal(result.position, null);
+    }
+});
+
+test('radar only publishes a recent authorized position and its expiry', async () => {
+    const observadoEm = new Date().toISOString();
+    const paths = [];
+    const { fetchPassengerRadar } = load('src/services/passageiroHome.ts', { '../config/api': {
+        apiFetch: async path => {
+            paths.push(path);
+            return new Response(JSON.stringify(path.includes('status-atual') ? { status: 'ATIVA', viagemId: 42 }
+                : { estado: 'ATUALIZADA', observadoEm, latitude: -8, longitude: -35 }));
+        },
+        readApiJson: async response => response.json(),
+    } });
+    const result = await fetchPassengerRadar(7, new AbortController().signal);
+    assert.equal(result.gps, 'ONLINE');
+    assert.equal(result.position.expiresAt, Date.parse(observadoEm) + 30000);
+    assert.deepEqual(paths, ['/rota/status-atual?turmaId=7', '/viagens/42/localizacao']);
 });
 
 test('inactive passenger radar only queries status and never refetches turmas or addresses', async () => {

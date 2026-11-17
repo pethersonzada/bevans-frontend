@@ -509,11 +509,11 @@ export default function HomePassageiro() {
                                     <Text style={styles.cadeadoTitulo}>A van está na garagem</Text>
                                     <Text style={styles.cadeadoSubtitulo}>O radar será ativado quando a viagem começar.</Text>
                                 </View>
-                            ) : centroMapa ? (
+                            ) : centroMapa && posicaoVan ? (
                                 <MapaRadarPassageiro centroMapa={centroMapa} minhaLocalizacao={minhaLocalizacao} posicaoVan={posicaoVan} />
                             ) : (
                                 <View style={styles.center}>
-                                    <AsyncState status="empty" title="Localização indisponível" message="Aguardando uma localização válida. O radar tenta atualizar automaticamente." />
+                                    <AsyncState status="empty" title="Viagem em andamento; localização indisponível" message="Aguardando uma localização recente da van. O radar tenta atualizar automaticamente." />
                                 </View>
                             )}
                         </View>

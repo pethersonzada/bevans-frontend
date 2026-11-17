@@ -135,7 +135,7 @@ async function pesquisarEstabelecimentos(termo: string, signal?: AbortSignal, pr
   const key = process.env.EXPO_PUBLIC_GEOAPIFY_API_KEY;
   if (!key) return [];
   const params = [
-    `text=${encodeURIComponent(termo)}`,
+    `text=${encodeURIComponent(termo.trim().replace(/^ETE\b\s*/i, 'Escola Técnica Estadual '))}`,
     'type=amenity', 'lang=pt', 'limit=6', 'format=json',
     'filter=countrycode:br',
     ...(coordenadasBusca(proximidade) ? [`bias=proximity:${coordenadasBusca(proximidade)}`] : []),
@@ -143,7 +143,9 @@ async function pesquisarEstabelecimentos(termo: string, signal?: AbortSignal, pr
   ].join('&');
   type Local = { place_id?: string; name?: string; address_line1?: string; formatted?: string;
     lat?: number; lon?: number; street?: string; housenumber?: string; suburb?: string; district?: string };
-  const data = await searchJson<{ results?: Local[] }>(`https://api.geoapify.com/v1/geocode/autocomplete?${params}`, signal);
+  // A busca completa encontra instituições ausentes no autocomplete, inclusive
+  // nomes completos de escolas e universidades. O debounce fica no componente.
+  const data = await searchJson<{ results?: Local[] }>(`https://api.geoapify.com/v1/geocode/search?${params}`, signal);
   if (!Array.isArray(data?.results)) throw new Error('O serviço de estabelecimentos retornou resultados inválidos.');
   return data.results.flatMap((p, i) => {
     if (!Number.isFinite(p.lat) || !Number.isFinite(p.lon) ||
