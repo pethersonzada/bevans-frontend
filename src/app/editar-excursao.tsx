@@ -4,7 +4,7 @@ import { BackHandler, Text, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import { useRemoteResource } from '../hooks/useRemoteResource';
-import { buscarExcursao, acaoExcursao, listarExecucoes, iniciarExcursao, finalizarExcursao, type Excursao } from '../services/excursoes';
+import { buscarExcursao, acaoExcursao, listarExecucoes, type Excursao } from '../services/excursoes';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { AsyncState } from '../components/AsyncState';
 import { AppModal } from '../components/AppModal';
@@ -13,6 +13,7 @@ import { ExcursaoActionContext } from '../components/ExcursaoActionContext';
 import { GestaoExcursao } from '../components/GestaoExcursao';
 import { PlanejarExcursao } from '../components/excursoes/PlanejarExcursao';
 import type { Momento } from '../components/excursoes/Planejamento';
+import { OperacaoExcursao } from '../components/excursoes/OperacaoExcursao';
 import { ConvitesViagem } from '../components/excursoes/ConvitesViagem';
 import { AsyncAction } from '../components/excursoes/AcaoExcursao';
 import { ActionButton, BlocoViagem, CabecalhoViagem, DestinoHero, DadoViagem, PaginaViagem, dataViagem, horaViagem, trip } from '../components/excursoes/ViagemUI';
@@ -52,48 +53,34 @@ export function TelaExcursao({id,motorista}:{id?:string;motorista:boolean}) {
     },[vista,dirty,router]));
     const saved=async(newId:number,e:Excursao)=>{
         if(!mounted.current)return;
-        setSnapshot(e);setDirty(false);resource.reload();execucoes.reload();setVista('visao');
+        setSnapshot(e);setDirty(false);setRevision(v=>v+1);resource.reload();execucoes.reload();setVista('visao');
         if(!id)router.replace({pathname:'/editar-excursao',params:{id:String(newId)}});
     };
     const updateSaved=(e:Excursao)=>{if(mounted.current)setSnapshot(e);};
     const e=snapshot;
     const offline=network.isConnected===false||network.isInternetReachable===false;
     const active=execucoes.data?.find(v=>v.estado==='EM_ANDAMENTO');
-    const idaFinalizada=execucoes.data?.some(v=>v.sentido==='IDA'&&v.estado==='FINALIZADA')===true;
+    const podeEditar=!!e&&!['CONCLUIDA','CANCELADA'].includes(e.estado)&&!!execucoes.data&&!execucoes.data.length&&Date.parse(e.partidaEm)>Date.now();
+    const bloqueioPublicacao=!e||e.estado!=='RASCUNHO'?'Somente uma viagem em planejamento pode ser publicada.':!execucoes.data?'Aguarde a consulta das execuções.':!podeEditar?'A publicação está encerrada para esta viagem.':'';
     if(!motorista)return <PaginaViagem title="Excursão" onBack={()=>router.back()}><AsyncState message="A gestão exige perfil de motorista."/></PaginaViagem>;
     return <ExcursaoActionContext.Provider value={lock}>
         {(e||!id)&&<PlanejarExcursao key={revision} initial={e||undefined} visible={vista==='planejar'} initialMoment={momento} command={command} latestVersion={resource.data?.versao} onClose={back} onPersisted={updateSaved} onSaved={saved} onDirty={onDirty} locked={locked}/>}
-        {vista!=='planejar'&&<PaginaViagem title={vista==='visao'?'Sua viagem':vista==='convites'?'Convites':vista==='participantes'?'Participantes':vista==='operacao'?'Acompanhar viagem':'Revisar publicação'} onBack={back}>
+        {vista!=='planejar'&&<PaginaViagem key={vista} title={vista==='visao'?'Sua viagem':vista==='convites'?'Convites':vista==='participantes'?'Participantes':vista==='operacao'?'Acompanhar viagem':'Revisar publicação'} onBack={back}>
             {offline&&<Notice>Sem conexão. Os dados salvos podem estar desatualizados.</Notice>}
             {!!resource.error&&<AsyncState message={resource.error} onRetry={resource.reload}/>}
             {!e?!resource.error&&<RemoteLoading/>:<>
                 {resource.data&&resource.data.versao>e.versao&&<Notice>Há uma versão mais recente no servidor. Atualize a versão salva para revisar, sem sobrescrever seu planejamento.</Notice>}
-                {vista==='visao'&&<VisaoGeralViagem e={e} active={active} dirty={dirty} onEdit={edit} onSection={setVista} onResume={()=>edit(momento)} onRefresh={()=>setDescartar(true)}/>}
-                {vista==='convites'&&<ConvitesViagem key={e.id} e={e}/>}
-                {vista==='participantes'&&<><CabecalhoViagem title="Quem vai com a gente?" subtitle={e.titulo}/><GestaoExcursao key={e.id} id={e.id} secao="participantes"/></>}
-                {vista==='publicacao'&&<><CabecalhoViagem title="Tudo pronto para convidar?" subtitle="Confira o que está salvo antes de publicar."/><DestinoHero destino={e.destinoNome} titulo={e.titulo} estado={e.estado}/><View style={trip.travelCard}><DadoViagem icon="calendar-outline" text={`${dataViagem(e.partidaEm)} · ${horaViagem(e.partidaEm)}`}/><DadoViagem icon="people-outline" text={`${e.capacidade} lugares no total`}/><DadoViagem icon="location-outline" text={e.modoColeta==='PORTA_A_PORTA'?'Porta a porta':`${e.paradas.length} pontos de encontro`}/></View>{dirty&&<Notice>Há alterações não salvas. Retome o planejamento antes de publicar.</Notice>}<AsyncAction title="Publicar excursão" disabled={dirty||offline} confirmMessage="Publicar a versão salva e permitir criar convites?" action={async()=>{const actual=await acaoExcursao(e.id,'publicacao',e.versao);await saved(actual.id,actual);}}/></>}
+                {vista==='visao'&&<VisaoGeralViagem e={e} active={active} hasExecutions={!execucoes.data||!!execucoes.data.length} dirty={dirty} onEdit={edit} onSection={setVista} onResume={()=>edit(momento)} onRefresh={()=>setDescartar(true)}/>}
+                {vista==='convites'&&<ConvitesViagem key={e.id} e={e} execucoesCriadas={!!execucoes.data?.length} consultandoExecucoes={!execucoes.data}/>}
+                {vista==='participantes'&&<><CabecalhoViagem title="Quem vai com a gente?" subtitle={e.titulo}/><ActionButton title="Convites do grupo" onPress={()=>setVista('convites')}/><GestaoExcursao key={e.id} id={e.id} secao="participantes"/></>}
+                {vista==='publicacao'&&<><CabecalhoViagem title="Tudo pronto para convidar?" subtitle="Confira o que está salvo antes de publicar."/><DestinoHero destino={e.destinoNome} titulo={e.titulo} estado={e.estado}/><View style={trip.travelCard}><DadoViagem icon="calendar-outline" text={`${dataViagem(e.partidaEm)} · ${horaViagem(e.partidaEm)}`}/><DadoViagem icon="people-outline" text={`${e.capacidade} lugares no total`}/><DadoViagem icon="location-outline" text={e.modoColeta==='PORTA_A_PORTA'?'Porta a porta':`${e.paradas.length} ${e.paradas.length===1?'ponto de encontro':'pontos de encontro'}`}/></View>{dirty&&<Notice>Há alterações não salvas. Retome o planejamento antes de publicar.</Notice>}{!!bloqueioPublicacao&&<Notice>{bloqueioPublicacao}</Notice>}<AsyncAction title="Publicar excursão" disabled={dirty||offline||!!bloqueioPublicacao} confirmMessage="Publicar a versão salva e permitir criar convites?" action={async()=>{const actual=await acaoExcursao(e.id,'publicacao',e.versao);await saved(actual.id,actual);}}/></>}
                 {vista==='operacao'&&<>
                     <CabecalhoViagem title="Hora de viajar" subtitle={e.titulo}/>
                     {!!execucoes.error&&<AsyncState message={execucoes.error} onRetry={execucoes.reload}/>}
                     {!execucoes.data&&!execucoes.error&&<RemoteLoading/>}
-                    {execucoes.data?.map(v=><View key={v.id} style={trip.travelCard}><Text style={trip.eyebrow}>{v.sentido==='IDA'?'Ida':'Volta'}</Text><Text style={trip.sectionTitle}>{v.estado==='EM_ANDAMENTO'?'Em andamento':v.estado==='FINALIZADA'?'Finalizada':'Cancelada'}</Text><ActionButton variant={v.estado==='EM_ANDAMENTO'?'primary':'secondary'} title="Controle de embarque" onPress={()=>router.push({pathname:'/controle-viagem',params:{tipo:'EXCURSAO',id:String(v.id)}})}/>{v.estado==='EM_ANDAMENTO'&&<AsyncAction variant="secondary" title="Finalizar execução" confirmMessage="Encerrar esta execução? Confirme os desembarques reais antes de finalizar." action={async()=>{await finalizarExcursao(e.id,v.id);resource.reload();execucoes.reload();}}/>}</View>)}
-                    <BlocoViagem title="Iniciar um trecho">
-                        {e.estado!=='PUBLICADA'&&<Notice>Publique a excursão antes de iniciar. O roteiro pode ser conferido abaixo.</Notice>}
-                        {active&&<Notice>Há uma execução em andamento. Finalize-a e registre os desembarques antes de iniciar outro trecho.</Notice>}
-                        {(['IDA','VOLTA'] as const).map(sentido=>{
-                            const jaExecutada=execucoes.data?.some(v=>v.sentido===sentido)===true;
-                            const faltaOrigem=sentido==='VOLTA'&&(e.retornoEm==null||e.origemLatitude==null||e.origemLongitude==null);
-                            const faltaIda=sentido==='VOLTA'&&!idaFinalizada;
-                            const permitido=!!execucoes.data&&!active&&!jaExecutada&&!faltaOrigem&&!faltaIda&&e.estado==='PUBLICADA';
-                            const motivo=!execucoes.data?'Aguardando o estado da execução.':jaExecutada?'Este trecho já foi iniciado ou encerrado.':faltaIda?'Finalize a ida antes da volta.':faltaOrigem?'Configure a origem e o horário de retorno.':null;
-                            return <View key={sentido} style={{gap:6}}>
-                                <AsyncAction title={`Iniciar execução ${sentido}`} disabled={offline||dirty||!permitido} confirmMessage="Iniciar com os participantes confirmados? A execução bloqueia alterações dos embarques." action={async()=>{await iniciarExcursao(e.id,sentido);resource.reload();execucoes.reload();}}/>
-                                {motivo&&<Text style={trip.caption}>{motivo}</Text>}
-                            </View>;
-                        })}
-                    </BlocoViagem>
-                    <GestaoExcursao id={e.id} excursao={e} secao="roteiro" origemConfigurada={e.origemLatitude!=null&&e.origemLongitude!=null} onConfigurarOrigem={()=>edit('Destino')} onEditarPontos={()=>edit(e.modoColeta==='PORTA_A_PORTA'?'Destino':'Pontos')} executados={execucoes.data?.map(v=>v.sentido)}/>
-                    <AsyncAction variant="danger" title="Cancelar excursão" disabled={offline} confirmMessage="Cancelar esta viagem? A ação afeta as inscrições e não reabre a excursão." action={async()=>{const actual=await acaoExcursao(e.id,'cancelamento',e.versao);await saved(actual.id,actual);}}/>
+                    <OperacaoExcursao e={e} execucoes={execucoes.data} offline={offline} dirty={dirty} onRefresh={()=>{resource.reload();execucoes.reload();}} onEdit={podeEditar?edit:undefined} onPublicar={()=>setVista('publicacao')} onControle={execucao=>router.push({pathname:'/controle-viagem',params:{tipo:'EXCURSAO',id:String(execucao),excursaoId:String(e.id)}})}/>
+                    <GestaoExcursao id={e.id} excursao={e} secao="roteiro" origemConfigurada={e.origemLatitude!=null&&e.origemLongitude!=null} onConfigurarOrigem={podeEditar?()=>edit('Destino'):undefined} onEditarPontos={podeEditar?()=>edit(e.modoColeta==='PORTA_A_PORTA'?'Destino':'Pontos'):undefined} executados={execucoes.data?.map(v=>v.sentido)}/>
+                    <AsyncAction variant="danger" title="Cancelar excursão" disabled={offline||!execucoes.data||['CONCLUIDA','CANCELADA'].includes(e.estado)} confirmMessage="Cancelar esta viagem? A ação afeta as inscrições e não reabre a excursão." action={async()=>{const actual=await acaoExcursao(e.id,'cancelamento',e.versao);await saved(actual.id,actual);}}/>
                 </>}
             </>}
         </PaginaViagem>}

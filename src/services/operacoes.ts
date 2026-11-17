@@ -7,7 +7,7 @@ export function mensagemErroOperacao(error:unknown):string {
     const e=error as {status?:number;kind?:string;message?:string};
     if(e?.status===401||e?.kind==='session')return 'Sua sessão expirou. Entre novamente antes de confirmar.';
     if(e?.status===403)return 'Você não tem permissão para operar esta viagem.';
-    if(e?.status===409)return 'O estado mudou ou a viagem foi encerrada. Consulte a atualização oficial antes de repetir a ação.';
+    if(e?.status===409)return `${e.message||'O estado mudou ou a viagem foi encerrada.'} Consulte a atualização oficial antes de repetir a ação.`;
     if(e?.kind==='timeout')return 'A confirmação demorou e pode ter sido registrada. Confira o estado atualizado antes de tentar novamente.';
     if(e?.kind==='network')return 'Sem conexão com o servidor. Nenhuma confirmação local foi assumida. Atualize ao reconectar.';
     return e?.message||'Não foi possível consultar a operação.';
