@@ -341,7 +341,7 @@ export default function HomeMotorista() {
             <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
             <HeaderMotorista
-                nomeMotorista={user?.nome ? user.nome.split(' ')[0] : ''}
+                nomeMotorista={user.nome}
             />
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}

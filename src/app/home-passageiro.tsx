@@ -1,4 +1,4 @@
-import { AtalhoNotificacoes } from '../components/AtalhoNotificacoes';
+import { HeaderHome } from '../components/HeaderHome';
 import { useAppAlert } from '../contexts/AppAlertContext';
 import { CardsTurmasPassageiro } from '../components/cards/CardsTurmasPassageiro';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,7 +19,6 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { apiFetch, errorMessage, readApiError, readApiJson } from '../config/api';
 import { AsyncState } from '../components/AsyncState';
@@ -42,7 +41,6 @@ export default function HomePassageiro() {
     const Alert = useAppAlert();
     const { user } = useAuth();
     const router = useRouter();
-    const insets = useSafeAreaInsets();
     const primeiraCarga = useRef(true);
     const dadosRequestRef = useRef(0);
     const gpsSolicitadoRef = useRef(false);
@@ -332,7 +330,6 @@ export default function HomePassageiro() {
     );
 
     const centroMapa = useMemo(() => minhaLocalizacao || posicaoVan, [minhaLocalizacao, posicaoVan]);
-    const dataFormatada = useMemo(() => new Date().toLocaleDateString('pt-BR', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase(), []);
 
     if (!loading && erroCarga && turmasPassageiro.length === 0) {
         return <View style={[globalStyles.container, styles.center]}><AsyncState message={erroCarga} onRetry={refresh} /></View>;
@@ -350,10 +347,7 @@ export default function HomePassageiro() {
         <View style={globalStyles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
-            <View style={[styles.header, { paddingTop: insets.top + theme.spacing.sm }]}>
-                <View style={{flexDirection:'row',alignItems:'center',gap:12}}><View style={{flex:1}}><Text style={styles.dateText}>{dataFormatada}</Text>
-                <Text style={styles.welcome}>Olá, <Text style={styles.nomeBold}>{user?.nome ? user.nome.split(' ')[0] : ''}</Text></Text></View><AtalhoNotificacoes /></View>
-            </View>
+            <HeaderHome nome={user.nome} />
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
@@ -501,32 +495,6 @@ const styles = StyleSheet.create({
     },
     flexOne: {
         flex: 1,
-    },
-    header: {
-        paddingHorizontal: theme.spacing.lg,
-        paddingBottom: theme.spacing.md,
-        backgroundColor: theme.colors.surface,
-        borderBottomWidth: 1,
-        borderBottomColor: theme.colors.border,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-        elevation: 1,
-        zIndex: 10,
-    },
-    dateText: {
-        fontSize: theme.typography.size.small,
-        color: theme.colors.textLight,
-        fontWeight: '700',
-        letterSpacing: 0.5,
-    },
-    welcome: {
-        fontSize: 24,
-        color: theme.colors.text,
-    },
-    nomeBold: {
-        fontWeight: theme.typography.weight.bold,
     },
     scrollContent: {
         padding: theme.spacing.md,

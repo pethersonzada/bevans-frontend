@@ -15,5 +15,5 @@ export default function HomeTab() {
         );
     }
 
-    return <View style={{flex:1}}>{user.tipo === 'MOTORISTA' ? <HomeMotorista /> : <HomePassageiro />}</View>;
+    return <View key={user.id} style={{flex:1}}>{user.tipo === 'MOTORISTA' ? <HomeMotorista /> : <HomePassageiro />}</View>;
 }
