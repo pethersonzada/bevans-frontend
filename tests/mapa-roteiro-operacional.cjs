@@ -2,6 +2,15 @@ const { test } = require('node:test'), assert = require('node:assert/strict');
 const { fixture } = require('./helpers/roteiro.cjs');
 const { harness, nodes, flush, r } = require('./helpers/mapa.cjs');
 
+test('entrada pública revalida publicação, modalidade, turma e execução antes de desenhar o snapshot',async()=>{
+    const params={turmaId:'7',rotaId:'999',viagemId:'42',modalidade:'PUBLICA'};
+    const h=harness({params,statusCampos:{modalidade:'PUBLICA',rotaPublicaId:999}});h.render();await flush();assert.ok(nodes(h.render()).some(n=>n.type==='Map'));assert.ok(h.requests.some(p=>p.endsWith('/rotas-publicas/minhas')));h.unmount();
+    for(const campos of [{modalidade:'PRIVADA',rotaPublicaId:999},{modalidade:'PUBLICA',rotaPublicaId:88}]){
+        const denied=harness({params,statusCampos:campos});denied.render();await flush();assert.equal(denied.direcoes.length,0);assert.equal(nodes(denied.render()).some(n=>n.type==='Map'),false);denied.unmount();
+    }
+    const antiga=harness({params:{...params,viagemId:'41'},statusCampos:{modalidade:'PUBLICA',rotaPublicaId:999}});antiga.render();await flush();assert.equal(antiga.direcoes.length,0);antiga.unmount();
+});
+
 for (const modalidade of ['PORTA_A_PORTA', 'PRIVADA_PARADAS', 'FIXA', 'FLEXIVEL']) for (const sentido of ['IDA', 'VOLTA']) {
     test(`mapa integrado ${modalidade} ${sentido} usa snapshot completo e extremos oficiais`, async () => {
         const dados = fixture(modalidade, sentido), h = harness({ dados, sentido });

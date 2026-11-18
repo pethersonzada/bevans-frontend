@@ -4,7 +4,7 @@ const r = load('src/services/roteiroNavegacao.ts');
 const nodes = tree => !tree || typeof tree !== 'object' ? [] : [tree, ...[tree.props?.children].flat(Infinity).flatMap(nodes)];
 const flush = async () => { for (let i = 0; i < 8; i++) await new Promise(setImmediate); };
 
-function harness({ dados = fixture('FIXA', 'IDA'), sentido = 'IDA', viagemId = 42, storage = new Map(), roteiroStatus = 200, mapboxStatus = 200, incomplete = false, mapboxHandler, estados = {}, panelHandler, storageFailure = false, params = {} } = {}) {
+function harness({ dados = fixture('FIXA', 'IDA'), sentido = 'IDA', viagemId = 42, storage = new Map(), roteiroStatus = 200, mapboxStatus = 200, incomplete = false, mapboxHandler, estados = {}, panelHandler, storageFailure = false, params = {}, statusCampos = {} } = {}) {
     const slots = [], dependencies = [], cleanups = [], requests = [], direcoes = [], alerts = [];
     let cursor = 0, effects = [], location, now = 100000, network, poll, focusTask, focusCleanup;
     let painelStatus = 200, confirmacaoStatus = 200, statusViagemId = viagemId;
@@ -27,8 +27,9 @@ function harness({ dados = fixture('FIXA', 'IDA'), sentido = 'IDA', viagemId = 4
                 waypoints: (incomplete ? coords.slice(1) : coords).map(location => ({ location })) });
         }
         assert.equal(options.headers.get('Authorization'), 'Bearer token-teste');
+        if (url.endsWith('/rotas-publicas/minhas')) return Response.json([{id:999,turmaId:7}]);
         if (url.endsWith('/turmas/motorista/driver')) return Response.json([{ id: 7, origemLatitude: 0, origemLongitude: 0, destinoLatitude: 0, destinoLongitude: 0 }]);
-        if (url.endsWith('/rota/status-atual?turmaId=7')) return Response.json({ status: 'ATIVA', sentido, viagemId: statusViagemId });
+        if (url.endsWith('/rota/status-atual?turmaId=7')) return Response.json({ status: 'ATIVA', sentido, viagemId: statusViagemId, ...statusCampos });
         if (url.endsWith(`/operacoes/VIAGEM/${viagemId}/roteiro`)) return Response.json(roteiroStatus === 200 ? dados : { erro: 'Snapshot indisponível' }, { status: roteiroStatus });
         if (url.endsWith(`/operacoes/VIAGEM/${viagemId}`)) return panelHandler ? panelHandler(official) : Response.json(painelStatus === 200 ? official : { erro: 'Confirmação indisponível' }, { status: painelStatus });
         const registroId = url.match(/\/passageiros\/(\d+)\/estado$/)?.[1];

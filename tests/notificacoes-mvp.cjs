@@ -1,7 +1,7 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
-function load(file,mocks={}){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports,Date,Error,Number,Map,Set,JSON,URLSearchParams,AbortController,require:name=>{if(!(name in mocks))throw Error(name);return mocks[name];}});return exports;}
+function load(file,mocks={},globals={}){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports,Date,Error,Number,Map,Set,JSON,URLSearchParams,AbortController,...globals,require:name=>{if(!(name in mocks))throw Error(name);return mocks[name];}});return exports;}
 const notice=(patch={})=>({id:7,tipo:'NOVA_SOLICITACAO',contextoTipo:'SOLICITACAO_VAGA',contextoId:12,titulo:'Atualização da viagem',mensagem:'Uma nova solicitação aguarda análise.',criadaEm:'2026-11-18T12:00:00Z',lidaEm:null,...patch});
 function service(api){return load('src/services/notificacoes.ts',{'../config/api':api,'./catalogo':load('src/services/catalogo.ts',{'../config/api':api})});}
 test('histórico aceita Spring e página própria, preserva metadados e remove IDs repetidos',async()=>{
@@ -51,4 +51,25 @@ test('preferências inválidas e falhas remotas não são anunciadas como salvas
 });
 test('data operacional mantém dia local e rejeita calendário impossível',()=>{
  const m=load('src/services/dataOperacao.ts');assert.equal(m.dataLocal(new Date(2026,10,18,0,30)),'2026-11-18');assert.equal(m.dataLocal(m.lerDataLocal('2028-02-29')),'2028-02-29');for(const value of ['2026-02-29','2026-11-31','2026-13-01','18/11/2026'])assert.throws(()=>m.lerDataLocal(value));
+});
+test('aprovação de vínculo aceita confirmação HTTP textual sem tentar interpretar JSON',async()=>{
+ const calls=[];const m=load('src/services/solicitacoes.ts',{'../config/api':{apiFetch:async(path,options)=>{calls.push({path,options});return {ok:true};},apiRequest:async()=>assert.fail('Não interpretar texto como JSON')},'./catalogo':{recursoId:Number},'./turmas':{}});
+ await m.analisarVinculo(12,'APROVADO');assert.equal(calls[0].path,'/turmas/analisar/12?status=APROVADO');assert.equal(calls[0].options.method,'PUT');
+});
+test('recebimento em foreground e toque por background usam deduplicação independente por conta',async()=>{
+ let user={id:'25'},effectCleanup,previousDeps,ref,changes=0,renewals=0,last={notification:{request:{content:{data:{notificacaoId:'7'}}}}};const paths=[],listeners={},removed=[];
+ const router={push:p=>paths.push(p)};
+ const react={useRef:value=>ref??(ref={current:value}),useEffect:(fn,deps)=>{if(!previousDeps||deps.some((d,i)=>d!==previousDeps[i])){effectCleanup?.();effectCleanup=fn();previousDeps=deps;}}};
+ const subscribe=(name,fn)=>{listeners[name]=fn;return {remove:()=>removed.push(name)};};
+ const native={addNotificationResponseReceivedListener:fn=>subscribe('response',fn),addNotificationReceivedListener:fn=>subscribe('received',fn),addPushTokenListener:fn=>subscribe('token',fn),clearLastNotificationResponseAsync:async()=>{},getLastNotificationResponseAsync:async()=>last};
+ const m=load('src/components/AberturaPush.tsx',{'react':react,'react-native':{Platform:{OS:'android'},AppState:{currentState:'active',addEventListener:(_name,fn)=>subscribe('state',fn)}},'expo-router':{useRouter:()=>router},'expo-notifications':native,'@react-native-community/netinfo':{__esModule:true,default:{addEventListener:fn=>{listeners.network=fn;return ()=>removed.push('network');}}},'../contexts/AuthContext':{useAuth:()=>({user})},'../services/push':{renovarPushAndroid:async()=>{renewals++;}},'../services/aberturaPush':load('src/services/aberturaPush.ts'),'../services/notificacoes':{avisarNotificacoesChanged:()=>changes++}});
+ m.AberturaPush();await new Promise(setImmediate);assert.equal(paths.length,1);assert.equal(paths[0].params.notificacaoId,'7');
+ const response=last;listeners.received(response.notification);listeners.received(response.notification);assert.equal(changes,1);listeners.response(response);assert.equal(paths.length,1);
+ const old= listeners.received;user={id:'26'};m.AberturaPush();await new Promise(setImmediate);assert.equal(paths.length,1);old({request:{content:{data:{notificacaoId:'8'}}}});assert.equal(changes,1);
+ listeners.received(response.notification);assert.equal(changes,2);listeners.state('active');listeners.network({isConnected:true});assert.ok(renewals>=3);effectCleanup();assert.ok(removed.length>=10);
+});
+test('rajada de avisos atualiza revisão uma vez e desmontagem cancela o trabalho pendente',()=>{
+ let listener,cleanup,updates=0,id=0;const timers=new Map();
+ const m=load('src/hooks/useNotificacoesRevision.ts',{'react':{useState:()=>[0,()=>updates++],useEffect:fn=>cleanup=fn()},'../services/notificacoes':{onNotificacoesChanged:fn=>{listener=fn;return ()=>{listener=null;};}}},{setTimeout:fn=>{timers.set(++id,fn);return id;},clearTimeout:id=>timers.delete(id)});
+ m.useNotificacoesRevision();listener();listener();listener();assert.equal(timers.size,1);timers.values().next().value();assert.equal(updates,1);timers.clear();listener();cleanup();assert.equal(timers.size,0);assert.equal(listener,null);
 });

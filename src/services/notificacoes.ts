@@ -30,7 +30,7 @@ export function parseNotificacao(value: unknown): Notificacao {
     if (!n || typeof n !== 'object' || !Number.isSafeInteger(n.id) || n.id <= 0 ||
         !Number.isSafeInteger(n.contextoId) || n.contextoId <= 0 ||
         ['tipo', 'contextoTipo', 'titulo', 'mensagem'].some(key => typeof n[key as keyof Notificacao] !== 'string') ||
-        !n.tipo || !n.contextoTipo || !n.titulo.trim() || !Number.isFinite(Date.parse(n.criadaEm)) ||
+        !n.tipo || !n.contextoTipo || !n.titulo.trim() || typeof n.criadaEm!=='string' || !Number.isFinite(Date.parse(n.criadaEm)) ||
         !(n.lidaEm === null || (typeof n.lidaEm === 'string' && Number.isFinite(Date.parse(n.lidaEm))))) {
         throw new Error('O servidor retornou uma notificação inválida. Atualize o histórico.');
     }

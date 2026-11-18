@@ -17,6 +17,7 @@ export function AberturaPush() {
         if (!user.id || Platform.OS === 'web') return;
         let active = true;
         const open = criarAberturaPush(() => active, id => router.push({ pathname: '/notificacoes', params: { notificacaoId: id } }));
+        const received = criarAberturaPush(() => active, () => avisarNotificacoesChanged());
         const onResponse = (response: Notifications.NotificationResponse | null) => {
             if (!active || !response) return;
             open(response.notification.request.content.data);
@@ -26,7 +27,7 @@ export function AberturaPush() {
             if (active && AppState.currentState === 'active') void renovarPushAndroid(user.id!, () => active).catch(() => {});
         };
         const responseSubscription = Notifications.addNotificationResponseReceivedListener(onResponse);
-        const receivedSubscription = Notifications.addNotificationReceivedListener(() => { if (active) avisarNotificacoesChanged(); });
+        const receivedSubscription = Notifications.addNotificationReceivedListener(notification => received(notification.request.content.data));
         const tokenSubscription = Notifications.addPushTokenListener(renew);
         const stateSubscription = AppState.addEventListener('change', state => { if (state === 'active') renew(); });
         const unsubscribeNetwork=NetInfo.addEventListener(state=>{if(state.isConnected===true&&state.isInternetReachable!==false)renew();});
