@@ -6,11 +6,15 @@ const execution=(patch={})=>({id:30,excursaoId:7,sentido:'IDA',estado:'EM_ANDAME
 
 test('start waits for the official execution read, ignores repeated taps and never navigates on an uncertain result',async()=>{
  let finish,writes=0,controls=[];const x=execution();
- const h=harness('src/components/excursoes/OperacaoExcursao.tsx',{services:{iniciarExcursao:async()=>{writes++;return x;},buscarExecucaoExcursao:()=>new Promise(r=>finish=r)}});
+ const revisao={versao:1,sentido:'IDA',pontos:[point,point],autorizados:1};
+ const extras={'../../services/inicioExcursao':{revisarTrechoExcursao:async()=>revisao,conferirRevisaoTrecho:async()=>{}}};
+ const h=harness('src/components/excursoes/OperacaoExcursao.tsx',{extras,services:{iniciarExcursao:async()=>{writes++;return x;},buscarExecucaoExcursao:()=>new Promise(r=>finish=r)}});
  const p={e:fixture(),execucoes:[],offline:false,dirty:false,onRefresh(){},onEdit(){},onPublicar(){},onControle:id=>controls.push(id)};
- let t=h.render('OperacaoExcursao',p),action=find(t,'Iniciar execução IDA').props.action;
+ let t=h.render('OperacaoExcursao',p);assert.equal(find(t,'Iniciar execução IDA'),undefined);await find(t,'Revisar trecho IDA').props.action();
+ t=h.render('OperacaoExcursao',p);const action=find(t,'Iniciar execução IDA').props.action;
  const first=action();await turn();await action();assert.equal(writes,1);assert.equal(controls.length,0);finish(x);await first;assert.deepEqual(controls,[30]);h.unmount();
- const failed=harness('src/components/excursoes/OperacaoExcursao.tsx',{services:{iniciarExcursao:async()=>{throw Object.assign(Error('timeout'),{status:504});}}});
+ const failed=harness('src/components/excursoes/OperacaoExcursao.tsx',{extras,services:{iniciarExcursao:async()=>{throw Object.assign(Error('timeout'),{status:504});}}});
+ await find(failed.render('OperacaoExcursao',p),'Revisar trecho IDA').props.action();
  await assert.rejects(find(failed.render('OperacaoExcursao',p),'Iniciar execução IDA').props.action(),/timeout/);
  t=failed.render('OperacaoExcursao',p);assert.equal(find(t,'Iniciar execução IDA').props.disabled,true);assert.ok(find(t,'Conferir início da execução'));failed.unmount();
 });
