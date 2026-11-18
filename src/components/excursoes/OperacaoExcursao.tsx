@@ -48,13 +48,15 @@ export function OperacaoExcursao({e,execucoes,offline,dirty,onRefresh,onEdit,onP
                     {revisao.pontos.map((p,i)=><Text key={i} style={trip.body}>{i+1}. {p.nome}</Text>)}
                     <AsyncAction title={`Iniciar execução ${sentido}`} disabled={offline||dirty||!!incerto||!!impedimento||revisao.versao!==e.versao} confirmMessage={`Iniciar o trecho de ${sentido==='IDA'?'ida':'volta'} acima? Os embarques ficarão bloqueados para edição.`} action={async()=>{
                         if(pending.current)return;pending.current=true;
+                        let inicioSolicitado=false;
                         try{
                             await conferirRevisaoTrecho(e,revisao);
+                            inicioSolicitado=true;
                             const iniciada=await iniciarExcursao(e.id,sentido);
                             const confirmada=await buscarExecucaoExcursao(e.id,iniciada.id);
                             if(confirmada.estado!=='EM_ANDAMENTO'||confirmada.sentido!==sentido)throw new Error('Confira o estado da execução antes de continuar.');
                             if(mounted.current){setRevisao(null);onControle(confirmada.id);}
-                        }catch(error){const status=(error as {status?:number}).status;if(mounted.current&&(!status||status>=500))setIncerto(sentido);throw error;}
+                        }catch(error){const status=(error as {status?:number}).status;if(mounted.current&&inicioSolicitado&&(!status||status>=500))setIncerto(sentido);throw error;}
                         finally{pending.current=false;if(mounted.current)onRefresh();}
                     }}/><ActionButton title="Cancelar revisão do trecho" onPress={()=>setRevisao(null)}/></>}
                     {impedimento&&<><Text style={trip.caption}>{impedimento.mensagem}</Text>

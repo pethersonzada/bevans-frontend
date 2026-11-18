@@ -44,6 +44,11 @@ test('cartão público exige revisão, serializa toques e navega com execução 
 });
 test('início incerto bloqueia repetição até consulta oficial e mantém mensagem específica',async()=>{
  const rota=fixture({publicada:true}),review={rota,sentido:'IDA',pontos:[],aprovados:1};
- const h=harness('src/components/rotasPublicas/OperacaoRotaPublica.tsx',{resources:()=>({data:{status:'INATIVA'},reload(){}}),extras:{'../../services/inicioRotaPublica':{revisarInicioPublico:async()=>review,iniciarTrechoPublico:async()=>{throw Object.assign(Error('Resultado desconhecido'),{status:504});}}}});
+ const h=harness('src/components/rotasPublicas/OperacaoRotaPublica.tsx',{resources:()=>({data:{status:'INATIVA'},reload(){}}),extras:{'../../services/inicioRotaPublica':{revisarInicioPublico:async()=>review,iniciarTrechoPublico:async()=>{throw Object.assign(Error('Resultado desconhecido'),{status:504,inicioSolicitado:true});}}}});
  const props={rota,bloqueada:false,offline:false};find(h.render('OperacaoRotaPublica',props),'Revisar viagem IDA').props.onPress();await new Promise(setImmediate);find(h.render('OperacaoRotaPublica',props),'Confirmar início IDA').props.onPress();await new Promise(setImmediate);const t=h.render('OperacaoRotaPublica',props);assert.equal(find(t,'Confirmar início IDA').props.disabled,true);assert.ok(find(t,'Conferir início da rota'));assert.ok(JSON.stringify(t).includes('Resultado desconhecido'));h.unmount();
+});
+test('falha na revisão anterior ao POST não é apresentada como uma partida possivelmente registrada',async()=>{
+ const rota=fixture({publicada:true}),review={rota,sentido:'IDA',pontos:[],aprovados:1};
+ const h=harness('src/components/rotasPublicas/OperacaoRotaPublica.tsx',{resources:()=>({data:{status:'INATIVA'},reload(){}}),extras:{'../../services/inicioRotaPublica':{revisarInicioPublico:async()=>review,iniciarTrechoPublico:async()=>{throw Error('Os pedidos mudaram. Revise novamente.');}}}});
+ const props={rota,bloqueada:false,offline:false};find(h.render('OperacaoRotaPublica',props),'Revisar viagem IDA').props.onPress();await new Promise(setImmediate);find(h.render('OperacaoRotaPublica',props),'Confirmar início IDA').props.onPress();await new Promise(setImmediate);const t=h.render('OperacaoRotaPublica',props);assert.equal(find(t,'Conferir início da rota'),undefined);assert.equal(find(t,'Confirmar início IDA').props.disabled,false);h.unmount();
 });

@@ -47,6 +47,11 @@ export async function iniciarTrechoPublico(revisao: RevisaoInicioPublico) {
     if (revisao.data !== dataLocal()) throw new Error('O dia operacional mudou. Revise o trecho novamente.');
     const atual = await revisarInicioPublico(revisao.rota, revisao.sentido);
     if (JSON.stringify(atual) !== JSON.stringify(revisao)) throw new Error('O planejamento ou os embarques mudaram. Revise o trecho novamente.');
-    await iniciarViagemPublica(revisao.rota.id, revisao.sentido);
-    return confirmarExecucaoPublica(revisao.rota, revisao.sentido);
+    try {
+        await iniciarViagemPublica(revisao.rota.id, revisao.sentido);
+        return await confirmarExecucaoPublica(revisao.rota, revisao.sentido);
+    } catch(error) {
+        if(error && typeof error==='object')Object.assign(error,{inicioSolicitado:true});
+        throw error;
+    }
 }

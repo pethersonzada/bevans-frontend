@@ -48,7 +48,7 @@ export function OperacaoRotaPublica({ rota, bloqueada, offline }: { rota: RotaPu
                     {revisao.pontos.map((p,i)=><Text key={i} style={ui.body}>{i+1}. {p.nome}</Text>)}
                     <ActionButton variant="primary" title={`Confirmar início ${sentido}`} disabled={busy||offline||incerto||bloqueada} onPress={()=>void run(async()=>{
                         try{await iniciarTrechoPublico(revisao);if(mounted.current){setRevisao(null);await navegar(false);}}
-                        catch(e){const status=(e as {status?:number}).status;if(mounted.current&&(!status||status>=500))setIncerto(true);throw e;}
+                        catch(e){const {status,inicioSolicitado}=e as {status?:number;inicioSolicitado?:boolean};if(mounted.current&&inicioSolicitado&&(!status||status>=500))setIncerto(true);throw e;}
                     })}/><ActionButton title="Cancelar revisão" disabled={busy} onPress={()=>setRevisao(null)}/>
                 </>}
             </View>;
