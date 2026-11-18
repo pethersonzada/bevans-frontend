@@ -285,10 +285,12 @@ export default function Mapa() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
 
-    const { sentido, turmaId } = useLocalSearchParams<{
+    const { sentido, turmaId, rotaId, viagemId, modalidade } = useLocalSearchParams<{
         sentido?: string;
         turmaId?: string;
         rotaId?: string;
+        viagemId?: string;
+        modalidade?: string;
     }>();
 
     const { user } = useAuth();
@@ -1159,7 +1161,7 @@ export default function Mapa() {
 
             controladoresAtivosRef.current.clear();
         };
-    }, [tentativaInicial, turmaId, sentido, user?.id]);
+    }, [tentativaInicial, turmaId, sentido, rotaId, viagemId, modalidade, user?.id]);
 
     async function carregarGaragemERota(
         direcaoUsada: Sentido,
@@ -1214,6 +1216,7 @@ export default function Mapa() {
                 if (status?.status === 'ATIVA') {
                     if (!Number.isSafeInteger(status.viagemId) || status.viagemId <= 0) throw new Error('Viagem ativa sem identificador válido.');
                     viagemIdAtiva = status.viagemId;
+                    if ((modalidade==='PUBLICA'||rotaId) && (status.modalidade!=='PUBLICA'||status.rotaPublicaId!==Number(rotaId))) throw new Error('A viagem ativa não corresponde à modalidade e à publicação selecionadas.');
                     turmaIdAtiva = Number(turma.id);
                     const sentidoServidor = String(status.sentido || '').toLowerCase();
                     if (sentidoServidor !== 'ida' && sentidoServidor !== 'volta') throw new Error('Sentido da viagem ativa inválido.');
@@ -1229,6 +1232,12 @@ export default function Mapa() {
 
             if (!turmaAtual || turmaIdAtiva !== Number(turmaAtual.id) || viagemIdAtiva === null) {
                 throw new Error('Não há viagem ativa confirmada para esta turma.');
+            }
+            if (viagemId && (!/^[1-9]\d*$/.test(viagemId) || Number(viagemId)!==viagemIdAtiva)) throw new Error('A viagem selecionada não está mais ativa. Volte à gestão e abra a execução atual.');
+            if (modalidade==='PUBLICA' || rotaId) {
+                if (!rotaId || !/^[1-9]\d*$/.test(rotaId)) throw new Error('A rota pública selecionada é inválida.');
+                const rotas=await apiRequest<{id:number;turmaId:number}[]>('/rotas-publicas/minhas');
+                if(!Array.isArray(rotas)||!rotas.some(r=>r.id===Number(rotaId)&&r.turmaId===Number(turmaAtual.id)))throw new Error('Esta execução não pertence à rota pública selecionada.');
             }
             if (!vigente()) return;
 

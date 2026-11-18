@@ -1,4 +1,4 @@
-import { apiRequest } from '../config/api';
+import { apiFetch, apiRequest, readApiError } from '../config/api';
 import { recursoId } from './catalogo';
 import { listarTurmasMotorista } from './turmas';
 import type { SolicitacaoTurma, Turma } from '../types/turma';
@@ -17,7 +17,8 @@ export async function listarVinculosPendentes(usuarioId: string, signal?: AbortS
 }
 
 export async function analisarVinculo(id: number, status: 'APROVADO' | 'REJEITADO') {
-    await apiRequest(`/turmas/analisar/${recursoId(id)}?status=${status}`, { method: 'PUT' });
+    const resposta=await apiFetch(`/turmas/analisar/${recursoId(id)}?status=${status}`, { method: 'PUT' });
+    if(!resposta.ok)throw await readApiError(resposta);
 }
 
 export async function minhasTurmasPassageiro(usuarioId: string, signal?: AbortSignal) {

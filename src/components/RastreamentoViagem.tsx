@@ -22,6 +22,7 @@ export function RastreamentoViagem({tipo,id,motorista}:{tipo:string;id:string;mo
     },10000,motorista&&compartilhar&&data&&!error&&!finalizada?`${tipo}:${id}`:false);
     const p=focused&&!error?posicaoRecente(data,agora):null;
     return <View style={{gap:8}}><Text>{finalizada?'Viagem encerrada':p?'Localização atualizada':'Localização indisponível ou desatualizada'}</Text>
+        {data?.observadoEm&&<Text>Última atualização: {new Date(data.observadoEm).toLocaleString('pt-BR')}</Text>}
         <Text accessibilityLiveRegion="polite">{error||erro}</Text>
         {p&&<MapaPreviaPublica pontos={[{...p,nome:'Van',paradaId:null}]}/>}
         {motorista&&!finalizada&&<Button title={compartilhar?'Parar compartilhamento GPS':'Compartilhar GPS nesta viagem'} onPress={()=>{if(compartilhar){setCompartilhar(false);return;}void Location.requestForegroundPermissionsAsync().then(r=>{if(r.status==='granted')setCompartilhar(true);else setErro('Permissão de localização negada.');}).catch(e=>setErro(errorMessage(e)));}}/>}

@@ -6,16 +6,16 @@ function turmaIdValido(id: number) {
 
 export async function iniciarViagem(turmaId: number, sentido: 'IDA' | 'VOLTA') {
     turmaIdValido(turmaId);
-    if (sentido !== 'IDA' && sentido !== 'VOLTA') throw new Error('Sentido de viagem invÃ¡lido.');
+    if (sentido !== 'IDA' && sentido !== 'VOLTA') throw new Error('Sentido de viagem inv?lido.');
     const response = await apiFetch('/rota/iniciar', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ turmaId, sentido, modalidade: 'PRIVADA' }) });
     if (!response.ok) throw await readApiError(response);
 }
 
-// Publicações possuem execução própria e não devem iniciar viagens privadas.
+// Publica??es possuem execu??o pr?pria e n?o devem iniciar viagens privadas.
 export async function iniciarViagemPublica(rotaPublicaId: number, sentido: 'IDA' | 'VOLTA') {
     turmaIdValido(rotaPublicaId);
-    if (sentido !== 'IDA' && sentido !== 'VOLTA') throw new Error('Sentido de viagem inválido.');
+    if (sentido !== 'IDA' && sentido !== 'VOLTA') throw new Error('Sentido de viagem inv?lido.');
     const response = await apiFetch(`/rotas-publicas/${rotaPublicaId}/iniciar`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sentido }),
@@ -29,7 +29,7 @@ export async function encerrarViagem(turmaId: number) {
     if (!response.ok) throw await readApiError(response);
 }
 
-export type EstadoViagem = { status: 'ATIVA' | 'INATIVA'; viagemId?: number; sentido?: string };
+export type EstadoViagem = { status: 'ATIVA' | 'INATIVA'; viagemId?: number; sentido?: string; modalidade?: 'PRIVADA'|'PUBLICA'; rotaPublicaId?: number; estado?: string; ultimaViagemId?: number };
 export async function consultarEstadoViagem(turmaId: number): Promise<EstadoViagem> {
     turmaIdValido(turmaId);
     const r = await apiRequest<EstadoViagem>(`/rota/status-atual?turmaId=${turmaId}`);

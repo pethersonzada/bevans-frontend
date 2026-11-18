@@ -11,4 +11,4 @@ export type RotaPublicaDados = {
     dias: DiaRota[]; horarioIda: string | null; horarioVolta: string | null;
     descricao: string | null; regiao: string | null; campus: string | null;
 };
-export type RotaPublica = RotaPublicaDados & { id: number; publicada: boolean; ativa: boolean; vagas: VagasTurma; paradas: ParadaPublica[] };
+export type RotaPublica = RotaPublicaDados & { id: number; publicada: boolean; ativa: boolean; vagas: VagasTurma; paradas: ParadaPublica[]; permitePontoExcepcional?: boolean };

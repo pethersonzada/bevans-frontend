@@ -4,7 +4,7 @@ const r = load('src/services/roteiroNavegacao.ts');
 const nodes = tree => !tree || typeof tree !== 'object' ? [] : [tree, ...[tree.props?.children].flat(Infinity).flatMap(nodes)];
 const flush = async () => { for (let i = 0; i < 8; i++) await new Promise(setImmediate); };
 
-function harness({ dados = fixture('FIXA', 'IDA'), sentido = 'IDA', viagemId = 42, storage = new Map(), roteiroStatus = 200, mapboxStatus = 200, incomplete = false, mapboxHandler, estados = {}, panelHandler, storageFailure = false } = {}) {
+function harness({ dados = fixture('FIXA', 'IDA'), sentido = 'IDA', viagemId = 42, storage = new Map(), roteiroStatus = 200, mapboxStatus = 200, incomplete = false, mapboxHandler, estados = {}, panelHandler, storageFailure = false, params = {} } = {}) {
     const slots = [], dependencies = [], cleanups = [], requests = [], direcoes = [], alerts = [];
     let cursor = 0, effects = [], location, now = 100000, network, poll, focusTask, focusCleanup;
     let painelStatus = 200, confirmacaoStatus = 200, statusViagemId = viagemId;
@@ -57,7 +57,7 @@ function harness({ dados = fixture('FIXA', 'IDA'), sentido = 'IDA', viagemId = 4
         '@react-native-community/netinfo': { __esModule: true, default: { addEventListener: fn => { network = fn; return () => {}; } } },
         '@rnmapbox/maps': { __esModule: true, default: { setAccessToken() {}, StyleURL: { Dark: 'dark' }, MapView: 'Map', Camera: 'Camera', ShapeSource: 'Shape', CircleLayer: 'Circle', SymbolLayer: 'Symbol', PointAnnotation: 'Annotation', LineLayer: 'Line' } },
         'expo-location': { Accuracy: { High: 1, BestForNavigation: 2 }, getCurrentPositionAsync: async () => ({ coords: { latitude: -8.6, longitude: -35.6 } }), watchPositionAsync: async (_, fn) => { location = fn; return { remove() {} }; } },
-        'expo-router': { useLocalSearchParams: () => ({ turmaId: '7', sentido: 'ida', rotaId: '999' }), useRouter: () => ({ replace() {}, push: p => paths.push(p) }), useFocusEffect: fn => { if (!focusTask) { focusTask = fn; focusCleanup = fn(); } } },
+        'expo-router': { useLocalSearchParams: () => ({ turmaId: '7', sentido: 'ida', ...params }), useRouter: () => ({ replace() {}, push: p => paths.push(p) }), useFocusEffect: fn => { if (!focusTask) { focusTask = fn; focusCleanup = fn(); } } },
         'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) },
         '../contexts/AppAlertContext': { useAppAlert: () => ({ alert: (...args) => alerts.push(args) }) },
         '../contexts/AuthContext': { useAuth: () => ({ user: { id: 'driver' } }) },

@@ -37,7 +37,7 @@ export function parseRotaPublica(value: unknown): RotaPublica {
         origemNome:r.origemNome,origemLatitude:r.origemLatitude as number,origemLongitude:r.origemLongitude as number,
         destinoNome:r.destinoNome,destinoLatitude:r.destinoLatitude as number,destinoLongitude:r.destinoLongitude as number,
         dias:r.dias as DiaRota[],horarioIda:optional('horarioIda'),horarioVolta:optional('horarioVolta'),descricao:optional('descricao'),regiao:optional('regiao'),campus:optional('campus'),
-        publicada:r.publicada,ativa:r.ativa,paradas:pontos,vagas:{capacidade:v.capacidade as number|null,ocupados:v.ocupados as number,disponiveis:v.disponiveis as number|null,configurada:v.configurada} };
+        publicada:r.publicada,ativa:r.ativa,permitePontoExcepcional:r.permitePontoExcepcional===true,paradas:pontos,vagas:{capacidade:v.capacidade as number|null,ocupados:v.ocupados as number,disponiveis:v.disponiveis as number|null,configurada:v.configurada} };
 }
 export async function listarMinhasRotas(): Promise<RotaPublica[]> {
     const r=await apiRequest<unknown>('/rotas-publicas/minhas');

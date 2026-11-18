@@ -332,6 +332,11 @@ export async function destinoAutorizadoNotificacao(
             break;
 
         case 'ROTA_PUBLICA':
+            if(motorista){
+                const rotas=await apiRequest<{id:number}[]>('/rotas-publicas/minhas');
+                if(!Array.isArray(rotas)||!rotas.some(r=>r.id===id))throw new Error('Esta rota não pertence à sua conta.');
+                return {pathname:'/editar-rota-publica' as const,params:{id:String(id)}};
+            }
             path = `/rotas-publicas/${id}`;
             break;
 

@@ -21,13 +21,14 @@ import { errorMessage } from '../../config/api';
 import { theme } from '../../styles/theme';
 import { MapaItinerario } from './MapaItinerario';
 import { HoraRota } from './HoraRota';
+import { OperacaoRotaPublica } from './OperacaoRotaPublica';
 
 type Escolha={tipo:'origem'|'destino'|'parada';chave?:string};
 const categorias={ESCOLAR:'Escolar',UNIVERSITARIA:'Universitária',OUTROS:'Outros'} as const;
-export function PlanejarRotaPublica({initial,turmaId,motoristaId,onExit}:{initial?:RotaPublica;turmaId?:number;motoristaId:string;onExit:()=>void}) {
+export function PlanejarRotaPublica({initial,turmaId,motoristaId,onExit,abrirGestao=false}:{initial?:RotaPublica;turmaId?:number;motoristaId:string;onExit:()=>void;abrirGestao?:boolean}) {
     const router=useRouter(),network=useNetInfo();
     const [d,setD]=useState(()=>initial?rascunhoDaRota(initial):novoRascunhoRota(turmaId||null));
-    const [etapa,setEtapa]=useState<EtapaRota>('Informações'),[vista,setVista]=useState<'planejar'|'gestao'>('planejar');
+    const [etapa,setEtapa]=useState<EtapaRota>('Informações'),[vista,setVista]=useState<'planejar'|'gestao'>(initial&&abrirGestao?'gestao':'planejar');
     const [mapa,setMapa]=useState<Escolha|null>(null),[candidato,setCandidato]=useState<EnderecoEncontrado|null>(null),[selecionado,setSelecionado]=useState<string|null>(null);
     const [erro,setErro]=useState(''),[mensagem,setMensagem]=useState(''),[busy,setBusy]=useState(false),[sair,setSair]=useState(false),[recarregar,setRecarregar]=useState(false),[conflito,setConflito]=useState(false);
     const [bases,setBases]=useState<Turma[]>([]),[baseErro,setBaseErro]=useState(''),[baseLoading,setBaseLoading]=useState(false),[retry,setRetry]=useState(0);
@@ -59,7 +60,7 @@ export function PlanejarRotaPublica({initial,turmaId,motoristaId,onExit}:{initia
     useFocusEffect(useCallback(()=>{const sub=BackHandler.addEventListener('hardwareBackPress',()=>{back();return true;});return()=>sub.remove();},[mapa,etapa,vista,dirty,sair,recarregar,aguardandoConfirmacao]));
     async function execute(action:()=>Promise<void>) {
         if(pending.current)return;pending.current=true;setBusy(true);setErro('');setMensagem('');
-        try{await action();}catch(e){if(mounted.current){setErro(errorMessage(e));if((e as {status?:number}).status===409)setConflito(true);}}
+        try{await action();}catch(e){if(mounted.current){setErro(errorMessage(e));if((e as {status?:number}).status===409&&/versão|version/i.test(errorMessage(e)))setConflito(true);}}
         finally{pending.current=false;if(mounted.current){setBusy(false);render(v=>v+1);}}
     }
     async function persist() {
@@ -87,7 +88,6 @@ export function PlanejarRotaPublica({initial,turmaId,motoristaId,onExit}:{initia
             <CabecalhoViagem title="Encontre o lugar" subtitle="Pesquise ou marque no mapa. Revise o endereço antes de confirmar."/>
             <View style={{minHeight:520,borderRadius:22,overflow:'hidden'}}><EnderecoMapaPicker localizacaoInicial={current} tipo={mapa.tipo==='parada'?'endereco':mapa.tipo} resolverEndereco={resolverEnderecoExcursao} onChange={setCandidato}/></View>
             {!candidato&&<Notice>Selecione um lugar e confirme o ponto no mapa para continuar.</Notice>}
-            {!candidato&&<Notice>Selecione um lugar e confirme o ponto no mapa para continuar.</Notice>}
             {candidato&&<DadoViagem icon="location" text={candidato.nome}/>}
         </PaginaViagem>;
     }
@@ -109,13 +109,7 @@ export function PlanejarRotaPublica({initial,turmaId,motoristaId,onExit}:{initia
         </BlocoViagem>
         <BlocoViagem title="Operação e passageiros"><PedidosRota rotaId={salva.id}/>
             {aguardandoConfirmacao&&<Notice>Confirme o salvamento da rota antes de iniciar uma viagem.</Notice>}
-            {(['IDA','VOLTA'] as const).map(sentido=>{
-                const horario=sentido==='IDA'?salva.horarioIda:salva.horarioVolta;
-                return <View key={sentido} style={{gap:6}}>
-                    <ActionButton title={`Iniciar viagem ${sentido}`} disabled={busy||dirty||offline||aguardandoConfirmacao||!horario} onPress={()=>void execute(async()=>{await iniciarViagemPublica(salva.id,sentido);if(mounted.current)router.push({pathname:'/mapa',params:{turmaId:String(salva.turmaId),rotaId:String(salva.id),sentido:sentido.toLowerCase()}});})}/>
-                    {!horario&&<Text style={trip.caption}>Configure e salve o horário de {sentido==='IDA'?'ida':'volta'} para iniciar este trecho.</Text>}
-                </View>;
-            })}
+            <OperacaoRotaPublica rota={salva} bloqueada={busy||dirty||aguardandoConfirmacao} offline={offline}/>
         </BlocoViagem>
         <ActionButton title="Configurar capacidade" disabled={busy||dirty||aguardandoConfirmacao} onPress={()=>router.push({pathname:'/editar-turma',params:{id:String(salva.turmaId)}})}/><ActionButton title="Voltar às rotas" disabled={busy} onPress={leave}/>
     </PaginaViagem>;

@@ -1,6 +1,6 @@
 import { apiRequest } from '../config/api';
 import { recursoId } from './catalogo';
-export type PedidoEmbarque={id:number;rotaId:number;dataOperacao:string;sentido:string;status:string;paradaId:number|null;nomePonto:string|null};
+export type PedidoEmbarque={id:number;rotaId:number;dataOperacao:string;sentido:string;status:string;paradaId:number|null;nomePonto:string|null;latitude?:number;longitude?:number};
 export async function meusEmbarques(signal?:AbortSignal) {
     const r=await apiRequest<PedidoEmbarque[]>('/embarques/minhas',{signal});
     if(!Array.isArray(r))throw new Error('Resposta de solicitações inválida.');return r;

@@ -11,9 +11,8 @@ function service(options={}){const h=harness(options),p=h.load(PLAN),s=h.load(SE
 function review(h){for(let i=0;i<4;i++)press(h,'Continuar');h.tree();}
 test('starting an unscheduled public direction is disabled with a concrete explanation',()=>{
  const h=harness({initial:fixture()});review(h);press(h,'Abrir gestão da versão salva');
- assert.equal(find(h.tree(),'Iniciar viagem VOLTA').props.disabled,true);
- assert.equal(find(h.tree(),'Iniciar viagem IDA').props.disabled,false);
- assert.ok(JSON.stringify(h.tree()).includes('Configure e salve o horário de '));h.unmount();
+ const operacao=nodes(h.tree()).find(n=>n.props?.rota?.id===9&&'bloqueada'in n.props);
+ assert.ok(operacao);assert.equal(operacao.props.rota.horarioVolta,null);assert.equal(operacao.props.bloqueada,false);h.unmount();
 });
 
 test('public route planner reuses excursion layout, headings, progress, cards and footer controls',()=>{

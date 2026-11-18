@@ -26,5 +26,5 @@ export function CarregarRota({id,turmaId,motoristaId}:{id?:string;turmaId?:strin
         return()=>{active=false;};
     },[id,retry]);
     if(id&&!rota)return <PaginaViagem title="Editar rota pública" onBack={()=>router.back()}>{erro?<AsyncState message={erro} onRetry={()=>setRetry(v=>v+1)}/>:<RemoteLoading title="Carregando rota salva…"/>}</PaginaViagem>;
-    return <PlanejarRotaPublica initial={rota||undefined} turmaId={turmaId?Number(turmaId):undefined} motoristaId={motoristaId} onExit={()=>router.back()}/>;
+    return <PlanejarRotaPublica initial={rota||undefined} abrirGestao turmaId={turmaId?Number(turmaId):undefined} motoristaId={motoristaId} onExit={()=>router.back()}/>;
 }
