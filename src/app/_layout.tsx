@@ -27,6 +27,7 @@ function RootLayoutNav() {
                 <Stack.Screen name="detalhe-rota" />
                 <Stack.Screen name="controle-viagem" />
                 <Stack.Screen name="notificacoes" />
+                <Stack.Screen name="solicitacoes" />
                 <Stack.Screen name="configuracoes-notificacoes" />
                 <Stack.Screen name="coleta-privada" />
                 <Stack.Screen name="gerenciar-enderecos" />
