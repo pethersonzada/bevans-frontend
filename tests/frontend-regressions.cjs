@@ -1265,3 +1265,15 @@ test('urban route editor keeps map choices in the draft and saves ordered stops 
     assert.equal(h.writes.length,2);assert.equal(h.writes[0].data.origemNome,'Terminal');
     assert.equal(h.writes[1].paradas[0].nome,'Ponto confirmado');assert.equal(h.published.length,0);h.unmount();
 });
+
+test('tunnel bypass is restricted to development and stripped from release requests', async () => {
+    for (const environment of ['development', 'staging', 'production']) {
+        let sent;
+        const api = load('src/config/api.ts', {
+            './config': { API_URL: 'https://app.loca.lt' },
+            './firebase': { auth: { authStateReady: async () => {}, currentUser: { getIdToken: async () => 'token' } } },
+        }, { process: { env: { EXPO_PUBLIC_APP_ENV: environment } }, fetch: async (_url, options) => { sent = options.headers; return new Response('{}'); } });
+        await api.apiFetch('/turmas', { headers: { 'Bypass-Tunnel-Reminder': 'true' } });
+        assert.equal(sent.get('Bypass-Tunnel-Reminder'), environment === 'development' ? 'true' : null);
+    }
+});

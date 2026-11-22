@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -173,7 +174,7 @@ export default function EnderecoSearchInput({
       </View>
 
       {resultados.length > 0 && (
-        <View style={styles.lista}>
+        <ScrollView style={styles.lista} nestedScrollEnabled keyboardShouldPersistTaps="handled" accessibilityLabel="Resultados da busca de endereço">
           {resultados.map((item) => (
             <TouchableOpacity
               accessibilityRole="button"
@@ -197,7 +198,7 @@ export default function EnderecoSearchInput({
               </Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
       )}
 
       {base?.tipo === 'estabelecimento' && (

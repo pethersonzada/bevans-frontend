@@ -23,6 +23,7 @@ function harness(entry,{services={},resources=()=>({data:null,error:'',reload(){
    if(name==='react-native-safe-area-context')return {SafeAreaView:'Safe'};
    if(name==='@react-native-community/datetimepicker')return {default:'NativeDatePicker',__esModule:true};
    if(name==='expo-clipboard')return {setStringAsync:async()=>{}};
+   if(name==='expo-web-browser')return {openBrowserAsync:async()=>({type:'dismiss'})};
    if(name.includes('contexts/AuthContext'))return {useAuth:()=>({user})};
    if(name.includes('hooks/useRemoteResource'))return {useRemoteResource:(key,fn)=>{keys.push(key);return resources(key,fn);}};
    if(name.includes('config/api'))return {errorMessage:e=>e.message||'Falha na conexão'};

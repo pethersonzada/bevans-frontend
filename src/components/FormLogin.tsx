@@ -25,6 +25,7 @@ export function FormLogin({ email, setEmail, senha, setSenha, loading, onLogin, 
             <View style={styles.inputGroup}>
                 <Text style={[styles.label, isFocado('email') && styles.labelFocused]}>E-mail</Text>
                 <TextInput
+                    accessibilityLabel="E-mail"
                     style={[styles.input, isFocado('email') && styles.inputFocused]}
                     placeholder="seu@email.com"
                     placeholderTextColor={theme.colors.textLight + '80'}
@@ -45,6 +46,10 @@ export function FormLogin({ email, setEmail, senha, setSenha, loading, onLogin, 
                 <Text style={[styles.label, isFocado('senha') && styles.labelFocused]}>Senha</Text>
                 <View style={styles.passwordContainer}>
                     <TextInput
+                        accessibilityLabel="Senha"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        autoComplete="current-password"
                         style={[styles.input, styles.passwordInput, isFocado('senha') && styles.inputFocused]}
                         placeholder="••••••••"
                         placeholderTextColor={theme.colors.textLight + '80'}
@@ -57,6 +62,10 @@ export function FormLogin({ email, setEmail, senha, setSenha, loading, onLogin, 
                         editable={!loading && !carregandoSenha}
                     />
                     <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityLabel={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                        accessibilityState={{ disabled: loading || carregandoSenha }}
+                        disabled={loading || carregandoSenha}
                         style={styles.eyeIcon}
                         onPress={() => setMostrarSenha((prev) => !prev)}
                         activeOpacity={0.7}

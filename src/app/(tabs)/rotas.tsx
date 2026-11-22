@@ -4,5 +4,5 @@ import { CatalogoRotas } from '../../components/CatalogoRotas';
 
 export default function RotasTab() {
     const { user } = useAuth();
-    return user.tipo === 'MOTORISTA' ? <RotasPublicasMotorista /> : <CatalogoRotas />;
+    return user.tipo === 'MOTORISTA' ? <RotasPublicasMotorista key={user.id} /> : <CatalogoRotas key={user.id} />;
 }

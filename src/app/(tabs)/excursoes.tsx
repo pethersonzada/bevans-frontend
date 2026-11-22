@@ -9,6 +9,7 @@ import { AsyncState } from '../../components/AsyncState';
 import { Notice, Pagination, RemoteLoading } from '../../components/ui/Primitives';
 import { BlocoViagem, CabecalhoViagem, CartaoViagem, PaginaViagem, trip } from '../../components/excursoes/ViagemUI';
 import { useNetInfo } from '@react-native-community/netinfo';
+import { AcessoPassageiro } from '../../components/excursoes/AcessoPassageiro';
 export default function ExcursoesTab() {
     const {user}=useAuth(),router=useRouter(),network=useNetInfo();
     const [page,setPage]=useState(0);
@@ -30,8 +31,8 @@ export default function ExcursoesTab() {
         {title:'Viagens encerradas',itens:data.itens.filter(e=>['CANCELADA','CONCLUIDA'].includes(e.estado))},
     ]:[];
     return <PaginaViagem tabs title="Excursões">
-        <CabecalhoViagem eyebrow="Leve o grupo mais longe" title="Qual é o próximo destino?" subtitle="Planeje encontros. Colecione caminhos."/>
-        {user.tipo!=='MOTORISTA'?<AsyncState status="empty" title="Acesso por convite" message="Abra o link seguro do organizador para consultar sua inscrição. A conta do aplicativo ainda não possui uma lista de excursões do passageiro."/>:<>
+        <CabecalhoViagem eyebrow="Leve o grupo mais longe" title="Qual é o próximo destino?" subtitle={user.tipo==='MOTORISTA'?'Planeje encontros. Colecione caminhos.':'Consulte o convite do organizador e prepare sua próxima viagem.'}/>
+        {user.tipo!=='MOTORISTA'?<AcessoPassageiro key={user.id}/>:<>
             <Pressable accessibilityRole="button" accessibilityLabel="Criar excursão" onPress={()=>router.push('/editar-excursao')} style={[trip.hero,{flexDirection:'row',alignItems:'center',gap:18}]}><View style={[trip.heroIcon,{width:56,height:56}]}><Ionicons name="add" size={32} color="#fff"/></View><View style={{flex:1,gap:6}}><Text style={[trip.heroTitle,{fontSize:22,lineHeight:28}]}>Montar uma viagem</Text><Text style={trip.heroSubtitle}>Comece escolhendo o destino</Text></View></Pressable>
             {(network.isConnected===false||network.isInternetReachable===false)&&<Notice>Sem conexão. Reconecte para atualizar suas viagens.</Notice>}
             {error?<AsyncState message={error} onRetry={reload}/>:!data?<RemoteLoading/>:<>

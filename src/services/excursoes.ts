@@ -1,3 +1,5 @@
+import { validarPaginaConvite } from './paginaConvite';
+export { validarPaginaConvite } from './paginaConvite';
 import { apiFetch, apiRequest, readApiJson } from '../config/api';
 import { validarDatasExcursao, validarValidadeConvite } from './excursaoFormulario';
 import { paginaValida, recursoId, type Pagina } from './catalogo';
@@ -63,12 +65,6 @@ export async function criarConviteExcursao(id:number,expiraEm:string,partidaEm?:
     validarValidadeConvite(expiraEm,partidaEm||expiraEm);
     const r=await apiRequest<{convite:{id:number};token:string}>(`/excursoes/${recursoId(id)}/convites`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expiraEm})});
     if(!r || !Number.isSafeInteger(r.convite?.id) || r.convite.id<=0 || typeof r.token!=='string' || !r.token.trim() || /\s/.test(r.token))throw new Error('Convite não confirmado. Confira a lista antes de emitir outro.');return {id:r.convite.id,token:r.token};
-}
-export function validarPaginaConvite(base:string|undefined) {
-    if(!base)throw new Error('A página HTTPS de convites do webapp ainda não está configurada.');
-    let url:URL;try{url=new URL(base);}catch{throw new Error('Configure uma página HTTPS válida para os convites.');}
-    if(url.protocol!=='https:' || url.username || url.password || url.search || url.hash)throw new Error('Configure uma página HTTPS de convites sem parâmetros.');
-    return url;
 }
 export function linkConvite(base:string|undefined,token:string) {
     const url=validarPaginaConvite(base);

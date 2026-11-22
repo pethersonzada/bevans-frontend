@@ -1,7 +1,7 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
-function load(file,mocks){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{exports,Date,Error,URL,require:name=>{if(!(name in mocks))throw Error(name);return mocks[name];}});return exports;}
+function load(file,mocks){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{exports,Date,Error,URL,require:name=>{if(name==='./paginaConvite')return load('src/services/paginaConvite.ts',{});if(!(name in mocks))throw Error(name);return mocks[name];}});return exports;}
 function harness(){
     const state={created:0,readFailure:null,postFailure:false,postGate:null,metadata:[],requests:[],estado:'PUBLICADA',execucoes:[]};
     const auth={currentUser:{uid:'synthetic-organizer-A'}};

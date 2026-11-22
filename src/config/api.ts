@@ -84,7 +84,7 @@ export async function apiFetch(path: string, options: ApiOptions = {}): Promise<
                 const token = await user.getIdToken(forceRefresh);
                 assertSession();
                 const headers = new Headers(requestOptions.headers);
-                if (/\.loca\.lt(?:\/|$)/i.test(API_URL || '')) headers.set('Bypass-Tunnel-Reminder', 'true');
+                if (/\.loca\.lt(?:\/|$)/i.test(API_URL || '') && (!process.env.EXPO_PUBLIC_APP_ENV || process.env.EXPO_PUBLIC_APP_ENV === 'development')) headers.set('Bypass-Tunnel-Reminder', 'true');
                 else headers.delete('Bypass-Tunnel-Reminder');
                 headers.set('Authorization', `Bearer ${token}`);
                 const response = await fetch(`${API_URL}${path}`, { ...requestOptions, headers, signal: controller.signal });

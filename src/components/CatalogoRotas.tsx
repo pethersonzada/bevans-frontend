@@ -1,5 +1,5 @@
 import { RemoteLoading, Screen, Section, ActionButton as Button, Field, Choice, Pagination, ui } from './ui/Primitives';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { ScrollView, Text, TextInput, View, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,6 +17,9 @@ export function CatalogoRotas() {
     const [page, setPage] = useState(0), [retry, setRetry] = useState(0);
     const [result, setResult] = useState<{key:string; data:Pagina<ResumoRota>} | null>(null);
     const [error, setError] = useState(''), [busy, setBusy] = useState<number | null>(null); const pending = useRef(false);
+    const mounted = useRef(true), owner = useRef(user.id);
+    useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
+    const current = () => mounted.current && owner.current === user.id;
     const key = JSON.stringify([user.id, filters, page, retry]);
     useFocusedPolling(async signal => {
         setError('');
@@ -25,9 +28,9 @@ export function CatalogoRotas() {
     }, 60000, user.id ? key : false);
     const data = result?.key === key ? result.data : null;
     const favorite = async (r: ResumoRota) => {
-        if (pending.current) return; pending.current = true; setBusy(r.id);
-        try { await alterarFavorito(r.id, !r.favorita); setRetry(v=>v+1); }
-        catch(e) { setError(errorMessage(e)); } finally { pending.current=false; setBusy(null); }
+        if (pending.current || !user.id || !current()) return; pending.current = true; setBusy(r.id);
+        try { await alterarFavorito(r.id, !r.favorita); if(current())setRetry(v=>v+1); }
+        catch(e) { if(current())setError(errorMessage(e)); } finally { pending.current=false; if(current())setBusy(null); }
     };
     return <Screen tabs title="Rotas públicas" subtitle="Encontre um serviço para o seu trajeto.">
         <Section title="Encontre sua rota">
@@ -35,7 +38,8 @@ export function CatalogoRotas() {
         <Field label="Destino" placeholder="Para onde você vai?" maxLength={160} value={draft.destino} onChangeText={destino=>setDraft({...draft,destino})}/>
         <View style={{gap:8}}>{['','ESCOLAR','UNIVERSITARIA','OUTROS'].map(categoria=><Choice key={categoria} selected={draft.categoria===categoria} label={categoria==='ESCOLAR'?'Escolar':categoria==='UNIVERSITARIA'?'Universitária':categoria==='OUTROS'?'Outros':'Todas as categorias'} onPress={()=>setDraft({...draft,categoria})}/>)}</View>
         <Text style={ui.body}>Somente favoritas</Text><Switch accessibilityLabel="Somente favoritas" value={draft.somenteFavoritas} onValueChange={somenteFavoritas=>setDraft({...draft,somenteFavoritas})}/>
-        <Button variant="primary" icon="search-outline" title="Pesquisar" onPress={()=>{setPage(0);setFilters({...draft});setRetry(v=>v+1);}}/></Section>
+        <Button variant="primary" icon="search-outline" title="Pesquisar" onPress={()=>{setPage(0);setFilters({...draft});setRetry(v=>v+1);}}/>
+        <Button title="Limpar filtros" onPress={()=>{setDraft({...initial});setFilters({...initial});setPage(0);setRetry(v=>v+1);}}/></Section>
         {error ? <AsyncState message={error} onRetry={()=>setRetry(v=>v+1)}/> : !data ? <RemoteLoading/> : <>
             {!data.itens.length && <AsyncState status="empty" title="Nenhuma rota encontrada"/>}
             {data.itens.map(r=><Section key={r.id} title={r.nome} description={r.cidade}>

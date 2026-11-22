@@ -58,7 +58,7 @@ Consultadas as 38 issues abertas do frontend, seus corpos, comentários e labels
 ## Testes e evidências
 
 - Linha de base: `npm run check` aprovado com arquitetura, TypeScript e 343 testes.
-- Após cadastro/convite: 352 testes aprovados; bundle Android Metro/Hermes exportado. Verificação final após correções adicionais em andamento.
+- Após cadastro/convite: 352 testes aprovados; bundle Android Metro/Hermes exportado. Verificação posterior aprovada com **355 testes**, arquitetura e TypeScript; bundle Android também aprovado com EXPO_NO_DOTENV=1.
 - Android: emulador `emulator-5554`, development build instalado, Metro local existente. Sessão do motorista restaurada; cadastro completo com turma exclusiva `VALIDACAO_GUIADA_2211`, capacidade 12, dois locais públicos; GPS negado, busca real de POIs, falha de endereço reverso com descrição manual e pin preservado. Rascunho retomado após force-stop; POST concluído e conferido pelo GET; aberta a coleta da turma criada.
 - Capturas sem dados pessoais: [revisão](docs/evidencias/frontend-2026-11-22/01-revisao-turma.png), [criação confirmada](docs/evidencias/frontend-2026-11-22/02-turma-criada.png).
 - Não executados: dois Androids simultâneos, aparelho físico, leitor de tela, GPS em movimento, entrega FCM, compartilhamento com destinatário real e reserva por convite válido do passageiro.
@@ -74,7 +74,18 @@ Consultadas as 38 issues abertas do frontend, seus corpos, comentários e labels
 
 ## Commits e próximos passos
 
-Commits desta rodada serão registrados após a validação de cada lote. Sem push/deploy solicitado nesta etapa.
+- `5c60f02`: Aprimorando a criação de turmas com etapas e rascunho recuperável (#49/#25).
+- Segundo lote: convite do passageiro, filtros, sugestões roláveis e cabeçalho de túnel, validado antes do commit. Sem push/deploy.
 
 Continuar validação Android do passageiro e revisar as issues de infraestrutura de autenticação já cobertas. Tema #21 segue pendente; não representa dependência externa. Manter issues com aceite de dois dispositivos abertas até evidência real.
 
+
+## Validação adicional do passageiro
+
+Login e restauração da conta passageira executados no mesmo emulador após logout do motorista; tentativa de deep link para cadastro privado não exibiu formulário de motorista. A aba Excursões apresentou estado de URL ausente corretamente.
+
+A página `https://bevans-webapp.vercel.app/convite` foi confirmada pelo README da main do webapp e GET HTTP 200 (título Inscrição em excursão | BeVans); build-info informou commit `2f17fcbd1dd8fe0d09b0152a94d5d7a1ed52b127`. Somente `EXPO_PUBLIC_CONVITE_WEB_URL` foi configurada no `.env` local não versionado. Metro de teste iniciado em 8082 preservando o processo 8081 existente; emulador apontado a 10.0.2.2:8082.
+
+Convite propositalmente inválido abriu na guia segura do navegador Android, exibiu “Convite inválido, expirado ou indisponível” e retornou ao app com link limpo e aviso de que a abertura não confirma reserva. Nenhuma inscrição real criada. [Captura do convite inválido](docs/evidencias/frontend-2026-11-22/04-convite-invalido-android.png). A captura 03 registra o estado anterior à configuração.
+
+Catálogo ganhou Limpar filtros, reset de paginação e proteção de resultado tardio ao favoritar. Rotas são remontadas por conta; login recebeu rótulos de acessibilidade e controle de visibilidade de senha bloqueado durante operação.
