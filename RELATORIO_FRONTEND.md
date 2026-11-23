@@ -77,7 +77,7 @@ Consultadas as 38 issues abertas do frontend, seus corpos, comentários e labels
 - `5c60f02`: Aprimorando a criação de turmas com etapas e rascunho recuperável (#49/#25).
 - `b2e8b93`: Integrando convites de excursão ao passageiro e aprimorando a busca de rotas (#16/#19/#29/#41).
 - `e68ad75`: Implementando aparência clara e escura com preferência persistente (#21).
-- Quarto lote: conferência do encerramento, ajustes finais de contraste e evidências de IDA/VOLTA. Sem push/deploy.
+- `fcb8c24`: Concluindo a validação das viagens e corrigindo o contraste das telas (#5/#6/#13/#21/#31/#34/#45). Sem push/deploy.
 
 Manter abertas as issues cujo aceite exige aparelho físico, interface passageira, concorrência ou contrato indisponível. Tema #21 documentado em docs/aparencia-mobile.md.
 
@@ -120,3 +120,9 @@ No reteste final, textos auxiliares sem cor explícita foram vinculados à palet
 Confirmadas main e as três revisões anteriores. Reconsultadas as 34 issues abertas, seus critérios, comentários e labels; as quatro concluídas anteriormente continuam fechadas. Quarto lote encontrado sem commit. A consulta de ambas as contas confirmou a turma 10 INATIVA antes de qualquer novo teste. Falhas intermitentes de GPS/encerramento permanecem em acompanhamento; reteste aprovado não é diagnóstico definitivo.
 
 Na continuação, o turno dos cartões selecionados dos dois perfis passou a usar a cor de contraste da paleta. A aba Excursões passageira foi conferida em escuro. Check completo: 363 testes aprovados; bundle Android aprovado. Uma quinta alteração externa surgiu em CadastroTurma.tsx (imports/exemplo do campo), foi identificada e mantida fora do lote. O JSON de permissões foi reduzido aos 19 eventos da auditoria desta rodada.
+
+## Presença passageira — 23/11/2026
+
+Turma 10: IDA salva na interface e restaurada após force-stop/reabrir a mesma turma; VOLTA, AMBOS com dois endereços distintos e NAO_VOU confirmados por GET próprio. Detectada ausência da ação LIMPAR e resumo indevido de endereços antigos. Adicionada limpeza com revisão explícita e resumo apenas dos sentidos confirmados. Cancelar preservou NAO_VOU; confirmar retornou status vazio. Escrita extraída para serviço com conferência de resultado, validação de IDs e reconciliação de timeout sem repetir POST. Áreas de toque de presença ajustadas para 48dp.
+
+Check completo: arquitetura, TypeScript e 368 testes aprovados; bundle Android aprovado. Três falhas iniciais dos novos testes eram ausência de URLSearchParams no ambiente simulado e foram corrigidas no harness. Evidências próprias sem dados pessoais em docs/evidencias/frontend-2026-11-23/presenca-propria.json. A turma continuava INATIVA antes desse teste, que não iniciou viagem. Intermitência de GPS/encerramento e restante do aceite #45 permanecem abertos.

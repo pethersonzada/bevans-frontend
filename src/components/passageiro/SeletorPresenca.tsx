@@ -3,7 +3,7 @@ import { useThemeRevision } from '../../hooks/useThemeRevision';
 import { useAppAlert } from '../../contexts/AppAlertContext';
 
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
 
@@ -70,6 +70,7 @@ export function SeletorPresenca({
         useState<number | null>(null);
     const [campoAberto, setCampoAberto] =
         useState<'ida' | 'volta' | null>(null);
+    const limpezaPendente = useRef(false);
 
     const statusSalvo = confirmacao?.status || '';
     const idaSalva = confirmacao?.enderecoIda?.id ?? null;
@@ -86,6 +87,23 @@ export function SeletorPresenca({
 
     const confirmado = Boolean(confirmacao?.status);
     const exibirFormulario = !confirmado || editando;
+
+    const limpar = () => {
+        if (salvando || limpezaPendente.current) return;
+        Alert.alert('Limpar confirmação?', 'Sua resposta de hoje nesta turma será removida. Você poderá confirmar novamente.', [
+            { text: 'Cancelar', style: 'cancel' },
+            { text: 'Limpar', onPress: async () => {
+                if (salvando || limpezaPendente.current) return;
+                limpezaPendente.current = true;
+                try {
+                    if (await onRegistrar('LIMPAR')) {
+                        setStatus(''); setEnderecoIda(null); setEnderecoVolta(null);
+                        setEditando(false); setCampoAberto(null);
+                    }
+                } finally { limpezaPendente.current = false; }
+            } },
+        ]);
+    };
 
     const obterEndereco = (id: number | null) =>
         enderecos.find(e => e.id === id);
@@ -242,7 +260,7 @@ export function SeletorPresenca({
                         {nomeStatus(confirmacao!.status)}
                     </Text>
 
-                    {confirmacao?.enderecoIda && (
+                    {precisaIda(confirmacao!.status) && confirmacao?.enderecoIda && (
                         <View style={styles.resumo}>
                             <Text style={styles.label}>
                                 Embarque na ida
@@ -258,7 +276,7 @@ export function SeletorPresenca({
                         </View>
                     )}
 
-                    {confirmacao?.enderecoVolta && (
+                    {precisaVolta(confirmacao!.status) && confirmacao?.enderecoVolta && (
                         <View style={styles.resumo}>
                             <Text style={styles.label}>
                                 Desembarque na volta
@@ -281,6 +299,10 @@ export function SeletorPresenca({
                         <Text style={styles.textoConfirmar}>
                             Alterar confirmação
                         </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity accessibilityRole="button" accessibilityLabel="Limpar confirmação de hoje"
+                        accessibilityState={{ disabled: salvando }} disabled={salvando} style={styles.botaoCancelar} onPress={limpar}>
+                        <Text style={styles.textoSecundario}>Limpar confirmação de hoje</Text>
                     </TouchableOpacity>
                 </>
             ) : (
@@ -404,7 +426,7 @@ const styles = themedStyles(() => StyleSheet.create({
     },
     opcao: {
         flex: 1,
-        minHeight: 42,
+        minHeight: 48,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: theme.colors.background,
@@ -489,7 +511,7 @@ const styles = themedStyles(() => StyleSheet.create({
     },
     botaoConfirmar: {
         backgroundColor: theme.colors.primary,
-        minHeight: 46,
+        minHeight: 48,
         borderRadius: theme.borderRadius.md,
         alignItems: 'center',
         justifyContent: 'center',
@@ -508,6 +530,8 @@ const styles = themedStyles(() => StyleSheet.create({
     },
     botaoCancelar: {
         alignSelf: 'center',
+        minHeight: 48,
+        justifyContent: 'center',
         padding: theme.spacing.sm,
     },
     textoSecundario: {

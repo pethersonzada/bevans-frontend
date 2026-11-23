@@ -37,7 +37,7 @@ function harness(entry,{services={},resources=()=>({data:null,error:'',reload(){
    if(name.startsWith('.')){const target=path.resolve(path.dirname(file),name);for(const ext of ['.ts','.tsx'])if(fs.existsSync(target+ext))return load(target+ext);}
    throw Error('Unexpected import '+name+' in '+file);
   }
-  vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports,require:request,process:{env},Date,Error,Number,JSON,Intl,URL,console,AbortController,setTimeout,clearTimeout});return exports;
+  vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports,require:request,process:{env},Date,Error,Number,JSON,Intl,URL,URLSearchParams,console,AbortController,setTimeout,clearTimeout});return exports;
  }
  const mod=load(entry);
  return {mod,paths,keys,lock,connection,firebase,share,load,render:(name,props={})=>{cursor=0;effects=[];const tree=mod[name](props);effects.forEach(fn=>fn());return tree;},back:()=>[...backHandlers].at(-1)?.(),unmount:()=>cleanups.forEach(fn=>fn?.())};

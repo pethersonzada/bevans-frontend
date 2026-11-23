@@ -9,6 +9,7 @@ import { useFocusEffect,useRouter } from 'expo-router';
 import { useHomeRefresh } from '../hooks/useHomeRefresh';
 import { useFocusedPolling } from '../hooks/useFocusedPolling';
 import { fetchMinhaConfirmacao, fetchPassengerRadar } from '../services/passageiroHome';
+import { salvarPresencaPassageiro } from '../services/presencaPassageiro';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     AppState,
@@ -58,6 +59,7 @@ export default function HomePassageiro() {
 
     const [salvandoPresenca, setSalvandoPresenca] =
         useState(false);
+    const presencaPendente = useRef(false);
 
     const [turmasPassageiro, setTurmasPassageiro] =
         useState<any[]>([]);
@@ -248,64 +250,18 @@ export default function HomePassageiro() {
         ): Promise<boolean> => {
             const turmaId = turmaSelecionadaRef.current;
 
-            if (!user?.id || !turmaId || salvandoPresenca) {
+            if (!user?.id || !turmaId || presencaPendente.current) {
                 return false;
             }
 
+            presencaPendente.current = true;
             setSalvandoPresenca(true);
 
             try {
-                const params = new URLSearchParams({
-                    usuarioId: String(user.id),
-                    turmaId: String(turmaId),
-                    status,
-                });
-
-                if (enderecoIda !== undefined) {
-                    params.append(
-                        'enderecoIda',
-                        String(enderecoIda)
-                    );
-                }
-
-                if (enderecoVolta !== undefined) {
-                    params.append(
-                        'enderecoVolta',
-                        String(enderecoVolta)
-                    );
-                }
-
-                const resposta = await apiFetch(
-                    `/rota/confirmar?${params.toString()}`,
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Bypass-Tunnel-Reminder': 'true',
-                        },
-                    }
-                );
-
-                if (!resposta.ok) {
-                    const mensagem = (await readApiError(resposta)).message;
-
-                    Alert.alert(
-                        'Erro ao confirmar',
-                        mensagem ||
-                        'Não foi possível salvar sua presença.'
-                    );
-
-                    return false;
-                }
-
+                const salva = await salvarPresencaPassageiro(String(user.id), turmaId, status, enderecoIda, enderecoVolta);
                 if (turmaSelecionadaRef.current !== turmaId) return false;
-                // The server accepted the save. Do not let an older poll restore
-                // the previous confirmation while the follow-up fetch is pending.
                 dadosRequestRef.current++;
-                setConfirmacao({
-                    status,
-                    enderecoIda: enderecos.find(endereco => endereco.id === enderecoIda) ?? null,
-                    enderecoVolta: enderecos.find(endereco => endereco.id === enderecoVolta) ?? null,
-                });
+                setConfirmacao(salva);
                 await carregarDadosSilencioso(turmaId);
                 return true;
             } catch (error) {
@@ -321,14 +277,13 @@ export default function HomePassageiro() {
 
                 return false;
             } finally {
+                presencaPendente.current = false;
                 setSalvandoPresenca(false);
             }
         },
         [
             user?.id,
-            salvandoPresenca,
             carregarDadosSilencioso,
-            enderecos,
         ]
     );
 

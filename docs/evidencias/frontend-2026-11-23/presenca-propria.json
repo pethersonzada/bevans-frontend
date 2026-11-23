@@ -1,0 +1,197 @@
+[
+  {
+    "at": "2026-11-23T11:23:39.886Z",
+    "step": "HTTP",
+    "role": "motorista",
+    "method": "GET",
+    "path": "/turmas/motorista/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T11:23:40.958Z",
+    "step": "HTTP",
+    "role": "motorista",
+    "method": "GET",
+    "path": "/turmas/{id}/passageiros",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T11:23:40.959Z",
+    "step": "vinculo-conferido",
+    "turmaId": 10,
+    "total": 1,
+    "passageiroAutorizado": true,
+    "confirmados": 0
+  },
+  {
+    "at": "2026-11-23T11:23:41.301Z",
+    "step": "HTTP",
+    "role": "motorista",
+    "method": "GET",
+    "path": "/rota/status-atual",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T11:23:41.715Z",
+    "step": "HTTP",
+    "role": "passageiro",
+    "method": "GET",
+    "path": "/rota/status-atual",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T11:23:41.716Z",
+    "step": "viagem-inativa-confirmada",
+    "turmaId": 10
+  },
+  {
+    "at": "2026-11-23T11:29:46.291Z",
+    "step": "HTTP",
+    "role": "motorista",
+    "method": "GET",
+    "path": "/turmas/motorista/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T11:29:47.312Z",
+    "step": "HTTP",
+    "role": "passageiro",
+    "method": "GET",
+    "path": "/rota/minha-confirmacao",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T11:29:47.313Z",
+    "step": "presenca-propria-conferida",
+    "turmaId": 10,
+    "status": "IDA",
+    "idaDeTeste": true,
+    "voltaDeTeste": false,
+    "enderecosDistintos": false
+  },
+  {
+    "at": "2026-11-23T11:31:12.534Z",
+    "step": "HTTP",
+    "role": "motorista",
+    "method": "GET",
+    "path": "/turmas/motorista/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T11:31:13.586Z",
+    "step": "HTTP",
+    "role": "passageiro",
+    "method": "GET",
+    "path": "/rota/minha-confirmacao",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T11:31:13.588Z",
+    "step": "presenca-propria-conferida",
+    "turmaId": 10,
+    "status": "VOLTA",
+    "idaDeTeste": true,
+    "voltaDeTeste": true,
+    "enderecosDistintos": true
+  },
+  {
+    "at": "2026-11-23T11:32:52.628Z",
+    "step": "HTTP",
+    "role": "motorista",
+    "method": "GET",
+    "path": "/turmas/motorista/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T11:32:53.680Z",
+    "step": "HTTP",
+    "role": "passageiro",
+    "method": "GET",
+    "path": "/rota/minha-confirmacao",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T11:32:53.680Z",
+    "step": "presenca-propria-conferida",
+    "turmaId": 10,
+    "status": "AMBOS",
+    "idaDeTeste": true,
+    "voltaDeTeste": true,
+    "enderecosDistintos": true
+  },
+  {
+    "at": "2026-11-23T11:34:04.922Z",
+    "step": "HTTP",
+    "role": "motorista",
+    "method": "GET",
+    "path": "/turmas/motorista/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T11:34:05.907Z",
+    "step": "HTTP",
+    "role": "passageiro",
+    "method": "GET",
+    "path": "/rota/minha-confirmacao",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T11:34:05.908Z",
+    "step": "presenca-propria-conferida",
+    "turmaId": 10,
+    "status": "NAO_VOU",
+    "idaDeTeste": true,
+    "voltaDeTeste": true,
+    "enderecosDistintos": true
+  },
+  {
+    "at": "2026-11-23T11:38:49.502Z",
+    "step": "HTTP",
+    "role": "motorista",
+    "method": "GET",
+    "path": "/turmas/motorista/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T11:38:50.618Z",
+    "step": "HTTP",
+    "role": "passageiro",
+    "method": "GET",
+    "path": "/rota/minha-confirmacao",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T11:38:50.619Z",
+    "step": "presenca-propria-conferida",
+    "turmaId": 10,
+    "status": "NAO_VOU",
+    "idaDeTeste": true,
+    "voltaDeTeste": true,
+    "enderecosDistintos": true
+  },
+  {
+    "at": "2026-11-23T11:38:56.925Z",
+    "step": "HTTP",
+    "role": "motorista",
+    "method": "GET",
+    "path": "/turmas/motorista/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T11:38:57.951Z",
+    "step": "HTTP",
+    "role": "passageiro",
+    "method": "GET",
+    "path": "/rota/minha-confirmacao",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T11:38:57.952Z",
+    "step": "presenca-propria-conferida",
+    "turmaId": 10,
+    "status": "LIMPA",
+    "idaDeTeste": false,
+    "voltaDeTeste": false,
+    "enderecosDistintos": false
+  }
+]

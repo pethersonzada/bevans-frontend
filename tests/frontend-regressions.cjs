@@ -935,10 +935,11 @@ test('POI provider street approximations cannot be presented as establishments',
 });
 
 // Exercise the component's hooks and event handlers without native services.
-function presenceHarness() {
+function presenceHarness({ onRegistrar = async () => true, alert = () => {} } = {}) {
     const state = [], deps = [];
     let cursor, effects;
     const react = {
+        useRef(initial) { const i = cursor++; return state[i] ?? (state[i] = { current: initial }); },
         useState(initial) {
             const i = cursor++;
             if (!(i in state)) state[i] = initial;
@@ -953,7 +954,7 @@ function presenceHarness() {
     const element = (type, props) => ({ type, props });
     const theme = load('src/styles/theme.ts', {}).theme;
     const { SeletorPresenca } = load('src/components/passageiro/SeletorPresenca.tsx', {
-        '../../contexts/AppAlertContext': { useAppAlert: () => ({ alert() {} }) },
+        '../../contexts/AppAlertContext': { useAppAlert: () => ({ alert }) },
         react, 'react/jsx-runtime': { jsx: element, jsxs: element },
         '@expo/vector-icons': { Ionicons: 'Icon' },
         'react-native': { StyleSheet: { create: x => x }, Alert: {}, View: 'View', Text: 'Text', TouchableOpacity: 'Button' },
@@ -963,7 +964,7 @@ function presenceHarness() {
         state,
         render(confirmacao) {
             cursor = 0; effects = [];
-            const tree = SeletorPresenca({ confirmacao, enderecos: [], onRegistrar: async () => true });
+            const tree = SeletorPresenca({ confirmacao, enderecos: [], onRegistrar });
             effects.forEach(effect => effect());
             return tree;
         },
@@ -1004,6 +1005,24 @@ test('first presence selection survives a polling result without confirmation', 
     assert.equal(h.state[1], 'IDA');
     h.render({ status: 'VOLTA', enderecoIda: null, enderecoVolta: null });
     assert.equal(h.state[1], 'IDA');
+});
+
+test('limpeza de presença exige confirmação, bloqueia toque repetido e mantém dados se falhar', async () => {
+    let dialog, calls=0, finish;
+    const h=presenceHarness({alert:(...args)=>{dialog=args;},onRegistrar:async status=>{assert.equal(status,'LIMPAR');calls++;return new Promise(resolve=>{finish=resolve;});}});
+    const saved={status:'IDA',enderecoIda:{id:10,apelido:'Ponto de teste'},enderecoVolta:null};
+    const open=()=>buttons(h.render(saved)).find(b=>b.props.accessibilityLabel==='Limpar confirmação de hoje').props.onPress();
+    open();assert.equal(calls,0);const confirm=dialog[2].find(b=>b.text==='Limpar').onPress;
+    const first=confirm();await confirm();assert.equal(calls,1);finish(false);await first;
+    assert.ok(elements(h.render(saved)).some(n=>n.props?.children==='Ponto de teste'));
+    open();const last=dialog[2].find(b=>b.text==='Limpar').onPress();finish(true);await last;h.render(null);assert.equal(h.state[1],'');
+});
+
+test('resumo da presença exibe somente os sentidos confirmados mesmo se API preserva endereços antigos', () => {
+    const h=presenceHarness(),saved={enderecoIda:{id:10},enderecoVolta:{id:20}};
+    const texts=status=>elements(h.render({...saved,status})).map(n=>n.props?.children).filter(x=>typeof x==='string');
+    assert.ok(!texts('NAO_VOU').includes('Embarque na ida'));assert.ok(!texts('NAO_VOU').includes('Desembarque na volta'));
+    assert.ok(!texts('VOLTA').includes('Embarque na ida'));assert.ok(texts('VOLTA').includes('Desembarque na volta'));
 });
 
 function alertHarness() {
