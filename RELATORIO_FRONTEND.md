@@ -183,3 +183,22 @@ a causa. As issues #40/#45 permanecem abertas para os critérios ainda pendentes
 O formulário público perdeu a edição durante falha de polling, e GPS recebeu
 rejeição de intervalo mínimo; correções e retestes pertencem às próximas etapas
 deste lote, ainda não a este registro de evidências.
+
+### Recuperação do pedido público
+
+Na rota exclusiva 5/FLEXÍVEL, um timeout periódico removia o formulário e
+desmontava o picker. Detalhes agora preservam a última versão lida e a edição
+desta conta/rota, com indicação de dados antigos. Solicitar vínculo/embarque fica
+bloqueado até revalidar; mesmo um callback capturado antes da falha não escreve.
+Retentativa preserva a escolha e uma versão despublicada mantém o bloqueio.
+Regressão falhou contra o código anterior e passou após a correção.
+
+Na interface passageira independente: vínculo solicitado, local público pesquisado,
+pin explicitamente confirmado e pedido 6/VOLTA enviado. Interface e GET próprio
+mostraram PENDENTE em 23/11. Aprovação, rejeição e snapshot deste trecho seguem em
+validação. Chamadas com os serviços reais verificaram 404 na rota despublicada,
+400 na parada desativada e 409 no horário passado; publicação, mesmo ID de parada
+e horário restaurados. Isso não substitui aceite visual dos três erros ou lotação
+com outra conta passageira. Nenhum endpoint de motorista foi consultado como
+passageiro. Check da árvore durante esta etapa: arquitetura, TypeScript e 378
+testes aprovados; alterações externas incluídas. Bundle final ainda pendente.
