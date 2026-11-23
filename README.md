@@ -1,6 +1,4 @@
-# BeVans - Documentação Técnica do Frontend
-
-Aplicativo mobile (**React Native + Expo**) para gestão de transporte escolar e universitário por van, conectando motoristas e passageiros em tempo real.
+# BeVans | Aplicativo Mobile (Frontend)
 
 [![React Native](https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactnative.dev/)
 [![Expo](https://img.shields.io/badge/Expo-000020?style=for-the-badge&logo=expo&logoColor=white)](https://expo.dev/)
@@ -8,85 +6,149 @@ Aplicativo mobile (**React Native + Expo**) para gestão de transporte escolar e
 [![Firebase](https://img.shields.io/badge/Firebase-039BE5?style=for-the-badge&logo=Firebase&logoColor=white)](https://firebase.google.com/)
 [![Mapbox](https://img.shields.io/badge/Mapbox-000000?style=for-the-badge&logo=Mapbox&logoColor=white)](https://www.mapbox.com/)
 
-> ⚠️ **Aviso de Propriedade Intelectual:** Este repositório é de uso estritamente pessoal e acadêmico, mantido no GitHub apenas para controle de versão do projeto **BeVans**. A cópia, distribuição, comercialização ou uso não autorizado do código-fonte por terceiros é expressamente proibida.
-> 
 
-## 1. Visão Geral
+Aplicativo mobile do ecossistema **BeVans**, voltado à organização do transporte escolar e universitário. Oferece experiências específicas para **motoristas** e **passageiros**, com turmas, confirmação de presença, mapas, acompanhamento de viagens e notificações.
 
-### 1.1 O que é
-O **BeVans** é um app mobile que organiza o transporte por van de alunos. Ele resolve três problemas principais:
+**Repositório:** [pethersonzada/bevans-frontend](https://github.com/pethersonzada/bevans-frontend)  
+**Demais componentes:** [Backend](https://github.com/pethersonzada/bevans-backend) · [WebApp](https://github.com/pethersonzada/bevans-webapp) · [Agente de suporte](https://github.com/pethersonzada/bevans-agente)
 
-* **Gestão de Presença:** Passageiros confirmam presença (*Ida / Volta / Ambos / Não Vou*) e escolhem o endereço de embarque.
-* **Otimização de Rotas:** O backend devolve a ordem otimizada (`/rota/otimizar`) e o app desenha a rota com navegação *turn-by-turn* via **Mapbox**.
-* **Radar da Van:** A posição do motorista é enviada a cada ~2 s e consultada pelos passageiros a cada 10 s.
+## Tecnologias
 
-### 1.2 Perfis de usuário
-* **PASSAGEIRO (ALUNO):** Entra em uma turma por código de convite, cadastra endereços, confirma presença e acompanha a van.
-* **MOTORISTA:** Cria turmas/rotas, define origem (garagem) e destino, aprova solicitações, gerencia passageiros e conduz a viagem no mapa.
+- **React Native 0.86.3**, **React 19.2.3** e **TypeScript 6**.
+- **Expo SDK 57** e **Expo Router**, com roteamento baseado em arquivos (`src/app`).
+- **Firebase Authentication** para autenticação e integração com a API própria.
+- **Mapbox** (`@rnmapbox/maps`) para mapas e navegação; `expo-location` para localização.
+- **Expo Notifications**, **Expo Secure Store**, **AsyncStorage** e **NetInfo**.
 
-### 1.3 Stack
-| Camada | Tecnologia |
-| :--- | :--- |
-| **Framework** | React Native + Expo (SDK com Expo Router) |
-| **Linguagem** | TypeScript |
-| **Autenticação** | Firebase Authentication (e-mail/senha) |
-| **Mapas e Rotas** | `@rnmapbox/maps` + Mapbox Directions API |
-| **Localização** | `expo-location` |
-| **Persistência local** | `@react-native-async-storage/async-storage` |
-| **Conectividade** | `@react-native-community/netinfo` |
-| **Backend** | API REST própria (Bearer token Firebase) |
+> O Mapbox utiliza código nativo. Para testar os mapas, use um *development build*. O **Expo Go não oferece suporte a `@rnmapbox/maps`**.
 
-## 2. Pré-requisitos e Instalação
+## Funcionalidades e fluxos
 
-### 2.1 Requisitos
-* Node.js 18+ e npm/yarn
-* Expo CLI / EAS CLI
-* Conta Firebase (Authentication habilitado)
-* Conta Mapbox (Token público)
-* **Atenção:** O `@rnmapbox/maps` é um módulo nativo e **não funciona no Expo Go**. Utilize *development builds* (`expo run:android` / `expo run:ios` ou EAS Build).
+### Passageiros
 
-### 2.2 Dependências Principais
+- Cadastro/autenticação, ingresso em turmas por código e acompanhamento do pedido de aprovação.
+- Confirmação de presença para viagens de ida e/ou volta e escolha de endereços.
+- Visualização de informações autorizadas da turma e acompanhamento da van durante viagens ativas.
+- Acesso a notificações e preferências relacionadas ao uso do aplicativo.
+
+### Motoristas
+
+- Criação e manutenção de turmas e gestão dos pedidos de ingresso.
+- Consulta de confirmações de passageiros e planejamento da viagem.
+- Início/encerramento de viagens e interação com o fluxo de navegação e localização.
+- Fluxos de excursões e convites documentados e desenvolvidos incrementalmente no projeto.
+
+A disponibilidade de cada fluxo depende da versão do app, dos contratos do backend e da configuração do ambiente. Consulte `docs/` para escopo, validações e limitações das entregas.
+
+## Arquitetura e integração
+
+```text
+Telas e navegação (src/app)
+          |
+Componentes, hooks, contextos e serviços
+          |
+   src/config/api.ts
+          |  Firebase ID token (Bearer)
+          v
+       API REST BeVans
+          |
+  PostgreSQL / serviços do backend
+```
+
+A função `apiFetch` centraliza chamadas autenticadas, obtém o token do Firebase, tenta renová-lo após HTTP 401 e diferencia erros de rede, timeout, sessão e resposta inválida. A API precisa estar acessível pelo dispositivo físico ou emulador usado nos testes.
+
+## Instalação e execução
+
+### Requisitos
+
+- Node.js e npm compatíveis com as dependências do projeto.
+- Android Studio/emulador Android ou aparelho configurado para um build nativo; para iOS, macOS/Xcode.
+- Projeto Firebase e token Mapbox para os recursos correspondentes.
+
 ```bash
-npx expo install expo-router expo-location expo-clipboard \
-  react-native-safe-area-context @expo/vector-icons \
-  @react-native-async-storage/async-storage \
-  @react-native-community/netinfo
-
-npm install firebase @rnmapbox/maps react-native-masked-text
+git clone https://github.com/pethersonzada/bevans-frontend.git
+cd bevans-frontend
+npm ci
+npm run start
 ```
 
-### 2.3 Variáveis de Ambiente (`.env`)
-```env
-EXPO_PUBLIC_API_URL=https://sua-api.exemplo.com
-EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN=pk.xxxxxxxxxxxx
+Para desenvolvimento com módulos nativos:
 
-EXPO_PUBLIC_FIREBASE_API_KEY=...
-EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=...
-EXPO_PUBLIC_FIREBASE_PROJECT_ID=...
-EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=...
-EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
-EXPO_PUBLIC_FIREBASE_APP_ID=...
+```bash
+npm run android
+# ou, em ambiente macOS configurado:
+npm run ios
 ```
 
-## 3. Exemplo de Uso Prático
+O script `npm run web` inicia a opção web disponibilizada pelo Expo; o produto principal é mobile.
 
-### Consumindo a API com autenticação injetada
-```typescript
-import { apiFetch } from '../config/api';
+## Variáveis de ambiente
 
-type Turma = {
-  id: string;
-  nome: string;
-  turno: string;
-};
+Crie `.env` local e ajuste a configuração efetivamente utilizada em `src/config/config` e `src/config/firebase`:
 
-async function buscarTurmas(motoristaId: string): Promise<Turma[]> {
-  const res = await apiFetch(`/turmas/motorista/${motoristaId}`, {
-    headers: { Accept: 'application/json' },
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return (await res.json()) as Turma[];
-}
+```dotenv
+EXPO_PUBLIC_API_URL=http://SEU_HOST:8080
+EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN=SEU_TOKEN_PUBLICO_MAPBOX
+EXPO_PUBLIC_FIREBASE_API_KEY=SUA_CHAVE_PUBLICA_FIREBASE
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=SEU_DOMINIO
+EXPO_PUBLIC_FIREBASE_PROJECT_ID=SEU_PROJETO
+EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=SEU_BUCKET
+EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=SEU_SENDER_ID
+EXPO_PUBLIC_FIREBASE_APP_ID=SEU_APP_ID
 ```
 
----
+`app.config.js` também considera `EXPO_PUBLIC_APP_ENV` e, quando fornecido, `GOOGLE_SERVICES_JSON` para o arquivo de serviços Android. Variáveis `EXPO_PUBLIC_*` são incorporadas à aplicação cliente: **nunca coloque nelas segredos de servidor ou credenciais administrativas**.
+
+## Comandos do projeto
+
+| Comando | Finalidade |
+| --- | --- |
+| `npm run start` | Inicia o servidor de desenvolvimento Expo. |
+| `npm run android` | Executa build nativo para Android. |
+| `npm run ios` | Executa build nativo para iOS. |
+| `npm run web` | Inicia a versão web do Expo. |
+| `npm run architecture` | Valida regras arquiteturais do repositório. |
+| `npm run typecheck` | Gera tipos de rotas e executa `tsc --noEmit`. |
+| `npm test` | Executa testes com `node --test`. |
+| `npm run check` | Executa arquitetura, tipos e testes. |
+| `npm run bundle:android` | Exporta bundle Android para verificação. |
+
+Antes de abrir um PR, rode:
+
+```bash
+npm run check
+```
+
+## Organização relevante
+
+```text
+src/
+  app/                # telas e roteamento com Expo Router
+  components/         # componentes reutilizáveis
+  contexts/           # estado/contextos da aplicação
+  hooks/              # hooks compartilhados
+  services/           # lógica de integração e operações
+  config/
+    api.ts            # cliente HTTP autenticado
+assets/                # ícones, logos e imagens
+tests/                 # testes automatizados
+scripts/               # verificações e geração de tipos
+docs/                  # relatórios e documentação técnica
+app.config.js          # configuração Expo e plugins
+package.json
+```
+
+## Segurança e limites
+
+- Regras de autorização devem ser aplicadas pelo **backend**, não apenas por telas ocultas no aplicativo.
+- Use HTTPS em ambientes publicados e restrinja acesso a tokens e serviços externos.
+- Funcionalidades de mapa dependem de GPS, permissões, rede e estado da viagem; atualização em tempo real não significa frequência garantida.
+- Nunca publique arquivos privados de Firebase Admin, tokens secretos ou `.env` com credenciais.
+
+## Documentação relacionada
+
+- [Documentação existente do frontend](https://github.com/pethersonzada/bevans-frontend/tree/main/docs)
+- [API e contratos do backend](https://github.com/pethersonzada/bevans-backend/tree/main/docs)
+
+**Estado da documentação:** elaborado a partir dos arquivos `package.json`, `app.config.js`, `src/config/api.ts` e README do repositório. Recursos em evolução devem ser validados na versão efetivamente implantada.
+
