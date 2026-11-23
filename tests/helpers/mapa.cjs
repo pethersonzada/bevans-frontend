@@ -67,7 +67,7 @@ function harness({ dados = fixture('FIXA', 'IDA'), sentido = 'IDA', viagemId = 4
         '../services/asyncOperation': { withDeadline: fn => fn() },
         '../services/location': { validCoordinates: (lat, lng) => Number.isFinite(lat) && Number.isFinite(lng) },
         '../services/navigationLocation': { ensureNavigationLocation: async () => true, NavigationLocationError: class extends Error {} },
-        '../services/viagens': { encerrarViagem: async () => {} },
+        '../services/viagens': { encerrarViagemConferida: async () => {} },
         '../services/roteiroNavegacao': r, '../services/roteiroOperacional': service,
         '../services/conclusaoParada': conclusao, '../services/operacoes': operacoes,
         '../hooks/useFocusedPolling': { useFocusedPolling: task => { poll = task; } },

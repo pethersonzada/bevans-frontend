@@ -296,6 +296,9 @@ export function SeletorPresenca({
                             return (
                                 <TouchableOpacity
                                     key={opcao.key}
+                                    accessibilityRole="radio"
+                                    accessibilityLabel={opcao.label}
+                                    accessibilityState={{ checked: ativo, disabled: salvando }}
                                     style={[
                                         styles.opcao,
                                         ativo && styles.opcaoAtiva,
@@ -318,7 +321,7 @@ export function SeletorPresenca({
                         })}
                     </View>
 
-                    {usaParadasIda && precisaIda(status) && <Text>Ida pela parada escolhida na turma.</Text>}
+                    {usaParadasIda && precisaIda(status) && <Text style={{ color: theme.colors.text }}>Ida pela parada escolhida na turma.</Text>}
                     {precisaIda(status) && !usaParadasIda &&
                         renderEndereco(
                             'ida',
@@ -327,7 +330,7 @@ export function SeletorPresenca({
                             setEnderecoIda
                         )}
 
-                    {usaParadasVolta && precisaVolta(status) && <Text>Volta pela parada escolhida na turma.</Text>}
+                    {usaParadasVolta && precisaVolta(status) && <Text style={{ color: theme.colors.text }}>Volta pela parada escolhida na turma.</Text>}
                     {precisaVolta(status) && !usaParadasVolta &&
                         renderEndereco(
                             'volta',

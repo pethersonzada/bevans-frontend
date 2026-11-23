@@ -39,3 +39,12 @@ test('old execution is invalidated before the new start request resolves',async(
     })});
     await exports.reiniciarViagem(7,'VOLTA',11,()=>{ended=true;});assert.equal(startSawInvalidation,true);
 });
+
+test('encerramento conferido recupera timeout após gravação e não repete viagem já inativa',async()=>{
+ const h=harness({stage:'encerrar',commit:true});await h.service.encerrarViagemConferida(7,11);assert.equal(h.writes.length,1);await h.service.encerrarViagemConferida(7,11);assert.equal(h.writes.length,1);
+});
+test('encerramento confere identidade e preserva erro quando a execução continua ativa',async()=>{
+ const other=harness();await assert.rejects(other.service.encerrarViagemConferida(7,99),/Outra viagem/);assert.equal(other.writes.length,0);
+ const rejected=harness({stage:'encerrar'});await assert.rejects(rejected.service.encerrarViagemConferida(7,11),/timeout/);assert.equal(rejected.writes.length,1);
+ const unknown=harness({unreadable:true});await assert.rejects(unknown.service.encerrarViagemConferida(7,11),/não foi confirmado/);assert.equal(unknown.writes.length,1);
+});

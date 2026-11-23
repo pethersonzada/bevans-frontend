@@ -28,9 +28,9 @@ function PushControls({ owner }: { owner: string }) {
         finally { pending.current = false; if (mounted.current) setBusy(false); }
     };
     return <View style={{ gap: 8 }}>
-        <Text>A central funciona mesmo sem permitir notificações no aparelho.</Text>
+        <Text style={{ color: theme.colors.text }}>A central funciona mesmo sem permitir notificações no aparelho.</Text>
         <ActionButton variant="primary" title="Permitir notificações Android" busy={busy} onPress={()=>void run(true)}/>
         <ActionButton variant="danger" title="Revogar notificações deste aparelho" disabled={busy} onPress={()=>void run(false)}/>
-        <Text accessibilityLiveRegion="polite">{message}</Text>
+        <Text style={{ color: theme.colors.text }} accessibilityLiveRegion="polite">{message}</Text>
     </View>;
 }

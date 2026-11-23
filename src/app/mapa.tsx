@@ -34,7 +34,7 @@ import { mensagemErroOperacao, rotulosEstado } from '../services/operacoes';
 import { assinaturaRoteiro, chaveCacheRoteiro, geometriaCompativel, LIMITE_WAYPOINTS_MAPBOX, pontosParaDirecoes, validarRespostaDirecoes, type ExecucaoRoteiro, type PontoNavegacao } from '../services/roteiroNavegacao';
 import { consultarRoteiroOperacional } from '../services/roteiroOperacional';
 import { createPositionSender } from '../services/telemetria';
-import { encerrarViagem } from '../services/viagens';
+import { encerrarViagemConferida } from '../services/viagens';
 import { theme } from '../styles/theme';
 
 import { CabecalhoMapa } from '../components/mapa/CabecalhoMapa';
@@ -1125,10 +1125,10 @@ export default function Mapa() {
                                     setErroRede(null);
                                 }
                             })
-                            .catch(() => {
+                            .catch(error => {
                                 if (ativo) {
                                     setErroRede(
-                                        'Sinal instável. Aguardando uma nova leitura de localização para tentar novamente.'
+                                        `Não foi possível atualizar a localização. ${errorMessage(error)}`
                                     );
                                 }
                             });
@@ -1391,16 +1391,16 @@ export default function Mapa() {
                             encerrandoRef.current = true;
                             publisherRef.current?.cancel();
                             try {
-                                await encerrarViagem(turmaIdParam);
+                                await encerrarViagemConferida(turmaIdParam, viagemIdRef.current!);
                                 viagemAtivaRef.current = false;
                                 setViagemAtiva(false);
                                 await AsyncStorage.multiRemove(['@vanbora:viagem_ativa', '@vanbora:viagem_ativa_' + motoristaIdParam]);
                                 router.replace('/(tabs)/home');
                             } finally { encerrandoRef.current = false; }
-                        } catch {
+                        } catch (error) {
                             if (montadoRef.current) {
                                 setErroRede(
-                                    'Não foi possível encerrar a viagem. Tente novamente.'
+                                    errorMessage(error, 'Não foi possível confirmar o encerramento. Atualize e tente novamente.')
                                 );
                             }
                         }

@@ -41,7 +41,7 @@ export default function ConfirmadosAvatares({ passageiros = [] }: ConfirmadosAva
                 {passageiros.length > 0 ? (
                     <Text style={styles.infoText}>
                         <Text style={styles.boldText}>{passageiros.length}</Text> {passageiros.length === 1 ? 'confirmado' : 'confirmados'} na rota
-                        {excedentes > 0 && <Text> +{excedentes}</Text>}
+                        {excedentes > 0 && <Text style={{ color: theme.colors.text }}> +{excedentes}</Text>}
                     </Text>
                 ) : (
                     <Text style={styles.emptyText}>Nenhuma confirmação ainda</Text>

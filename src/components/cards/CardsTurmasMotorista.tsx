@@ -242,7 +242,7 @@ const styles = themedStyles(() => StyleSheet.create({
         color: theme.colors.textLight,
     },
     turmaTurnoSelecionada: {
-        color: 'rgba(255, 255, 255, 0.8)',
+        color: theme.colors.surface,
     },
 
     cardNovaTurma: {

@@ -1,0 +1,129 @@
+[
+  {
+    "at": "2026-11-23T00:34:51.205Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/embarques/minhas",
+    "status": 403
+  },
+  {
+    "at": "2026-11-23T00:34:51.206Z",
+    "step": "motorista-nao-consulta-pedidos-de-passageiro",
+    "status": 403
+  },
+  {
+    "at": "2026-11-23T00:34:51.870Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T00:34:52.236Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/rotas-publicas/minhas",
+    "status": 403
+  },
+  {
+    "at": "2026-11-23T00:34:52.237Z",
+    "step": "passageiro-nao-gerencia-rotas",
+    "status": 403
+  },
+  {
+    "at": "2026-11-23T00:34:52.629Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/motorista/{id}",
+    "status": 403
+  },
+  {
+    "at": "2026-11-23T00:34:52.630Z",
+    "step": "passageiro-nao-lista-turmas-do-motorista",
+    "status": 403
+  },
+  {
+    "at": "2026-11-23T00:34:52.731Z",
+    "step": "central-sem-sessao",
+    "status": 401
+  },
+  {
+    "at": "2026-11-23T00:34:53.061Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T00:34:53.448Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/notificacoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T00:34:53.858Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/notificacoes/nao-lidas",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T00:34:54.267Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/notificacoes/preferencias",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T00:34:54.269Z",
+    "step": "central-oficial",
+    "role": "motorista",
+    "firstPage": 0,
+    "total": 0,
+    "unread": 0,
+    "types": []
+  },
+  {
+    "at": "2026-11-23T00:34:54.677Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T00:34:55.045Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/notificacoes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T00:34:55.394Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/notificacoes/nao-lidas",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T00:34:55.803Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/notificacoes/preferencias",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T00:34:55.805Z",
+    "step": "central-oficial",
+    "role": "passageiro",
+    "firstPage": 0,
+    "total": 0,
+    "unread": 0,
+    "types": []
+  },
+  {
+    "at": "2026-11-23T00:34:55.806Z",
+    "step": "fase-aprovada",
+    "phase": "auditar"
+  }
+]

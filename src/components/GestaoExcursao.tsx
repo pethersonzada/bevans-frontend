@@ -59,7 +59,7 @@ export function GestaoExcursao({id,excursao,secao='participantes',origemConfigur
     const estados:Record<string,string>={SOLICITADA:'Reserva solicitada',CONFIRMADA:'Inscrição confirmada',CANCELADA:'Inscrição cancelada',EXPIRADA:'Reserva expirada'};
     return <Section title={secao==='participantes'?'Reservas do grupo':secao==='convites'?'Links do grupo':'Explore o roteiro'}>
         {secao!=='roteiro'&&<Button title={secao==='participantes'?'Atualizar reservas':'Atualizar convites'} icon="refresh-outline" disabled={busy} onPress={reload}/>}
-        {!!message&&<Text accessibilityLiveRegion="polite">{message}</Text>}
+        {!!message&&<Text style={{ color: theme.colors.text }} accessibilityLiveRegion="polite">{message}</Text>}
         {!!error&&<AsyncState message={error} onRetry={reload}/>}
             {secao==='participantes'&&(participantes.data?<>{!participantes.data.itens.length&&<AsyncState status="empty" title="Nenhum participante nesta página"/>}
             <Text style={trip.caption}>{participantes.data.total} inscrições · estados conforme o servidor</Text>
@@ -74,7 +74,7 @@ export function GestaoExcursao({id,excursao,secao='participantes',origemConfigur
         <Text style={trip.caption}>{roteiro?.estado==='pronto'?'Pontos do roteiro consultado no servidor.':'Locais salvos da excursão; o roteiro operacional ainda não foi confirmado.'} Nenhum trajeto pelas ruas foi calculado.</Text>
         {!roteiro&&<Text style={trip.body}>Consulte a sequência para conferir o roteiro de {sentido==='IDA'?'ida':'volta'} com os participantes confirmados.</Text>}
         {roteiro?.estado==='carregando'&&<RemoteLoading title="Consultando planejamento…"/>}
-        {roteiro?.estado==='vazio'&&<Text accessibilityLiveRegion="polite">Nenhum ponto retornado. Revise os locais e participantes da excursão. Os locais salvos continuam no mapa.</Text>}
+        {roteiro?.estado==='vazio'&&<Text style={{ color: theme.colors.text }} accessibilityLiveRegion="polite">Nenhum ponto retornado. Revise os locais e participantes da excursão. Os locais salvos continuam no mapa.</Text>}
         {roteiro?.estado==='erro'&&<><Text accessibilityRole="alert" style={trip.body}>Erro de planejamento: {roteiro.erro}</Text>
             {(roteiro.codigo||roteiro.http)&&<Text style={trip.caption}>{roteiro.codigo}{roteiro.http?` (HTTP ${roteiro.http})`:''}</Text>}
             <Text style={trip.body}>Os locais salvos continuam disponíveis. Revise os pontos e participantes e consulte novamente.</Text></>}

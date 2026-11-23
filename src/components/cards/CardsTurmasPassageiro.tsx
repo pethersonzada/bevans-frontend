@@ -147,7 +147,7 @@ const styles = themedStyles(() => StyleSheet.create({
     },
     turmaNomeSelecionada: { color: theme.colors.surface },
     turmaTurno: { fontSize: theme.typography.size.small, color: theme.colors.textLight },
-    turmaTurnoSelecionada: { color: 'rgba(255, 255, 255, 0.8)' },
+    turmaTurnoSelecionada: { color: theme.colors.surface },
     cardEntrarTurma: {
         width: 150,
         minHeight: 130,

@@ -52,40 +52,40 @@ export function Painel({ tipo, id, motorista, excursaoId }: { tipo: string; id: 
     return <SafeAreaView style={styles.screen}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {botao('Voltar', () => router.back())}
         <Text style={styles.title} accessibilityRole="header">Controle da viagem</Text>
-        <Text>{tipo === 'EXCURSAO' ? 'Excursão' : 'Viagem'} · {data && 'sentido' in data ? data.sentido : ''}</Text>
-        <Text>GPS e presença planejada não confirmam embarque.</Text>
-        <Text accessibilityLiveRegion="polite">{feedback}</Text>
+        <Text style={{ color: theme.colors.text }}>{tipo === 'EXCURSAO' ? 'Excursão' : 'Viagem'} · {data && 'sentido' in data ? data.sentido : ''}</Text>
+        <Text style={{ color: theme.colors.text }}>GPS e presença planejada não confirmam embarque.</Text>
+        <Text style={{ color: theme.colors.text }} accessibilityLiveRegion="polite">{feedback}</Text>
         {tipo==='EXCURSAO'&&motorista&&<>
-            {!excursaoId&&<Text>Reabra o controle pela excursão para consultar sua execução.</Text>}
+            {!excursaoId&&<Text style={{ color: theme.colors.text }}>Reabra o controle pela excursão para consultar sua execução.</Text>}
             {!!excursaoId&&!execucao.data&&!execucao.error&&<AsyncState loading/>}
             {execucao.error&&<AsyncState message={execucao.error} onRetry={execucao.reload}/>}
-            {execucao.data&&<><Text>{execucao.data.estado==='EM_ANDAMENTO'?'Execução em andamento':execucao.data.estado==='FINALIZADA'?'Execução finalizada':'Execução cancelada'}</Text><RoteiroExecucaoExcursao execucao={execucao.data}/></>}
+            {execucao.data&&<><Text style={{ color: theme.colors.text }}>{execucao.data.estado==='EM_ANDAMENTO'?'Execução em andamento':execucao.data.estado==='FINALIZADA'?'Execução finalizada':'Execução cancelada'}</Text><RoteiroExecucaoExcursao execucao={execucao.data}/></>}
         </>}
         {error ? <AsyncState message={error} onRetry={reload} /> : !data ? <AsyncState loading /> : <>
             {'contadores' in data && <View style={styles.counters}>{([
                 ['Esperados', data.contadores.esperados], ['Aguardando', data.contadores.aguardando], ['Na van', data.contadores.naVan],
                 ['Não embarcaram', data.contadores.naoEmbarcaram], ['Desembarcados', data.contadores.desembarcados],
-            ] as const).map(([label, total]) => <View key={label} style={styles.counter} accessible accessibilityLabel={`${label}: ${total}`}><Text style={styles.total}>{total}</Text><Text>{label}</Text></View>)}</View>}
-            <Text>A lista segue a ordem planejada; passageiros aguardando estão destacados.</Text>
-            {motorista && <TextInput style={styles.input} accessibilityLabel="Motivo da correção" placeholder="Motivo obrigatório para corrigir" value={motivo} maxLength={500} onChangeText={setMotivo} editable={!busy && !confirmacao} />}
+            ] as const).map(([label, total]) => <View key={label} style={styles.counter} accessible accessibilityLabel={`${label}: ${total}`}><Text style={styles.total}>{total}</Text><Text style={{ color: theme.colors.text }}>{label}</Text></View>)}</View>}
+            <Text style={{ color: theme.colors.text }}>A lista segue a ordem planejada; passageiros aguardando estão destacados.</Text>
+            {motorista && <TextInput style={styles.input} accessibilityLabel="Motivo da correção" placeholder="Motivo obrigatório para corrigir" placeholderTextColor={theme.colors.textLight} value={motivo} maxLength={500} onChangeText={setMotivo} editable={!busy && !confirmacao} />}
             {confirmacao && <View style={styles.confirmation} accessibilityLiveRegion="polite">
-                <Text accessibilityRole="header">Confirmar {rotulosEstado[confirmacao.estado].toLowerCase()}?</Text>
-                <Text>{motorista ? confirmacao.registro.nome : 'Seu registro'}{confirmacao.correcao ? ` · Correção auditada: ${motivo}` : ''}. Confirme apenas o que ocorreu nesta viagem.</Text>
+                <Text style={{ color: theme.colors.text }} accessibilityRole="header">Confirmar {rotulosEstado[confirmacao.estado].toLowerCase()}?</Text>
+                <Text style={{ color: theme.colors.text }}>{motorista ? confirmacao.registro.nome : 'Seu registro'}{confirmacao.correcao ? ` · Correção auditada: ${motivo}` : ''}. Confirme apenas o que ocorreu nesta viagem.</Text>
                 {acaoOperacional('Confirmar alteração', () => void alterar(confirmacao))}{botao('Cancelar alteração', () => setConfirmacao(null))}
             </View>}
             {!registros.length && <AsyncState status="empty" title="Nenhum passageiro nesta operação" />}
             {registros.map(r => <View key={r.id} style={[styles.card, r.estado === 'AGUARDANDO' && styles.waiting]}>
                 <Text style={styles.name} accessibilityRole="header">{motorista ? r.nome : 'Meu embarque'}</Text>
                 <Text style={styles.state}>{rotulosEstado[r.estado] || 'Estado indisponível'}</Text>
-                {motorista && <Text>Ordem planejada: {r.ordem}</Text>}
-                <Text>Confirmado por: {r.autor || 'Ainda sem confirmação'}</Text>
-                {r.atualizadoEm && <Text>{new Date(r.atualizadoEm).toLocaleString('pt-BR')}</Text>}
+                {motorista && <Text style={{ color: theme.colors.text }}>Ordem planejada: {r.ordem}</Text>}
+                <Text style={{ color: theme.colors.text }}>Confirmado por: {r.autor || 'Ainda sem confirmação'}</Text>
+                {r.atualizadoEm && <Text style={{ color: theme.colors.text }}>{new Date(r.atualizadoEm).toLocaleString('pt-BR')}</Text>}
                 {acaoOperacional(motorista ? 'Confirmar embarque' : 'Embarquei', () => solicitar(r, 'EMBARCADO'), r.estado !== 'AGUARDANDO' || !!confirmacao)}
                 {acaoOperacional(motorista ? 'Confirmar desembarque' : 'Desembarquei', () => solicitar(r, 'DESEMBARCADO'), r.estado !== 'EMBARCADO' || !!confirmacao)}
                 {motorista ? <>
                     {acaoOperacional('Não embarcou', () => solicitar(r, 'NAO_EMBARCOU'), r.estado !== 'AGUARDANDO' || !!confirmacao)}
                     {acaoOperacional('Corrigir para aguardando', () => solicitar(r, 'AGUARDANDO', true), !motivo.trim() || !!confirmacao)}
-                </> : <Text>Em caso de toque acidental, peça uma correção ao motorista.</Text>}
+                </> : <Text style={{ color: theme.colors.text }}>Em caso de toque acidental, peça uma correção ao motorista.</Text>}
             </View>)}
         </>}
         {(tipo === 'VIAGEM' || motorista) && <RastreamentoViagem key={`${tipo}:${id}`} tipo={tipo} id={id} motorista={motorista} />}

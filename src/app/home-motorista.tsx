@@ -21,11 +21,12 @@ import {
 import { AppModal as Modal } from '../components/AppModal';
 import { useAppAlert } from '../contexts/AppAlertContext';
 import { useHomeRefresh } from '../hooks/useHomeRefresh';
-import { fetchPassageirosTurma, fetchSolicitacoesTurma, fetchTurmasMotorista } from '../services/motoristaHome';
+import { fetchPassageirosTurma, fetchSolicitacoesTurma, fetchTurmasMotorista, removerPassageiroTurma } from '../services/motoristaHome';
+import { analisarVinculo } from '../services/solicitacoes';
 import { consultarEstadoViagem, iniciarViagem, reiniciarViagem, TrocaViagemError } from '../services/viagens';
 
 import { AsyncState } from '../components/AsyncState';
-import { apiFetch, errorMessage, readApiJson } from '../config/api';
+import { errorMessage } from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
 import { theme } from '../styles/theme';
 
@@ -190,17 +191,8 @@ export default function HomeMotorista() {
         analisePendente.current = true;
         setAnalisando(vinculoId);
         try {
-            const res = await apiFetch(`/turmas/analisar/${vinculoId}?status=${status}`, {
-                method: 'PUT',
-                headers: { 'Bypass-Tunnel-Reminder': 'true' }
-            });
-            if (res.ok) {
-                if (turmaSelecionada) {
-                    await buscarDadosDaTurma(turmaSelecionada.id);
-                }
-            } else {
-                Alert.alert("Erro", "Não foi possível atualizar a solicitação.");
-            }
+            await analisarVinculo(vinculoId, status);
+            if (turmaSelecionada) await buscarDadosDaTurma(turmaSelecionada.id);
         } catch (e) {
             Alert.alert("Erro", errorMessage(e));
         } finally {
@@ -215,31 +207,14 @@ export default function HomeMotorista() {
         try {
             const chaveStorage = `@vanbora:viagem_ativa_${user.id}`;
 
-            const res = await apiFetch(`/rota/status-atual?turmaId=${turmaId}`, {
-                headers: { 'Bypass-Tunnel-Reminder': 'true' }
-            });
+            const data = await consultarEstadoViagem(turmaId);
             if (turmaSelecionadaRef.current?.id !== turmaId) return;
-
-            if (res.ok) {
-                const data = await readApiJson<any>(res);
-                if (turmaSelecionadaRef.current?.id !== turmaId) return;
-                const statusStr = (data?.status || data?.situacao || '').toUpperCase();
-
-                const ativo = statusStr === 'ATIVA' || statusStr === 'EM_CURSO' || data?.ativa === true;
-
-                setViagemAtiva(ativo);
-
-                if (ativo) {
-                    await AsyncStorage.setItem(chaveStorage, 'true');
-                } else {
-                    await AsyncStorage.removeItem(chaveStorage);
-                }
-            } else {
-                setViagemAtiva(false);
-                await AsyncStorage.removeItem(chaveStorage);
-            }
-        } catch (e: any) {
-            setViagemAtiva(false);
+            const ativo = data.status === 'ATIVA';
+            setViagemAtiva(ativo);
+            if (ativo) await AsyncStorage.setItem(chaveStorage, 'true');
+            else await AsyncStorage.removeItem(chaveStorage);
+        } catch {
+            if (turmaSelecionadaRef.current?.id === turmaId) setViagemAtiva(false);
         }
     }
 
@@ -256,13 +231,8 @@ export default function HomeMotorista() {
                     style: "destructive",
                     onPress: async () => {
                         try {
-                            const res = await apiFetch(`/turmas/${turmaSelecionada.id}/alunos/${alunoId}`, {
-                                method: 'DELETE',
-                                headers: { 'Bypass-Tunnel-Reminder': 'true' }
-                            });
-
-                            if (res.ok) await buscarDadosDaTurma(turmaSelecionada.id);
-                            else Alert.alert("Erro", "Não foi possível remover o aluno.");
+                            await removerPassageiroTurma(turmaSelecionada.id, alunoId);
+                            await buscarDadosDaTurma(turmaSelecionada.id);
                         } catch (e) {
             Alert.alert("Erro", errorMessage(e));
                         }

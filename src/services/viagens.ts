@@ -36,6 +36,20 @@ export async function consultarEstadoViagem(turmaId: number): Promise<EstadoViag
     if (!r || !['ATIVA', 'INATIVA'].includes(r.status) || (r.status === 'ATIVA' && (!Number.isSafeInteger(r.viagemId) || r.viagemId! <= 0))) throw new Error('Não foi possível confirmar o estado da viagem.');
     return r;
 }
+export async function encerrarViagemConferida(turmaId: number, viagemEsperada: number): Promise<void> {
+    if (!Number.isSafeInteger(viagemEsperada) || viagemEsperada <= 0) throw new Error('Atualize a viagem antes de encerrar.');
+    const atual = await consultarEstadoViagem(turmaId);
+    if (atual.status === 'INATIVA') return;
+    if (atual.viagemId !== viagemEsperada) throw new Error('Outra viagem foi iniciada nesta turma. Abra a execução atual antes de encerrar.');
+    let falha: unknown;
+    try { await encerrarViagem(turmaId); } catch (error) { falha = error; }
+    let confirmada: EstadoViagem;
+    try { confirmada = await consultarEstadoViagem(turmaId); }
+    catch { throw new Error('O encerramento não foi confirmado. Atualize o estado antes de tentar novamente.'); }
+    if (confirmada.status === 'INATIVA') return;
+    if (falha) throw falha;
+    throw new Error('O servidor ainda informa uma viagem ativa. Atualize antes de tentar encerrar novamente.');
+}
 export class TrocaViagemError extends Error {
     constructor(public readonly etapa: 'verificar' | 'encerrar' | 'iniciar', public readonly anteriorEncerrada: boolean,
         public readonly estado: EstadoViagem | null, public readonly original: unknown) {

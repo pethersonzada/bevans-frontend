@@ -1,3 +1,4 @@
+import { theme } from '../styles/theme';
 import { useThemeRevision } from '../hooks/useThemeRevision';
 import { useEffect, useRef, useState } from 'react';
 import { Switch, Text, View } from 'react-native';
@@ -32,7 +33,7 @@ export function Preferencias() {
     return <Screen title="Preferências" subtitle="Configure notificações e gerencie este aparelho." onBack={() => router.back()}>
         {offline && <Notice>Sem conexão. Reconecte para alterar as preferências da conta.</Notice>}
         <Section title="Recebimento" description="Estas opções controlam o envio de push. O histórico continua disponível na central.">
-            {error ? <AsyncState message={error} onRetry={reload} /> : !data ? offline ? <Text>Preferências indisponíveis sem conexão.</Text> : <AsyncState loading /> : <>
+            {error ? <AsyncState message={error} onRetry={reload} /> : !data ? offline ? <Text style={{ color: theme.colors.text }}>Preferências indisponíveis sem conexão.</Text> : <AsyncState loading /> : <>
                 {([['Avisos de viagem', 'pushOperacional'], ['Avisos informativos', 'pushInformativo']] as const).map(([label, field]) => <View key={field} style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}><Text style={[ui.label, { flex: 1 }]}>{label}</Text><Switch accessibilityLabel={label} disabled={busy || offline} value={data[field]} onValueChange={value => void save({ ...data, [field]: value })} /></View>)}
             </>}
             {!!feedback && <Text accessibilityLiveRegion="polite" style={ui.body}>{feedback}</Text>}

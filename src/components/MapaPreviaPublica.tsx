@@ -50,13 +50,13 @@ export default function MapaPreviaPublica({ pontos,onEditarPonto }: { pontos:Pon
             </MapboxGL.MapView>:<Text accessibilityRole="alert" style={{color:theme.colors.map.text,padding:16}}>Mapa indisponível: o token do Mapbox não foi configurado neste aplicativo.</Text>}
             {token&&estado==='carregando'&&<View pointerEvents="none" style={{position:'absolute',top:8,left:8,padding:8,backgroundColor:theme.colors.map.surface,flexDirection:'row',gap:8}}><ActivityIndicator color={theme.colors.primary}/><Text style={{color:theme.colors.map.text}}>Carregando mapa…</Text></View>}
         </View>
-        {selecionado&&<View style={{gap:8}}><Text accessibilityLiveRegion="polite">{selecionado.nome}</Text>{onEditarPonto&&<Pressable accessibilityRole="button" accessibilityLabel="Editar ponto selecionado" onPress={()=>onEditarPonto(selecionado,pontos.indexOf(selecionado))} style={{minHeight:48,justifyContent:'center'}}><Text style={{color:theme.colors.primary}}>Editar este ponto</Text></Pressable>}</View>}
+        {selecionado&&<View style={{gap:8}}><Text style={{ color: theme.colors.text }} accessibilityLiveRegion="polite">{selecionado.nome}</Text>{onEditarPonto&&<Pressable accessibilityRole="button" accessibilityLabel="Editar ponto selecionado" onPress={()=>onEditarPonto(selecionado,pontos.indexOf(selecionado))} style={{minHeight:48,justifyContent:'center'}}><Text style={{color:theme.colors.primary}}>Editar este ponto</Text></Pressable>}</View>}
         {validos.length>1&&<Pressable accessibilityRole="button" accessibilityLabel="Enquadrar todos os pontos" onPress={()=>{setSelecao(null);enquadrar();}} style={{minHeight:48,justifyContent:'center'}}><Text style={{color:theme.colors.primary}}>Ver todos os pontos</Text></Pressable>}
         {token&&estado==='erro'&&<View style={{gap:8}}>
-            <Text accessibilityRole="alert">Não foi possível renderizar o mapa. Verifique a conexão e tente novamente. O planejamento e os pontos foram preservados.</Text>
+            <Text style={{ color: theme.colors.text }} accessibilityRole="alert">Não foi possível renderizar o mapa. Verifique a conexão e tente novamente. O planejamento e os pontos foram preservados.</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="Recarregar mapa" onPress={()=>{carregou.current=false;setEstado('carregando');setTentativa(v=>v+1);}} style={{minHeight:48,justifyContent:'center'}}><Text style={{color:theme.colors.primary}}>Recarregar mapa</Text></Pressable>
         </View>}
-        {validos.length!==pontos.length&&<Text accessibilityRole="alert">Há pontos com coordenadas inválidas. Corrija os locais antes de gerar o roteiro.</Text>}
-        {!validos.length&&<Text>Nenhum ponto com coordenadas válidas para exibir. Adicione ou revise os locais da viagem.</Text>}
+        {validos.length!==pontos.length&&<Text style={{ color: theme.colors.text }} accessibilityRole="alert">Há pontos com coordenadas inválidas. Corrija os locais antes de gerar o roteiro.</Text>}
+        {!validos.length&&<Text style={{ color: theme.colors.text }}>Nenhum ponto com coordenadas válidas para exibir. Adicione ou revise os locais da viagem.</Text>}
     </View>;
 }

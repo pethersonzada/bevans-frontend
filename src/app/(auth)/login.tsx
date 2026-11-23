@@ -126,7 +126,7 @@ export default function Login() {
                 </View>
 
                 <View style={styles.formCard}>
-                    {exclusao==='pendente'&&<Text accessibilityLiveRegion="polite">Solicitação de exclusão registrada. A exclusão da identidade de acesso ainda está pendente de processamento.</Text>}
+                    {exclusao==='pendente'&&<Text style={{ color: theme.colors.text }} accessibilityLiveRegion="polite">Solicitação de exclusão registrada. A exclusão da identidade de acesso ainda está pendente de processamento.</Text>}
                     <FormFeedback message={erroFormulario} />
                     <FormLogin 
                         email={email} 

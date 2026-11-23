@@ -50,8 +50,8 @@ export function Central({ motorista, notificacaoId, usuarioId }: { motorista: bo
     }, [destino.data, notificacaoId]);
     const button = (title: string, action: () => void, disabled = false) => <ActionButton title={title} onPress={action} disabled={disabled || busy || offline} />;
     return <Screen title="Notificações" subtitle="Avisos e atualizações das suas viagens." onBack={() => router.back()} action={<IconButton icon="settings-outline" label="Configurações de notificações" onPress={() => router.push('/configuracoes-notificacoes')} />}>
-        {offline&&<Text accessibilityLiveRegion="polite">Sem conexão. Informações anteriores podem estar desatualizadas; a central será atualizada ao reconectar.</Text>}
-        <Text accessibilityLiveRegion="polite">{feedback}</Text>
+        {offline&&<Text style={{ color: theme.colors.text }} accessibilityLiveRegion="polite">Sem conexão. Informações anteriores podem estar desatualizadas; a central será atualizada ao reconectar.</Text>}
+        <Text style={{ color: theme.colors.text }} accessibilityLiveRegion="polite">{feedback}</Text>
         {notificacaoId && (destino.error ? <AsyncState message={destino.error} onRetry={destino.reload} /> : destino.data ? button(`Abrir aviso: ${destino.data.titulo}`, () => open(destino.data!)) : offline?<Text style={ui.body}>Reconecte para consultar o destino deste aviso com segurança.</Text>:<AsyncState loading title="Localizando seu aviso" />)}
         {avisos.error ? <AsyncState message={avisos.error} onRetry={avisos.reload} /> : !avisos.data ? offline?<Section title="Seu histórico"><Text style={ui.body}>Reconecte para carregar seu histórico de notificações.</Text></Section>:<AsyncState loading /> : <>
             {!avisos.data.itens.length && <Section title="Nenhuma notificação recebida" description="Os avisos registrados para sua conta aparecerão aqui.">

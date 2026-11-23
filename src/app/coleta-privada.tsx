@@ -1,3 +1,4 @@
+import { theme } from '../styles/theme';
 import { useThemeRevision } from '../hooks/useThemeRevision';
 import { RemoteLoading, Screen, Section, ActionButton as Button, Choice, ui } from '../components/ui/Primitives';
 import { useRef,useState } from 'react';
@@ -34,7 +35,7 @@ function Coleta({data,motorista,reload}:{data:ColetaPrivada;motorista:boolean;re
     const [reposicionar,setReposicionar]=useState<number|null>(null);
     const [versaoBase]=useState(data.versao);
     const run=async(task:()=>Promise<unknown>)=>{if(pending.current)return;pending.current=true;setBusy(true);setFeedback('');try{await task();reload();}catch(e){setFeedback(errorMessage(e));}finally{pending.current=false;setBusy(false);}};
-    return <Section title={motorista?'Configuração do trajeto':'Sua escolha de embarque'}><Text style={ui.body}>{data.modo==='PORTA_A_PORTA'?'Porta a porta':'Paradas definidas'} · {data.viagemId?'Viagem ativa':'Viagem ainda não iniciada'}</Text><Text accessibilityLiveRegion="polite">{feedback}</Text>
+    return <Section title={motorista?'Configuração do trajeto':'Sua escolha de embarque'}><Text style={ui.body}>{data.modo==='PORTA_A_PORTA'?'Porta a porta':'Paradas definidas'} · {data.viagemId?'Viagem ativa':'Viagem ainda não iniciada'}</Text><Text style={{ color: theme.colors.text }} accessibilityLiveRegion="polite">{feedback}</Text>
         <MapaPreviaPublica pontos={data.paradas.map(p=>({...p,paradaId:p.id}))}/>
         {data.viagemId&&<Button title="Acompanhar e confirmar embarque" onPress={()=>router.push({pathname:'/controle-viagem',params:{tipo:'VIAGEM',id:String(data.viagemId)}})}/>}
         {data.sugestao&&<Text style={ui.body}>Parada mais próxima: {data.sugestao.parada.nome} · aproximadamente {Math.round(data.sugestao.distanciaMetros)} m em linha reta. Sua escolha atual é preservada.</Text>}

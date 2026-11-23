@@ -1,3 +1,4 @@
+import { theme } from '../styles/theme';
 import { useThemeRevision } from '../hooks/useThemeRevision';
 import { useState } from 'react';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -12,8 +13,8 @@ export function SeletorDataHora({label,value,onChange,optional=false}:{label:str
     const data=valido?new Date(value):new Date();
     return <View style={{gap:8,paddingVertical:8}}>
         <Text style={ui.label}>{label}</Text>
-        <Text>{valido?data.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}):'Não selecionado'}</Text>
-        <Text>Fuso do aparelho: {Intl.DateTimeFormat().resolvedOptions().timeZone}</Text>
+        <Text style={{ color: theme.colors.text }}>{valido?data.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}):'Não selecionado'}</Text>
+        <Text style={{ color: theme.colors.text }}>Fuso do aparelho: {Intl.DateTimeFormat().resolvedOptions().timeZone}</Text>
         <Button title={`Escolher data: ${label}`} onPress={()=>setModo('date')}/>
         <Button title={`Escolher horário: ${label}`} onPress={()=>setModo('time')}/>
         {optional&&!!value&&<Button title={`Remover ${label.toLowerCase()}`} onPress={()=>onChange('')}/>}

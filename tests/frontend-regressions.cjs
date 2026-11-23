@@ -620,7 +620,7 @@ test('POI search expands ETE and uses full search with the current map proximity
 test('driver services scope endpoints and distinguish empty lists from invalid payloads', async () => {
     const paths = []; let body = null;
     const api = { apiRequest: async path => { paths.push(path); return body; } };
-    const service = load('src/services/motoristaHome.ts', { '../config/api': api,
+    const service = load('src/services/motoristaHome.ts', { '../config/api': api, './catalogo': load('src/services/catalogo.ts', {'../config/api': {}}),
         './turmas': load('src/services/turmas.ts', { '../config/api': api }) });
     assert.equal((await service.fetchTurmasMotorista(25)).length, 0);
     await service.fetchPassageirosTurma(7); await service.fetchSolicitacoesTurma(7);
@@ -989,6 +989,7 @@ test('presence draft survives polling, including changed server data; cancel res
     assert.equal(h.state[0], true);
     assert.equal(h.state[1], 'AMBOS');
     const tree = h.render({ ...changed });
+    assert.equal(buttons(tree).find(button => button.props.accessibilityLabel === 'Ambos').props.accessibilityState.checked, true);
     buttons(tree).at(-1).props.onPress(); // Cancelar
     h.render(changed);
     assert.equal(h.state[1], 'VOLTA');
@@ -1276,4 +1277,10 @@ test('tunnel bypass is restricted to development and stripped from release reque
         await api.apiFetch('/turmas', { headers: { 'Bypass-Tunnel-Reminder': 'true' } });
         assert.equal(sent.get('Bypass-Tunnel-Reminder'), environment === 'development' ? 'true' : null);
     }
+});
+
+test('remoção de passageiro usa somente turma e vínculo válidos e aceita 204 sem JSON',async()=>{
+ let calls=0,status=204,lastPath;const api={apiFetch:async path=>{calls++;lastPath=path;return new Response(null,{status});},readApiError:async()=>Object.assign(Error('Sem permissão'),{status:403})};
+ const service=load('src/services/motoristaHome.ts',{'../config/api':api,'./turmas':{},'./catalogo':load('src/services/catalogo.ts',{'../config/api':{}})});
+ await assert.rejects(service.removerPassageiroTurma(0,7));await assert.rejects(service.removerPassageiroTurma(7,-1));assert.equal(calls,0);await service.removerPassageiroTurma(7,8);assert.equal(lastPath,'/turmas/7/alunos/8');status=403;await assert.rejects(service.removerPassageiroTurma(7,8),e=>e.status===403);
 });
