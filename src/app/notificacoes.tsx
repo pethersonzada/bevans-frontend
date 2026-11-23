@@ -1,15 +1,15 @@
-import { useThemeRevision } from '../hooks/useThemeRevision';
-import { useEffect, useRef, useState } from 'react';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Text, View } from 'react-native';
 import { useNetInfo } from '@react-native-community/netinfo';
-import { useAuth } from '../contexts/AuthContext';
-import { useRemoteResource } from '../hooks/useRemoteResource';
-import { useNotificacoesRevision } from '../hooks/useNotificacoesRevision';
-import { localizarNotificacao, listarNotificacoes, lerNotificacao, destinoAutorizadoNotificacao, mensagemErroNotificacao, tituloEvento, type Notificacao } from '../services/notificacoes';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { Text, View } from 'react-native';
 import { AsyncState } from '../components/AsyncState';
+import { ActionButton, IconButton, Pagination, Screen, Section, ui } from '../components/ui/Primitives';
+import { useAuth } from '../contexts/AuthContext';
+import { useNotificacoesRevision } from '../hooks/useNotificacoesRevision';
+import { useRemoteResource } from '../hooks/useRemoteResource';
+import { useThemeRevision } from '../hooks/useThemeRevision';
+import { destinoAutorizadoNotificacao, lerNotificacao, listarNotificacoes, localizarNotificacao, mensagemErroNotificacao, tituloEvento, type Notificacao } from '../services/notificacoes';
 import { theme } from '../styles/theme';
-import { Screen, Section, ActionButton, IconButton, Pagination, ui } from '../components/ui/Primitives';
 
 export default function Notificacoes() {
     useThemeRevision();
@@ -20,8 +20,8 @@ export default function Notificacoes() {
 const contextos: Record<string, string> = { VIAGEM: 'Viagem', EXCURSAO: 'Excursão', EXECUCAO_EXCURSAO: 'Viagem de excursão', ROTA_PUBLICA: 'Rota pública', TURMA: 'Turma', EMBARQUE: 'Pedido de embarque', SOLICITACAO_VAGA: 'Solicitação de vaga' };
 export function Central({ motorista, notificacaoId, usuarioId }: { motorista: boolean; notificacaoId?: string; usuarioId?: string }) {
     useThemeRevision();
-    const connection=useNetInfo();
-    const offline=connection.isConnected===false||connection.isInternetReachable===false;
+    const connection = useNetInfo();
+    const offline = connection.isConnected === false || connection.isInternetReachable === false;
     const router = useRouter(), revision = useNotificacoesRevision();
     const [page, setPage] = useState(0), [feedback, setFeedback] = useState(''), [busy, setBusy] = useState(false);
     const pending = useRef(false), mounted = useRef(true), opened = useRef('');
@@ -50,13 +50,19 @@ export function Central({ motorista, notificacaoId, usuarioId }: { motorista: bo
     }, [destino.data, notificacaoId]);
     const button = (title: string, action: () => void, disabled = false) => <ActionButton title={title} onPress={action} disabled={disabled || busy || offline} />;
     return <Screen title="Notificações" subtitle="Avisos e atualizações das suas viagens." onBack={() => router.back()} action={<IconButton icon="settings-outline" label="Configurações de notificações" onPress={() => router.push('/configuracoes-notificacoes')} />}>
-        {offline&&<Text style={{ color: theme.colors.text }} accessibilityLiveRegion="polite">Sem conexão. Informações anteriores podem estar desatualizadas; a central será atualizada ao reconectar.</Text>}
+        {offline && <Text style={{ color: theme.colors.text }} accessibilityLiveRegion="polite">Sem conexão. Informações anteriores podem estar desatualizadas; a central será atualizada ao reconectar.</Text>}
+        {motorista && <Section title="Solicitações de passageiros" description="Consulte pedidos de vínculo e embarque diretamente no servidor, mesmo quando não houver avisos no histórico.">
+            <ActionButton
+                title="Consultar solicitações recebidas"
+                onPress={() => router.push('/solicitacoes')}
+            />
+        </Section>}
         <Text style={{ color: theme.colors.text }} accessibilityLiveRegion="polite">{feedback}</Text>
-        {notificacaoId && (destino.error ? <AsyncState message={destino.error} onRetry={destino.reload} /> : destino.data ? button(`Abrir aviso: ${destino.data.titulo}`, () => open(destino.data!)) : offline?<Text style={ui.body}>Reconecte para consultar o destino deste aviso com segurança.</Text>:<AsyncState loading title="Localizando seu aviso" />)}
-        {avisos.error ? <AsyncState message={avisos.error} onRetry={avisos.reload} /> : !avisos.data ? offline?<Section title="Seu histórico"><Text style={ui.body}>Reconecte para carregar seu histórico de notificações.</Text></Section>:<AsyncState loading /> : <>
+        {notificacaoId && (destino.error ? <AsyncState message={destino.error} onRetry={destino.reload} /> : destino.data ? button(`Abrir aviso: ${destino.data.titulo}`, () => open(destino.data!)) : offline ? <Text style={ui.body}>Reconecte para consultar o destino deste aviso com segurança.</Text> : <AsyncState loading title="Localizando seu aviso" />)}
+        {avisos.error ? <AsyncState message={avisos.error} onRetry={avisos.reload} /> : !avisos.data ? offline ? <Section title="Seu histórico"><Text style={ui.body}>Reconecte para carregar seu histórico de notificações.</Text></Section> : <AsyncState loading /> : <>
             {!avisos.data.itens.length && <Section title="Nenhuma notificação recebida" description="Os avisos registrados para sua conta aparecerão aqui.">
                 <Text style={ui.body}>Pedidos de vínculo e de embarque também podem ser consultados na área de solicitações.</Text>
-                {button('Consultar solicitações', () => router.push('/solicitacoes'))}
+                {!motorista && button('Consultar meus pedidos', () => router.push('/solicitacoes'))}
             </Section>}
             {!!avisos.data.itens.length && <Text style={ui.caption}>Mais recentes primeiro · {avisos.data.total} avisos no histórico</Text>}
             {avisos.data.itens.map(n => <View key={n.id} style={[ui.section, !n.lidaEm && { borderLeftWidth: 4, borderLeftColor: theme.colors.primary }]}>
@@ -64,7 +70,7 @@ export function Central({ motorista, notificacaoId, usuarioId }: { motorista: bo
                 <Text style={ui.body}>{new Date(n.criadaEm).toLocaleString('pt-BR')}</Text>
                 {button('Abrir aviso', () => open(n))}{!n.lidaEm && button('Marcar como lida', () => void run(() => lerNotificacao(n.id)))}
             </View>)}
-            <Pagination page={page} pages={avisos.data.totalPaginas} onChange={setPage} disabled={busy||offline}/>
+            <Pagination page={page} pages={avisos.data.totalPaginas} onChange={setPage} disabled={busy || offline} />
         </>}
     </Screen>;
 }
