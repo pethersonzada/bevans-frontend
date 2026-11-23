@@ -74,8 +74,22 @@ Nunca versionar seus valores. A API é a configuração normal do frontend.
   teste e prepara presença própria.
 - `... conferir`: compara identidade das sessões, vínculo, roteiro e operação
   própria; registra somente metadados de resposta e estado do GPS.
+- `... presenca`: consulta somente a confirmação da conta passageira e registra
+  status e correspondência dos endereços de teste, sem seus valores.
 - `... encerrar`: encerra somente a turma exclusiva e recusa presença de pessoas
   fora deste teste. Confere novamente o estado nas duas contas.
 
 O manifesto com IDs fica em `.expo/turma-guiada-2211`. Não apagar esse manifesto
 entre tentativas, pois ele permite reaproveitar recursos e evitar duplicação.
+
+## Continuação em 23/11
+
+Na interface passageira da turma 10, IDA foi salva e restaurada após force-stop;
+VOLTA, AMBOS e NAO_VOU foram confirmados por GET próprio. AMBOS usou os dois
+endereços distintos de teste. A limpeza passou a existir no aplicativo: cancelar
+preservou NAO_VOU; confirmar retornou status vazio. Nenhuma viagem privada foi
+iniciada nessa continuação; a turma foi novamente conferida INATIVA.
+
+O ciclo público separado está registrado em RELATORIO_FRONTEND.md e
+`docs/evidencias/frontend-2026-11-23/rota-publica.json`: turma 11, rota 4, execução
+72. A turma pública é um recurso novo e não publica a turma privada 10.

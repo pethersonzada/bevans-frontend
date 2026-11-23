@@ -1,6 +1,11 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {harness}=require('./helpers/excursoes.cjs');
 const tick=()=>new Promise(setImmediate);
+
+test('escolhas anunciam estado marcado e indisponível com rótulo e descrição',()=>{
+ const h=harness('src/components/ui/Primitives.tsx');const selected=h.render('Choice',{label:'Outros',description:'Categoria da rota',selected:true,disabled:true,onPress(){}});
+ assert.equal(selected.props.accessibilityRole,'radio');assert.equal(selected.props.accessibilityState.checked,true);assert.equal(selected.props.accessibilityState.disabled,true);assert.equal(selected.props.accessibilityLabel,'Outros');assert.equal(selected.props.accessibilityHint,'Categoria da rota');assert.equal(h.render('Choice',{label:'Outros',selected:false,onPress(){}}).props.accessibilityState.checked,false);
+});
 test('preferência inválida usa sistema e resolução acompanha o modo do dispositivo',()=>{
  const h=harness('src/services/aparencia.ts');for(const value of [null,undefined,'',{},'sepia','SYSTEM'])assert.equal(h.mod.lerPreferenciaAparencia(value),'system');
  assert.equal(h.mod.lerPreferenciaAparencia('dark'),'dark');assert.equal(h.mod.resolverAparencia('system','dark'),'dark');assert.equal(h.mod.resolverAparencia('system','light'),'light');assert.equal(h.mod.resolverAparencia('system',null),'light');assert.equal(h.mod.resolverAparencia('light','dark'),'light');

@@ -1,0 +1,1242 @@
+[
+  {
+    "at": "2026-11-23T11:46:27.119Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T11:46:33.065Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/motorista/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T11:46:33.775Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/turmas",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T11:46:34.184Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/rota/status-atual",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T11:46:34.594Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/passageiros",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T11:46:35.004Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/rotas-publicas/minhas",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T11:46:36.130Z",
+    "step": "HTTP",
+    "method": "POST",
+    "path": "/rotas-publicas",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T11:46:36.745Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/rotas-publicas/{id}/paradas",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T11:46:37.256Z",
+    "step": "HTTP",
+    "method": "PUT",
+    "path": "/rotas-publicas/{id}/publicacao",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T11:46:37.258Z",
+    "step": "rota-exclusiva-preparada",
+    "turmaId": 11,
+    "rotaId": 4,
+    "paradas": 1,
+    "publicada": true
+  },
+  {
+    "at": "2026-11-23T12:01:46.956Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:01:47.446Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/rotas-publicas/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:01:48.125Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:01:48.506Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/embarques/minhas",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:01:48.506Z",
+    "step": "pedidos-proprios",
+    "rotaId": 4,
+    "pedidos": []
+  },
+  {
+    "at": "2026-11-23T12:01:48.939Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:01:49.256Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/motorista/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:01:49.603Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:01:49.862Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:01:49.863Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:01:49.885Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:01:49.887Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:01:49.891Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:01:49.892Z",
+    "step": "vinculo-proprio",
+    "pendente": false
+  },
+  {
+    "at": "2026-11-23T12:01:50.255Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/rota/status-atual",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:01:50.256Z",
+    "step": "estado-rota-publica",
+    "turmaId": 11,
+    "estado": "NAO_INICIADA",
+    "status": "INATIVA"
+  },
+  {
+    "at": "2026-11-23T12:04:26.426Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:04:26.961Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/rotas-publicas/catalogo",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:04:26.962Z",
+    "step": "favorito-proprio",
+    "rotaId": 4,
+    "encontrada": true,
+    "favorita": true,
+    "total": 1
+  },
+  {
+    "at": "2026-11-23T12:06:55.798Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:06:56.247Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/rotas-publicas/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:06:56.876Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:06:57.214Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/embarques/minhas",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:06:57.215Z",
+    "step": "pedidos-proprios",
+    "rotaId": 4,
+    "pedidos": []
+  },
+  {
+    "at": "2026-11-23T12:06:57.550Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:06:57.876Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/motorista/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:06:58.205Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:06:58.366Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:06:58.410Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:06:58.423Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:06:58.447Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:06:58.645Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:06:58.646Z",
+    "step": "vinculo-proprio",
+    "pendente": true
+  },
+  {
+    "at": "2026-11-23T12:06:59.001Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/rota/status-atual",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:06:59.002Z",
+    "step": "estado-rota-publica",
+    "turmaId": 11,
+    "estado": "NAO_INICIADA",
+    "status": "INATIVA"
+  },
+  {
+    "at": "2026-11-23T12:07:16.297Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:07:16.912Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/rotas-publicas/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:07:17.731Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:07:18.141Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/embarques/minhas",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:07:18.141Z",
+    "step": "pedidos-proprios",
+    "rotaId": 4,
+    "pedidos": [
+      {
+        "id": 5,
+        "status": "PENDENTE",
+        "sentido": "IDA",
+        "data": "2026-11-23",
+        "paradaDeTeste": true
+      }
+    ]
+  },
+  {
+    "at": "2026-11-23T12:07:18.550Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:07:18.976Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/motorista/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:07:19.322Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:07:19.574Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:07:19.575Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:07:19.576Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:07:19.634Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:07:20.086Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:07:20.087Z",
+    "step": "vinculo-proprio",
+    "pendente": true
+  },
+  {
+    "at": "2026-11-23T12:07:20.396Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/rota/status-atual",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:07:20.397Z",
+    "step": "estado-rota-publica",
+    "turmaId": 11,
+    "estado": "NAO_INICIADA",
+    "status": "INATIVA"
+  },
+  {
+    "at": "2026-11-23T12:10:46.423Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:10:47.038Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/rotas-publicas/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:10:47.777Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:10:48.108Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/usuario/{id}/todas",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:10:48.109Z",
+    "step": "vinculo-aprovado-proprio",
+    "turmaId": 11,
+    "aprovado": true
+  },
+  {
+    "at": "2026-11-23T12:10:48.458Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/embarques/minhas",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:10:48.459Z",
+    "step": "pedidos-proprios",
+    "rotaId": 4,
+    "pedidos": [
+      {
+        "id": 5,
+        "status": "APROVADO",
+        "sentido": "IDA",
+        "data": "2026-11-23",
+        "paradaDeTeste": true
+      }
+    ]
+  },
+  {
+    "at": "2026-11-23T12:10:48.795Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:10:49.121Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/motorista/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:10:49.469Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:10:49.595Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:10:49.596Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:10:49.597Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:10:49.598Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:10:49.651Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:10:49.651Z",
+    "step": "vinculo-proprio",
+    "pendente": false
+  },
+  {
+    "at": "2026-11-23T12:10:50.007Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/rota/status-atual",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:10:50.008Z",
+    "step": "estado-rota-publica",
+    "turmaId": 11,
+    "estado": "NAO_INICIADA",
+    "status": "INATIVA"
+  },
+  {
+    "at": "2026-11-23T12:12:52.887Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:12:53.511Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/rotas-publicas/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:12:54.248Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:12:54.588Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/usuario/{id}/todas",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:12:54.589Z",
+    "step": "vinculo-aprovado-proprio",
+    "turmaId": 11,
+    "aprovado": true
+  },
+  {
+    "at": "2026-11-23T12:12:54.902Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/embarques/minhas",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:12:54.903Z",
+    "step": "pedidos-proprios",
+    "rotaId": 4,
+    "pedidos": [
+      {
+        "id": 5,
+        "status": "APROVADO",
+        "sentido": "IDA",
+        "data": "2026-11-23",
+        "paradaDeTeste": true
+      }
+    ]
+  },
+  {
+    "at": "2026-11-23T12:12:55.213Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:12:55.561Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/motorista/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:12:55.899Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:12:56.024Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:12:56.027Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:12:56.073Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:12:56.079Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:12:56.090Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:12:56.091Z",
+    "step": "vinculo-proprio",
+    "pendente": false
+  },
+  {
+    "at": "2026-11-23T12:12:56.415Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/rota/status-atual",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:12:56.416Z",
+    "step": "estado-rota-publica",
+    "turmaId": 11,
+    "estado": "EM_ANDAMENTO",
+    "viagemId": 72,
+    "sentido": "IDA",
+    "rotaPublicaId": 4,
+    "status": "ATIVA",
+    "modalidade": "PUBLICA"
+  },
+  {
+    "at": "2026-11-23T12:12:56.749Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/operacoes/VIAGEM/{id}/roteiro",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:12:57.100Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/operacoes/VIAGEM/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:12:57.102Z",
+    "step": "snapshot-publico",
+    "viagemId": 72,
+    "pontos": 3,
+    "esperados": 1,
+    "paradaAutorizada": true,
+    "extremosPublicos": true
+  },
+  {
+    "at": "2026-11-23T12:12:57.439Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:12:57.775Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/viagens/{id}/localizacao",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:12:57.776Z",
+    "step": "gps-proprio-publico",
+    "viagemId": 72,
+    "estado": "SEM_LOCALIZACAO",
+    "observadoEm": null
+  },
+  {
+    "at": "2026-11-23T12:13:33.383Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:13:33.847Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/rotas-publicas/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:13:34.545Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:13:34.875Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/usuario/{id}/todas",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:13:34.876Z",
+    "step": "vinculo-aprovado-proprio",
+    "turmaId": 11,
+    "aprovado": true
+  },
+  {
+    "at": "2026-11-23T12:13:35.190Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/embarques/minhas",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:13:35.191Z",
+    "step": "pedidos-proprios",
+    "rotaId": 4,
+    "pedidos": [
+      {
+        "id": 5,
+        "status": "APROVADO",
+        "sentido": "IDA",
+        "data": "2026-11-23",
+        "paradaDeTeste": true
+      }
+    ]
+  },
+  {
+    "at": "2026-11-23T12:13:35.539Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:13:35.854Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/motorista/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:13:36.168Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:13:36.319Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:13:36.421Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:13:36.425Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:13:36.428Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:13:36.457Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:13:36.458Z",
+    "step": "vinculo-proprio",
+    "pendente": false
+  },
+  {
+    "at": "2026-11-23T12:13:36.816Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/rota/status-atual",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:13:36.817Z",
+    "step": "estado-rota-publica",
+    "turmaId": 11,
+    "estado": "EM_ANDAMENTO",
+    "viagemId": 72,
+    "sentido": "IDA",
+    "rotaPublicaId": 4,
+    "status": "ATIVA",
+    "modalidade": "PUBLICA"
+  },
+  {
+    "at": "2026-11-23T12:13:37.225Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/operacoes/VIAGEM/{id}/roteiro",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:13:37.636Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/operacoes/VIAGEM/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:13:37.637Z",
+    "step": "snapshot-publico",
+    "viagemId": 72,
+    "pontos": 3,
+    "esperados": 1,
+    "paradaAutorizada": true,
+    "extremosPublicos": true
+  },
+  {
+    "at": "2026-11-23T12:13:38.045Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:13:38.454Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/viagens/{id}/localizacao",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:13:38.455Z",
+    "step": "gps-proprio-publico",
+    "viagemId": 72,
+    "estado": "ATUALIZADA",
+    "observadoEm": "2026-11-23T12:13:05.413Z"
+  },
+  {
+    "at": "2026-11-23T12:18:22.017Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:18:22.539Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/rotas-publicas/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:18:23.241Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:18:23.585Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/usuario/{id}/todas",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:18:23.586Z",
+    "step": "vinculo-aprovado-proprio",
+    "turmaId": 11,
+    "aprovado": true
+  },
+  {
+    "at": "2026-11-23T12:18:23.893Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/embarques/minhas",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:18:23.894Z",
+    "step": "pedidos-proprios",
+    "rotaId": 4,
+    "pedidos": [
+      {
+        "id": 5,
+        "status": "APROVADO",
+        "sentido": "IDA",
+        "data": "2026-11-23",
+        "paradaDeTeste": true
+      }
+    ]
+  },
+  {
+    "at": "2026-11-23T12:18:24.253Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:18:24.662Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/motorista/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:18:24.997Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:18:25.174Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:18:25.230Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:18:25.231Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:18:25.236Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:18:25.240Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:18:25.240Z",
+    "step": "vinculo-proprio",
+    "pendente": false
+  },
+  {
+    "at": "2026-11-23T12:18:25.686Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/rota/status-atual",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:18:25.687Z",
+    "step": "estado-rota-publica",
+    "turmaId": 11,
+    "estado": "FINALIZADA",
+    "ultimaViagemId": 72,
+    "status": "INATIVA"
+  },
+  {
+    "at": "2026-11-23T12:19:56.429Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:19:56.886Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/rotas-publicas/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:19:57.195Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/rota/status-atual",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:19:57.872Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:19:58.238Z",
+    "step": "HTTP",
+    "method": "DELETE",
+    "path": "/rotas-publicas/{id}/favorito",
+    "status": 204
+  },
+  {
+    "at": "2026-11-23T12:19:58.557Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:19:58.975Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/rotas-publicas/catalogo",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:19:58.976Z",
+    "step": "favorito-proprio",
+    "rotaId": 4,
+    "encontrada": false,
+    "favorita": false,
+    "total": 0
+  },
+  {
+    "at": "2026-11-23T12:19:58.977Z",
+    "step": "favorito-de-teste-restaurado",
+    "rotaId": 4,
+    "favorita": false
+  },
+  {
+    "at": "2026-11-23T12:22:02.750Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:22:03.390Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/rotas-publicas/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:22:04.216Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:22:04.619Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/usuario/{id}/todas",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:22:04.620Z",
+    "step": "vinculo-aprovado-proprio",
+    "turmaId": 11,
+    "aprovado": true
+  },
+  {
+    "at": "2026-11-23T12:22:05.034Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/embarques/minhas",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:22:05.035Z",
+    "step": "pedidos-proprios",
+    "rotaId": 4,
+    "pedidos": [
+      {
+        "id": 5,
+        "status": "APROVADO",
+        "sentido": "IDA",
+        "data": "2026-11-23",
+        "paradaDeTeste": true
+      }
+    ]
+  },
+  {
+    "at": "2026-11-23T12:22:05.437Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/usuarios/por-uid/{uid}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:22:05.857Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/motorista/{id}",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:22:06.162Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:22:06.462Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:22:06.463Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:22:06.514Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:22:06.515Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:22:06.518Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/turmas/{id}/pendentes",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:22:06.519Z",
+    "step": "vinculo-proprio",
+    "pendente": false
+  },
+  {
+    "at": "2026-11-23T12:22:06.871Z",
+    "step": "HTTP",
+    "method": "GET",
+    "path": "/rota/status-atual",
+    "status": 200
+  },
+  {
+    "at": "2026-11-23T12:22:06.872Z",
+    "step": "estado-rota-publica",
+    "turmaId": 11,
+    "publicada": false,
+    "estado": "FINALIZADA",
+    "ultimaViagemId": 72,
+    "status": "INATIVA"
+  }
+]

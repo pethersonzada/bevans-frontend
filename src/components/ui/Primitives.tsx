@@ -47,7 +47,7 @@ export function Field({ label, hint, ...props }: TextInputProps & { label: strin
 }
 export function Choice({ label, description, selected, disabled, onPress }: { label: string; description?: string; selected: boolean; disabled?: boolean; onPress: () => void }) {
     useThemeRevision();
-    return <Pressable accessibilityRole="radio" accessibilityState={{ selected, disabled }} disabled={disabled} onPress={onPress} style={[ui.choice, selected && ui.selected, disabled && { opacity: 0.5 }]}>
+    return <Pressable accessibilityRole="radio" accessibilityLabel={label} accessibilityHint={description} accessibilityState={{ checked: selected, disabled }} disabled={disabled} onPress={onPress} style={[ui.choice, selected && ui.selected, disabled && { opacity: 0.5 }]}>
         <Ionicons name={selected ? 'radio-button-on' : 'radio-button-off'} size={22} color={theme.colors.primary} />
         <View style={{ flex: 1, gap: 4 }}><Text style={ui.label}>{label}</Text>{description && <Text style={ui.caption}>{description}</Text>}</View>
     </Pressable>;

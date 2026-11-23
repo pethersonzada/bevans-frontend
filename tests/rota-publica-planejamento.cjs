@@ -1,5 +1,12 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {harness,nodes,find,fixture,tick,press,input,point}=require('./helpers/rotasPublicas.cjs');
+
+test('gestão pública não entrega texto cru ao contêiner nativo da página',()=>{
+ const h=harness({initial:fixture()});h.props.abrirGestao=true;
+ const children=[h.tree().props.children].flat(Infinity);
+ assert.equal(children.filter(child=>typeof child==='string'||typeof child==='number').length,0);
+ h.unmount();
+});
 const SERVICE='src/services/edicaoRotaPublica.ts',PLAN='src/services/itinerarioRotaPublica.ts';
 const clone=v=>JSON.parse(JSON.stringify(v));
 test('public route preserves specific server conflicts instead of replacing them with version errors',async()=>{

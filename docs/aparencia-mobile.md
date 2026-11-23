@@ -32,3 +32,10 @@ claro/escuro sem perder o campo Cidade em edição. Evidências em
 
 Permanece necessária a bateria visual com fonte ampliada, leitor de tela e iOS,
 além do aceite de operação real com duas contas/aparelhos nas respectivas issues.
+
+Na continuação de 23/11, textos auxiliares de operação, rastreamento, datas e avisos
+passaram a usar a cor da paleta explicitamente. Placeholder de correção e turno de
+cartões selecionados também foram corrigidos após inspeção no Android. Painel
+motorista e excursões passageiras foram conferidos em escuro. Os rádios
+compartilhados usam `accessibilityState.checked`; Sistema expôs `checked=true` no
+Android ao restaurar a preferência. Isso não substitui teste com TalkBack.
