@@ -1,3 +1,5 @@
+import { themedStyles } from '../styles/themedStyles';
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { useAppAlert } from '../contexts/AppAlertContext';
 
 import { Ionicons } from '@expo/vector-icons';
@@ -41,6 +43,7 @@ type EnderecoSalvo = {
 };
 
 export default function EditarEndereco() {
+    useThemeRevision();
     const Alert = useAppAlert();
   const { user, isLoading } = useAuth();
   const router = useRouter();
@@ -448,7 +451,7 @@ export default function EditarEndereco() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.map.background,
@@ -603,4 +606,4 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.size.regular,
     fontWeight: theme.typography.weight.bold,
   },
-});
+}));

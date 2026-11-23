@@ -1,3 +1,5 @@
+import { themedStyles } from '../../styles/themedStyles';
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -22,6 +24,7 @@ type Props = {
 };
 
 export function CardsTurmasPassageiro({ turmas, turmaSelecionadaId, onSelecionarTurma, onEntrarTurma }: Props) {
+    useThemeRevision();
     const [pesquisa, setPesquisa] = useState('');
     const resultados = useMemo(() => filterTurmas(turmas, pesquisa), [turmas, pesquisa]);
 
@@ -95,7 +98,7 @@ export function CardsTurmasPassageiro({ turmas, turmaSelecionadaId, onSelecionar
     );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
     container: { marginBottom: theme.spacing.lg },
     headerRow: {
         flexDirection: 'row',
@@ -161,4 +164,4 @@ const styles = StyleSheet.create({
     empty: { padding: theme.spacing.md, gap: theme.spacing.sm },
     emptyText: { color: theme.colors.textLight },
     actionText: { color: theme.colors.primary, fontWeight: '700' },
-});
+}));

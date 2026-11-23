@@ -1,3 +1,5 @@
+import { themedStyles } from '../styles/themedStyles';
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { useAppAlert } from '../contexts/AppAlertContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -20,6 +22,7 @@ import { theme } from '../styles/theme';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function EntrarTurma() {
+    const darkMode = useThemeRevision() === 'dark';
     const Alert = useAppAlert();
     const { user, isLoading } = useAuth();
     const router = useRouter();
@@ -65,7 +68,7 @@ export default function EntrarTurma() {
 
     return (
         <View style={globalStyles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+            <StatusBar barStyle={darkMode ? "light-content" : "dark-content"} backgroundColor="transparent" translucent />
             
             <View style={[styles.header, { paddingTop: insets.top + theme.spacing.xs }]}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}>
@@ -114,7 +117,7 @@ export default function EntrarTurma() {
     );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
     header: {
         paddingHorizontal: theme.spacing.md,
         paddingBottom: theme.spacing.md,
@@ -193,4 +196,4 @@ const styles = StyleSheet.create({
     buttonDisabled: {
         opacity: 0.6,
     },
-});
+}));

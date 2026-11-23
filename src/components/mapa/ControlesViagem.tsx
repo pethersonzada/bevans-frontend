@@ -1,3 +1,5 @@
+import { themedStyles } from '../../styles/themedStyles';
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +21,7 @@ export function ControlesViagem({
     onIniciarViagem,
     onEncerrarViagem,
 }: ControlesViagemProps) {
+    useThemeRevision();
     const insets = useSafeAreaInsets();
 
     return (
@@ -53,7 +56,7 @@ export function ControlesViagem({
     );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
     cardMetricas: {
         position: 'absolute',
         left: theme.spacing.md,
@@ -139,4 +142,4 @@ const styles = StyleSheet.create({
         fontSize: 16,
         letterSpacing: 0.5,
     },
-});
+}));

@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import { useEffect, useState } from 'react';
 import { Share, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
@@ -10,6 +11,7 @@ import { AsyncAction } from './AcaoExcursao';
 import { DataViagem } from './DataViagem';
 import { ActionButton, CabecalhoViagem, trip } from './ViagemUI';
 export function ConvitesViagem({e,execucoesCriadas=false,consultandoExecucoes=false}:{e:Excursao;execucoesCriadas?:boolean;consultandoExecucoes?:boolean}) {
+    useThemeRevision();
     const [expira,setExpira]=useState(''),[help,setHelp]=useState(false);
     const [pendente,setPendente]=useState<ReturnType<typeof estadoConviteCompartilhamento>>(null);
     useEffect(()=>{const refresh=()=>setPendente(estadoConviteCompartilhamento(e.id));refresh();return onConvitesChanged(refresh);},[e.id]);

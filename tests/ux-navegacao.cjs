@@ -21,7 +21,7 @@ function harness(file,overrides={}){
     mocks['../services/mapaExcursao']={pontosSalvosExcursao:()=>[]};
     mocks['../styles/theme']=themeExports;
     for(const [name,value] of Object.entries(mocks))if(name.startsWith('../'))mocks['../'+name]=value;
-    const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports,Date,Error,JSON,Number,process:{env:{}},require:name=>{assert.ok(name in mocks,'Unexpected import '+name);return mocks[name];}});
+    const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports,Date,Error,JSON,Number,process:{env:{}},require:name=>{if(name.endsWith('/useThemeRevision'))return {useThemeRevision:()=> 'light'};if(name.endsWith('/themedStyles'))return {themedStyles:factory=>factory()};if(name.endsWith('/PreferenciaAparencia'))return {PreferenciaAparencia:'Appearance'};if(name.endsWith('/ThemeContext'))return {ThemeProvider:'ThemeProvider'};assert.ok(name in mocks,'Unexpected import '+name);return mocks[name];}});
     return {paths,keys,render:(name='default',props={})=>{cursor=0;effects=[];const tree=exports[name](props);effects.forEach(f=>f());return tree;},unmount:()=>cleanups.forEach(f=>f?.())};
 }
 test('central has one settings destination and does not fetch device or preference configuration',()=>{

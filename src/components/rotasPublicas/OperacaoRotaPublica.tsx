@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import { useEffect, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -11,6 +12,7 @@ import { ActionButton, Notice, RemoteLoading, ui } from '../ui/Primitives';
 import { AsyncState } from '../AsyncState';
 
 export function OperacaoRotaPublica({ rota, bloqueada, offline }: { rota: RotaPublica; bloqueada: boolean; offline: boolean }) {
+    useThemeRevision();
     const router=useRouter();
     const [revisao,setRevisao]=useState<RevisaoInicioPublico|null>(null),[erro,setErro]=useState(''),[busy,setBusy]=useState(false),[incerto,setIncerto]=useState(false);
     const pending=useRef(false),mounted=useRef(true);

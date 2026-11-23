@@ -1,3 +1,5 @@
+import { themedStyles } from '../styles/themedStyles';
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { useAppAlert } from '../contexts/AppAlertContext';
 
 import { Ionicons } from '@expo/vector-icons';
@@ -28,6 +30,7 @@ import { AsyncState } from '../components/AsyncState';
 import { theme } from '../styles/theme';
 
 export default function SelecionarRotaMapa() {
+    useThemeRevision();
     const Alert = useAppAlert();
   const router = useRouter();
   const { user, isLoading } = useAuth();
@@ -194,7 +197,7 @@ export default function SelecionarRotaMapa() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   tela: {
     flex: 1,
     backgroundColor: theme.colors.map.background,
@@ -244,4 +247,4 @@ const styles = StyleSheet.create({
   inativo: {
     opacity: 0.45,
   },
-});
+}));

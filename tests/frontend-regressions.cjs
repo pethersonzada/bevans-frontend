@@ -9,7 +9,7 @@ function load(file, mocks, globals = {}) {
     const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), {
         compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
     }).outputText;
-    vm.runInNewContext(code, { exports, process: { env: {} }, Headers, Response, AbortController, setTimeout, clearTimeout, Error, require: name => {
+    vm.runInNewContext(code, { exports, process: { env: {} }, Headers, Response, AbortController, setTimeout, clearTimeout, Error, require: name => {if(name.endsWith('/useThemeRevision'))return {useThemeRevision:()=> 'light'};if(name.endsWith('/themedStyles'))return {themedStyles:factory=>factory()};if(name.endsWith('/PreferenciaAparencia'))return {PreferenciaAparencia:'Appearance'};if(name.endsWith('/ThemeContext'))return {ThemeProvider:'ThemeProvider'};
         if (!(name in mocks)) throw new Error(`Unexpected import: ${name}`);
         return mocks[name];
     }, ...globals });

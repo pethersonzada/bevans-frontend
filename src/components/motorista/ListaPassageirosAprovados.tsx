@@ -1,3 +1,5 @@
+import { themedStyles } from '../../styles/themedStyles';
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { theme } from '../../styles/theme';
@@ -28,6 +30,7 @@ const obterIniciais = (nomeCompleto: string) => {
 };
 
 export function ListaPassageirosAprovados({ passageiros, onRemoverAluno, loading, error, onRetry }: Props) {
+    useThemeRevision();
     return (
         <View style={styles.container}>
             <View style={styles.headerRow}>
@@ -85,7 +88,7 @@ export function ListaPassageirosAprovados({ passageiros, onRemoverAluno, loading
     );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
     container: {
         marginTop: theme.spacing.sm,
         marginBottom: theme.spacing.xl,
@@ -189,4 +192,4 @@ const styles = StyleSheet.create({
         padding: theme.spacing.xs,
         borderRadius: theme.borderRadius.sm,
     },
-});
+}));

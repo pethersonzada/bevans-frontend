@@ -1,6 +1,6 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
-function load(file,mocks){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports,Date,require:n=>mocks[n]});return exports;}
+function load(file,mocks){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports,Date,require:n=>{if(n.endsWith('/useThemeRevision'))return {useThemeRevision:()=> 'light'};if(n.endsWith('/themedStyles'))return {themedStyles:factory=>factory()};if(n.endsWith('/PreferenciaAparencia'))return {PreferenciaAparencia:'Appearance'};if(n.endsWith('/ThemeContext'))return {ThemeProvider:'ThemeProvider'};return mocks[n];}});return exports;}
 const jsx=(type,props)=>({type,props});
 test('cabeçalho compartilhado reserva o sino e permite nome longo com Safe Area lateral',()=>{
  const theme=load('src/styles/theme.ts',{}).theme;

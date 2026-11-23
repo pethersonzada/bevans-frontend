@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Text, View } from 'react-native';
@@ -11,12 +12,14 @@ import { theme } from '../styles/theme';
 import { Screen, Section, ActionButton, IconButton, Pagination, ui } from '../components/ui/Primitives';
 
 export default function Notificacoes() {
+    useThemeRevision();
     const { notificacaoId } = useLocalSearchParams<{ notificacaoId?: string }>();
     const { user } = useAuth();
     return <Central key={user.id} usuarioId={user.id || undefined} motorista={user.tipo === 'MOTORISTA'} notificacaoId={notificacaoId} />;
 }
 const contextos: Record<string, string> = { VIAGEM: 'Viagem', EXCURSAO: 'Excursão', EXECUCAO_EXCURSAO: 'Viagem de excursão', ROTA_PUBLICA: 'Rota pública', TURMA: 'Turma', EMBARQUE: 'Pedido de embarque', SOLICITACAO_VAGA: 'Solicitação de vaga' };
 export function Central({ motorista, notificacaoId, usuarioId }: { motorista: boolean; notificacaoId?: string; usuarioId?: string }) {
+    useThemeRevision();
     const connection=useNetInfo();
     const offline=connection.isConnected===false||connection.isInternetReachable===false;
     const router = useRouter(), revision = useNotificacoesRevision();

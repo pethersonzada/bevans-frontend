@@ -31,11 +31,11 @@ Consultadas as 38 issues abertas do frontend, seus corpos, comentários e labels
 | [#26](https://github.com/pethersonzada/bevans-frontend/issues/26) | Implementado; aceite integrado pendente | Editor público FIXA/FLEXÍVEL separado da turma privada, extremos e paradas. Regressões aprovadas; aceite nativo completo pendente. |
 | [#25](https://github.com/pethersonzada/bevans-frontend/issues/25) | Implementado; validação parcial | Novo cadastro elimina criação antecipada ao abrir mapa e confere dados por GET. Android criou turma com ambos pontos; geração de viagem IDA/VOLTA com passageiros pendente. |
 | [#23](https://github.com/pethersonzada/bevans-frontend/issues/23) | Bloqueado por contrato | Não implementar permissões GESTOR sem contratos e isolamento de organizações do backend #38. |
-| [#21](https://github.com/pethersonzada/bevans-frontend/issues/21) | Pendente de implementação | Tema atual é estático; preferência Sistema/Claro/Escuro e migração global ainda não implementadas. Não classificado como bloqueio de backend. |
+| [#21](https://github.com/pethersonzada/bevans-frontend/issues/21) | Implementado; validação Android | Preferência Sistema/Claro/Escuro persistida, estilos compartilhados e componentes adaptados sem remontagem. Android: restauração e troca do sistema com campo preservado. Falta revisão ampliada em iOS/fonte grande. |
 | [#20](https://github.com/pethersonzada/bevans-frontend/issues/20) | Implementado; aceite integrado pendente | Publicação/vagas/aprovações e contato protegido existentes. Falta lotação concorrente e abertura WhatsApp em aparelho. |
 | [#19](https://github.com/pethersonzada/bevans-frontend/issues/19) | Implementado; aceite integrado pendente | Catálogo público e detalhes existentes; privados não são publicados automaticamente. Falta bateria de filtros/vagas no Android. |
 | [#18](https://github.com/pethersonzada/bevans-frontend/issues/18) | Bloqueado por contrato | Removida consulta privada de otimização do passageiro. Posição própria agregada exige contrato seguro; backend #41/#46. Sem fabricar fila. |
-| [#16](https://github.com/pethersonzada/bevans-frontend/issues/16) | Parcial; bloqueado por contrato | Motorista já gerencia excursões; passageiro passa a abrir convite oficial com validação. Minhas excursões/detalhe nativos dependem de backend #68; execução individual web depende também de #66. |
+| [#16](https://github.com/pethersonzada/bevans-frontend/issues/16) | Parcial; bloqueado por contrato | Motorista já gerencia excursões; passageiro passa a abrir convite oficial com validação. Minhas excursões/detalhe nativos dependem de backend #68; descoberta da execução web já documentada no backend #66; implantação não homologada aqui. |
 | [#13](https://github.com/pethersonzada/bevans-frontend/issues/13) | Implementado; conferência de aceite | Regressões executam edição de presença durante polling e mudança dos dados, preservando rascunho. Conferir critérios antes de encerrar. |
 | [#10](https://github.com/pethersonzada/bevans-frontend/issues/10) | Implementado; validação parcial | Pesquisa por código e busca com debounce/pin existentes; cadastro reutiliza picker. Android buscou POIs sem GPS; restante do ciclo IDA/VOLTA pendente. |
 | [#9](https://github.com/pethersonzada/bevans-frontend/issues/9) | Implementado; conferência de aceite | Consulta de passageiros aprovada é restrita à turma e motorista; não usa lista global. Confirmar fluxo real de inclusão e revogação em dispositivo. |
@@ -77,7 +77,7 @@ Consultadas as 38 issues abertas do frontend, seus corpos, comentários e labels
 - `5c60f02`: Aprimorando a criação de turmas com etapas e rascunho recuperável (#49/#25).
 - Segundo lote: convite do passageiro, filtros, sugestões roláveis e cabeçalho de túnel, validado antes do commit. Sem push/deploy.
 
-Continuar validação Android do passageiro e revisar as issues de infraestrutura de autenticação já cobertas. Tema #21 segue pendente; não representa dependência externa. Manter issues com aceite de dois dispositivos abertas até evidência real.
+Continuar validação Android do passageiro e revisar as issues de infraestrutura de autenticação já cobertas. Tema #21 implementado nesta rodada; detalhes em docs/aparencia-mobile.md. Manter issues com aceite de dois dispositivos abertas até evidência real.
 
 
 ## Validação adicional do passageiro
@@ -89,3 +89,12 @@ A página `https://bevans-webapp.vercel.app/convite` foi confirmada pelo README 
 Convite propositalmente inválido abriu na guia segura do navegador Android, exibiu “Convite inválido, expirado ou indisponível” e retornou ao app com link limpo e aviso de que a abertura não confirma reserva. Nenhuma inscrição real criada. [Captura do convite inválido](docs/evidencias/frontend-2026-11-22/04-convite-invalido-android.png). A captura 03 registra o estado anterior à configuração.
 
 Catálogo ganhou Limpar filtros, reset de paginação e proteção de resultado tardio ao favoritar. Rotas são remontadas por conta; login recebeu rótulos de acessibilidade e controle de visibilidade de senha bloqueado durante operação.
+## Aparência — terceiro lote
+
+Sistema/Claro/Escuro implementados no Perfil com persistência local, fallback e erro recuperável. Componentes visuais assinam a paleta e estilos estáticos são avaliados uma vez por tema, preservando os formulários e o estado de navegação. Cards de marca e mapas conservam suas cores próprias com contraste. Migração e manutenção documentadas em [aparencia-mobile.md](docs/aparencia-mobile.md).
+
+Validação: arquitetura, TypeScript e **360 testes aprovados**. Testes novos cobrem preferência, armazenamento indisponível, sistema, notificações, estilos em cache e contraste mínimo 4,5:1 dos pares principais. Android: Escuro permaneceu selecionado após reiniciar; no modo Sistema, alternância claro/escuro manteve o campo Cidade preenchido. Modo do Android restaurado para claro e preferência do app para Sistema. Evidências 05, 06 e 07.
+
+A conferência atual do backend identificou que #66 já tem contrato de descoberta de execuções da própria inscrição documentado na main. Isso foi informado na issue; não equivale à homologação de implantação. O bloqueio Firebase mobile #68 permanece.
+
+Uma segunda instância Android, sem dados copiados do dispositivo original, foi iniciada sob `.expo/test-avds` para ampliar a validação integrada. O erro inicial de concorrência do AVD original foi contornado com diretório de dados isolado.

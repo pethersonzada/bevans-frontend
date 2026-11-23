@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { useCallback, useState } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Text } from 'react-native';
@@ -10,6 +11,7 @@ import { useRemoteResource } from '../hooks/useRemoteResource';
 import type { RotaPublica } from '../types/rotaPublica';
 import { RemoteLoading, Screen, Section, ActionButton, Notice, ui } from '../components/ui/Primitives';
 export default function RotasPublicasMotorista() {
+    useThemeRevision();
     const {user,isLoading}=useAuth(),router=useRouter();
     const [rotas,setRotas]=useState<RotaPublica[]>([]),[loading,setLoading]=useState(true),[erro,setErro]=useState(''),[tentativa,setTentativa]=useState(0);
     const pendentes=useRemoteResource(user.id&&user.tipo==='MOTORISTA'?`rotas:vinculos:${tentativa}`:false,signal=>listarVinculosPendentes(user.id!,signal),60000);

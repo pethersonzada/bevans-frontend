@@ -1,3 +1,5 @@
+import { themedStyles } from '../../styles/themedStyles';
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import { useAppAlert } from '../../contexts/AppAlertContext';
 import { useLocalSearchParams,useRouter } from 'expo-router';
 import { sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/auth';
@@ -26,6 +28,7 @@ import { theme } from '../../styles/theme';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function Login() {
+    const darkMode = useThemeRevision() === 'dark';
     const {exclusao}=useLocalSearchParams<{exclusao?:string}>();
     const Alert = useAppAlert();
     const router = useRouter();
@@ -105,7 +108,7 @@ export default function Login() {
             style={globalStyles.container} 
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-            <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+            <StatusBar barStyle={darkMode ? "light-content" : "dark-content"} backgroundColor="transparent" translucent />
             
             <ScrollView 
                 contentContainerStyle={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]} 
@@ -161,7 +164,7 @@ export default function Login() {
     );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
     content: {
         flexGrow: 1,
         justifyContent: 'center',
@@ -229,4 +232,4 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: theme.colors.primary,
     },
-});
+}));

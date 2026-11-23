@@ -9,7 +9,7 @@ function harness(entry,{services={},resources=()=>({data:null,error:'',reload(){
  const rn={Text:'Text',TextInput:'Input',View:'View',ScrollView:'Scroll',Pressable:'Button',ActivityIndicator:'Spinner',Platform:{OS:'android'},Share:share,StyleSheet:{create:x=>x},BackHandler:{addEventListener:(_,fn)=>{backHandlers.add(fn);return {remove:()=>backHandlers.delete(fn)};}}};
  function load(file){
   file=path.resolve(file);if(cache.has(file))return cache.get(file);const exports={};cache.set(file,exports);
-  function request(name){
+  function request(name){if(name.endsWith('/useThemeRevision'))return {useThemeRevision:()=> 'light'};if(name.endsWith('/themedStyles'))return {themedStyles:factory=>factory()};if(name.endsWith('/PreferenciaAparencia'))return {PreferenciaAparencia:'Appearance'};if(name.endsWith('/ThemeContext'))return {ThemeProvider:'ThemeProvider'};
    if(name in extras)return extras[name];
    if(name==='react')return react;if(name==='react/jsx-runtime')return {jsx,jsxs:jsx};if(name==='react-native')return rn;
    if(name==='expo-location')return {reverseGeocodeAsync:async()=>[]};

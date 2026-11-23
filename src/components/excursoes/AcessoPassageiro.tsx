@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import { useEffect, useRef, useState } from 'react';
 import { Text } from 'react-native';
 import { useNetInfo } from '@react-native-community/netinfo';
@@ -10,6 +11,7 @@ import { ActionButton, Field, Notice, Section } from '../ui/Primitives';
 import { trip } from './ViagemUI';
 
 export function AcessoPassageiro() {
+    useThemeRevision();
     const [link,setLink]=useState(''),[erro,setErro]=useState(''),[busy,setBusy]=useState(false),[retorno,setRetorno]=useState(false);
     const lock=useRef(false),mounted=useRef(true),owner=useRef(auth.currentUser),network=useNetInfo();
     const offline=network.isConnected===false||network.isInternetReachable===false;

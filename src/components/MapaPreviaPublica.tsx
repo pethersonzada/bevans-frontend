@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import MapboxGL from '@rnmapbox/maps';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
@@ -12,6 +13,7 @@ if (token) MapboxGL.setAccessToken(token);
 
 type PontoMapa=PontoPublico&{tipo?:string};
 export default function MapaPreviaPublica({ pontos,onEditarPonto }: { pontos:PontoMapa[];onEditarPonto?:(ponto:PontoMapa,index:number)=>void }) {
+    useThemeRevision();
     const camera=useRef<MapboxGL.Camera>(null);
     const [estado,setEstado]=useState<'carregando'|'pronto'|'erro'>('carregando');
     const [tentativa,setTentativa]=useState(0);

@@ -1,3 +1,5 @@
+import { themedStyles } from '../../styles/themedStyles';
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import { Ionicons } from '@expo/vector-icons';
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,6 +17,7 @@ type CabecalhoMapaProps = {
 };
 
 export function CabecalhoMapa({ onBack, online, direcaoAtual, horarioAtual }: CabecalhoMapaProps) {
+    useThemeRevision();
     const insets = useSafeAreaInsets();
 
     return (
@@ -34,7 +37,7 @@ export function CabecalhoMapa({ onBack, online, direcaoAtual, horarioAtual }: Ca
     );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
     container: {
         position: 'absolute',
         left: 0,
@@ -89,4 +92,4 @@ const styles = StyleSheet.create({
         fontWeight: '900',
         marginLeft: theme.spacing.sm,
     },
-});
+}));

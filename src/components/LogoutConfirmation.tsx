@@ -1,3 +1,5 @@
+import { themedStyles } from '../styles/themedStyles';
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
 import { errorMessage } from '../config/api';
@@ -8,6 +10,7 @@ type Props = { onConfirm: () => Promise<void>; onCancel: () => void };
 
 // Render in the existing screen instead of Android's Activity-backed Alert API.
 export function LogoutConfirmation({ onConfirm, onCancel }: Props) {
+    useThemeRevision();
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const pending = useRef(false);
@@ -65,7 +68,7 @@ export function LogoutConfirmation({ onConfirm, onCancel }: Props) {
     );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
     backdrop: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
     overlay: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(0,0,0,0.55)',
         justifyContent: 'center', padding: theme.spacing.lg, zIndex: 100 },
@@ -78,4 +81,4 @@ const styles = StyleSheet.create({
     confirm: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
     cancel: { color: theme.colors.text, fontSize: theme.typography.size.regular, fontWeight: '700' },
     confirmText: { color: theme.colors.surface, fontSize: theme.typography.size.regular, fontWeight: '700' },
-});
+}));

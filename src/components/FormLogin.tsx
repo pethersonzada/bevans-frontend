@@ -1,3 +1,5 @@
+import { themedStyles } from '../styles/themedStyles';
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -15,6 +17,7 @@ type Props = {
 };
 
 export function FormLogin({ email, setEmail, senha, setSenha, loading, onLogin, onEsqueciSenha, carregandoSenha }: Props) {
+    useThemeRevision();
     const [focado, setFocado] = useState<'email' | 'senha' | null>(null);
     const [mostrarSenha, setMostrarSenha] = useState(false);
 
@@ -28,7 +31,7 @@ export function FormLogin({ email, setEmail, senha, setSenha, loading, onLogin, 
                     accessibilityLabel="E-mail"
                     style={[styles.input, isFocado('email') && styles.inputFocused]}
                     placeholder="seu@email.com"
-                    placeholderTextColor={theme.colors.textLight + '80'}
+                    placeholderTextColor={theme.colors.textLight}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoComplete="email"
@@ -52,7 +55,7 @@ export function FormLogin({ email, setEmail, senha, setSenha, loading, onLogin, 
                         autoComplete="current-password"
                         style={[styles.input, styles.passwordInput, isFocado('senha') && styles.inputFocused]}
                         placeholder="••••••••"
-                        placeholderTextColor={theme.colors.textLight + '80'}
+                        placeholderTextColor={theme.colors.textLight}
                         secureTextEntry={!mostrarSenha}
                         selectionColor={theme.colors.primary}
                         value={senha}
@@ -111,7 +114,7 @@ export function FormLogin({ email, setEmail, senha, setSenha, loading, onLogin, 
     );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
     container: {
         width: '100%',
     },
@@ -194,4 +197,4 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         letterSpacing: 0.5,
     },
-});
+}));

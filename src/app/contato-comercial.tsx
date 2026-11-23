@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Text,Switch,View } from 'react-native';
@@ -9,10 +10,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { AsyncState } from '../components/AsyncState';
 import { errorMessage } from '../config/api';
 export default function ContatoComercialScreen() {
+    useThemeRevision();
     const { user } = useAuth();
     return <TelaContato key={user.id} motorista={user.tipo === 'MOTORISTA'} />;
 }
 export function TelaContato({ motorista }: { motorista: boolean }) {
+    useThemeRevision();
     const router = useRouter(), [salvo, setSalvo] = useState(false);
     const { data, error, reload } = useRemoteResource(motorista ? 'contato-comercial' : false, consultarContatoComercial);
     return <Screen title="Contato comercial" subtitle="Um canal de atendimento para seus passageiros." onBack={() => router.back()}>
@@ -20,7 +23,8 @@ export function TelaContato({ motorista }: { motorista: boolean }) {
         {!motorista ? <AsyncState message="Disponível para motoristas." /> : error ? <AsyncState message={error} onRetry={reload} /> : !data ? <RemoteLoading/> : <Formulario key={data.versao} data={data} onSaved={() => { setSalvo(true); reload(); }} onEditing={() => setSalvo(false)} />}
     </Screen>;
 }
-export function Formulario({data,onSaved,onEditing}:{data:ContatoComercial;onSaved:()=>void;onEditing:()=>void}){const [telefone,setTelefone]=useState(data.telefone||''),[habilitado,setHabilitado]=useState(data.habilitado),[aceite,setAceite]=useState(false),[busy,setBusy]=useState(false),[feedback,setFeedback]=useState('');
+export function Formulario({data,onSaved,onEditing}:{data:ContatoComercial;onSaved:()=>void;onEditing:()=>void}){
+    useThemeRevision();const [telefone,setTelefone]=useState(data.telefone||''),[habilitado,setHabilitado]=useState(data.habilitado),[aceite,setAceite]=useState(false),[busy,setBusy]=useState(false),[feedback,setFeedback]=useState('');
     const pending=useRef(false),mounted=useRef(true);
     useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
     const salvar=async()=>{

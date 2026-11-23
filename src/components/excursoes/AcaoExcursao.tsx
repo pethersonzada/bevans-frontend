@@ -1,9 +1,11 @@
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import { useContext, useEffect, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 import { errorMessage } from '../../config/api';
 import { ExcursaoActionContext } from '../ExcursaoActionContext';
 import { ActionButton, trip } from './ViagemUI';
 export function AsyncAction({title,action,confirmMessage,disabled=false,variant='primary'}:{title:string;action:()=>Promise<void>;confirmMessage?:string;disabled?:boolean;variant?:'primary'|'secondary'|'danger'}) {
+    useThemeRevision();
     const [busy,setBusy]=useState(false),[error,setError]=useState(''),[confirmar,setConfirmar]=useState(false);
     const pending=useRef(false),mounted=useRef(true),lock=useContext(ExcursaoActionContext);
     useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);

@@ -1,3 +1,5 @@
+import { themedStyles } from '../styles/themedStyles';
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useState } from 'react';
@@ -6,6 +8,7 @@ import { AtalhoNotificacoes } from './AtalhoNotificacoes';
 import { theme } from '../styles/theme';
 
 export function HeaderHome({ nome }: { nome: string }) {
+    useThemeRevision();
     const insets = useSafeAreaInsets();
     const [agora, setAgora] = useState(() => new Date());
     useFocusedPolling(async () => setAgora(new Date()), 60000, 'header:data');
@@ -22,11 +25,11 @@ export function HeaderHome({ nome }: { nome: string }) {
     </View>;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
     header: { paddingBottom: theme.spacing.lg, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md,
         backgroundColor: theme.colors.surface, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
     textGroup: { flex: 1, minWidth: 0, gap: 2 },
     dateText: { fontSize: theme.typography.size.small, color: theme.colors.textLight,
         textTransform: 'uppercase', fontWeight: '600', letterSpacing: 0.5 },
     welcome: { fontSize: 22, fontWeight: theme.typography.weight.bold, color: theme.colors.text, flexShrink: 1 },
-});
+}));

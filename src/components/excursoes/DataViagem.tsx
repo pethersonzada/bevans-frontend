@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import { useState } from 'react';
 import { Pressable, Text, View, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,6 +7,7 @@ import { selecionarDataHora } from '../../services/excursaoFormulario';
 import { ActionButton, dataViagem, horaViagem, trip } from './ViagemUI';
 import { theme } from '../../styles/theme';
 export function DataViagem({label,value,onChange,optional=false}:{label:string;value:string;onChange:(value:string)=>void;optional?:boolean}) {
+    useThemeRevision();
     const [mode,setMode]=useState<'date'|'time'|null>(null);
     const valid=Number.isFinite(Date.parse(value));
     if(optional&&!valid&&!mode)return <ActionButton title={'Adicionar '+label.toLowerCase()+' (opcional)'} icon="add" onPress={()=>setMode('date')}/>;

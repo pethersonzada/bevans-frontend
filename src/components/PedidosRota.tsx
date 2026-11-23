@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { RemoteLoading, ActionButton as Button, Field, ui } from './ui/Primitives';
 import { useRef,useState } from 'react';
 import { Text,TextInput,View } from 'react-native';
@@ -8,6 +9,7 @@ import { AsyncState } from './AsyncState';
 import { SeletorDataOperacao } from './SeletorDataOperacao';
 import { dataLocal } from '../services/dataOperacao';
 export function PedidosRota({rotaId}:{rotaId:number}){
+    useThemeRevision();
     const [date,setDate]=useState(()=>dataLocal()),[sentido,setSentido]=useState('IDA'),[busy,setBusy]=useState(false),[error,setError]=useState('');const pending=useRef(false);
     const result=useRemoteResource(date?`pedidos:${rotaId}:${date}:${sentido}`:false,signal=>embarquesMotorista(rotaId,date,sentido,signal));
     const analisar=async(id:number,status:'APROVADO'|'REJEITADO')=>{if(pending.current)return;pending.current=true;setBusy(true);setError('');try{await analisarEmbarque(id,status);result.reload();}catch(e){setError(errorMessage(e));}finally{pending.current=false;setBusy(false);}};

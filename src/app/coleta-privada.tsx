@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { RemoteLoading, Screen, Section, ActionButton as Button, Choice, ui } from '../components/ui/Primitives';
 import { useRef,useState } from 'react';
 import { useLocalSearchParams,useRouter } from 'expo-router';
@@ -13,6 +14,7 @@ import { errorMessage } from '../config/api';
 import { globalStyles as s } from '../styles/globalStyles';
 import { apiRequest } from '../config/api';
 export default function ColetaPrivadaScreen(){
+    useThemeRevision();
     const {turmaId}=useLocalSearchParams<{turmaId:string}>();const {user}=useAuth();const router=useRouter();
     const [sentido,setSentido]=useState<'IDA'|'VOLTA'>('IDA'),[enderecoConsulta,setEnderecoConsulta]=useState('');
     const [editorRevision,setEditorRevision]=useState(0);
@@ -26,6 +28,7 @@ export default function ColetaPrivadaScreen(){
     </Screen>;
 }
 function Coleta({data,motorista,reload}:{data:ColetaPrivada;motorista:boolean;reload:()=>void}){
+    useThemeRevision();
     const router=useRouter();const [modo,setModo]=useState(data.modo),[paradas,setParadas]=useState(data.paradas),[feedback,setFeedback]=useState(''),[busy,setBusy]=useState(false),[confirmar,setConfirmar]=useState(false);
     const [ponto,setPonto]=useState<{nome:string;latitude:number;longitude:number}|null>(null);const pending=useRef(false);
     const [reposicionar,setReposicionar]=useState<number|null>(null);

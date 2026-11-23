@@ -1,3 +1,5 @@
+import { themedStyles } from '../../styles/themedStyles';
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { theme } from '../../styles/theme';
@@ -12,6 +14,7 @@ interface ConfirmadosAvataresProps {
 }
 
 export default function ConfirmadosAvatares({ passageiros = [] }: ConfirmadosAvataresProps) {
+    useThemeRevision();
     const maxVisiveis = 4;
     
     const { visiveis, excedentes } = useMemo(() => {
@@ -48,7 +51,7 @@ export default function ConfirmadosAvatares({ passageiros = [] }: ConfirmadosAva
     );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
     container: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -89,4 +92,4 @@ const styles = StyleSheet.create({
         fontSize: theme.typography.size.small,
         color: theme.colors.textLight,
     },
-});
+}));

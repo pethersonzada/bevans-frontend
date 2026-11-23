@@ -1,3 +1,5 @@
+import { themedStyles } from '../styles/themedStyles';
+import { useThemeRevision } from '../hooks/useThemeRevision';
 ﻿import { useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ScrollView, Text, Pressable, View, TextInput, StyleSheet } from 'react-native';
@@ -12,12 +14,14 @@ import { buscarExecucaoExcursao } from '../services/excursoes';
 import { RoteiroExecucaoExcursao } from '../components/excursoes/RoteiroExecucaoExcursao';
 
 export default function ControleViagem() {
+    useThemeRevision();
     const { tipo, id, excursaoId } = useLocalSearchParams<{ tipo: string; id: string; excursaoId?:string }>();
     const { user } = useAuth();
     return <Painel key={`${user.id}:${tipo}:${id}`} tipo={tipo} id={id} excursaoId={excursaoId} motorista={user.tipo === 'MOTORISTA'} />;
 }
 type Acao = { registro: RegistroOperacional; estado: EstadoOperacional; correcao: boolean };
 export function Painel({ tipo, id, motorista, excursaoId }: { tipo: string; id: string; motorista: boolean; excursaoId?:string }) {
+    useThemeRevision();
     const router = useRouter();
     const { data, error, reload } = useRemoteResource(`operacao:${tipo}:${id}:${motorista}`, async signal => {
         try { return await consultarOperacao(tipo, id, motorista, signal); }
@@ -87,7 +91,7 @@ export function Painel({ tipo, id, motorista, excursaoId }: { tipo: string; id: 
         {(tipo === 'VIAGEM' || motorista) && <RastreamentoViagem key={`${tipo}:${id}`} tipo={tipo} id={id} motorista={motorista} />}
     </ScrollView></SafeAreaView>;
 }
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
     screen: { flex: 1, backgroundColor: theme.colors.background }, content: { padding: 16, gap: 12, paddingBottom: 32 },
     title: { fontSize: 24, fontWeight: '700', color: theme.colors.text }, counters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     counter: { flexGrow: 1, flexBasis: '45%', padding: 16, backgroundColor: theme.colors.surface, borderRadius: 12 },
@@ -95,8 +99,8 @@ const styles = StyleSheet.create({
     card: { padding: 16, gap: 10, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 12, backgroundColor: theme.colors.surface },
     waiting: { borderLeftWidth: 5, borderLeftColor: theme.colors.primary }, name: { fontSize: 20, fontWeight: '700', color: theme.colors.text },
     state: { fontSize: 18, fontWeight: '600', color: theme.colors.text },
-    input: { minHeight: 52, borderWidth: 1, borderColor: theme.colors.border, padding: 12, borderRadius: 8 },
+    input: { minHeight: 52, borderWidth: 1, borderColor: theme.colors.border, padding: 12, borderRadius: 8, color: theme.colors.text, backgroundColor: theme.colors.surface },
     confirmation: { padding: 16, gap: 12, borderWidth: 2, borderColor: theme.colors.primary, borderRadius: 12 },
     button: { minHeight: 52, padding: 12, justifyContent: 'center', alignItems: 'center', borderRadius: 8, backgroundColor: theme.colors.primary },
-    buttonText: { color: '#fff', fontSize: 16, fontWeight: '600', textAlign: 'center' }, disabled: { opacity: 0.45 },
-});
+    buttonText: { color: theme.colors.surface, fontSize: 16, fontWeight: '600', textAlign: 'center' }, disabled: { opacity: 0.45 },
+}));

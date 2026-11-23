@@ -1,3 +1,5 @@
+import { themedStyles } from '../../styles/themedStyles';
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -16,6 +18,7 @@ type Props = {
 };
 
 export function CardsTurmasMotorista({ turmas, turmaSelecionada, onSelecionarTurma, onEditarTurma }: Props) {
+    useThemeRevision();
     const router = useRouter();
     const [pesquisa, setPesquisa] = useState('');
     const resultados = useMemo(() => filterTurmas(turmas, pesquisa), [turmas, pesquisa]);
@@ -124,7 +127,7 @@ export function CardsTurmasMotorista({ turmas, turmaSelecionada, onSelecionarTur
     );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
     search: {
         minHeight: 48, paddingHorizontal: theme.spacing.md, marginBottom: theme.spacing.sm,
         borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.borderRadius.md,
@@ -260,4 +263,4 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontWeight: '700',
     },
-});
+}));

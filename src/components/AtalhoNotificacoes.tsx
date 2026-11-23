@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -7,6 +8,7 @@ import { useNotificacoesRevision } from '../hooks/useNotificacoesRevision';
 import { ui } from './ui/Primitives';
 import { theme } from '../styles/theme';
 export function AtalhoNotificacoes() {
+    useThemeRevision();
     const revision=useNotificacoesRevision(), router=useRouter();
     const {data,error}=useRemoteResource('notificacoes:contador:'+revision,contarNaoLidas);
     return <Pressable accessibilityRole="button" accessibilityLabel={'Notificações'+(data!=null?', '+data+' não lidas':error?', contagem indisponível':', consultando contagem')} onPress={()=>router.push('/notificacoes')} style={[ui.iconButton,{flexShrink:0}]}>

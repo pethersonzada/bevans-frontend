@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { useRouter } from 'expo-router';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { useAuth } from '../contexts/AuthContext';
@@ -7,6 +8,7 @@ import { AsyncState } from '../components/AsyncState';
 import { FormularioTurma } from '../components/turmas/CadastroTurma';
 
 export default function CadastroTurmaScreen() {
+    useThemeRevision();
     const { user, isLoading } = useAuth(), router = useRouter(), alert = useAppAlert(), network = useNetInfo();
     if (isLoading) return <AsyncState loading title="Conferindo sua sessão…"/>;
     if (!user.id || user.tipo !== 'MOTORISTA') return <AsyncState title="Acesso restrito" message="Entre com uma conta de motorista para criar uma turma."/>;

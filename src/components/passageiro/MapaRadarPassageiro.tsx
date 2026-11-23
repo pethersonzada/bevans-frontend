@@ -1,3 +1,5 @@
+import { themedStyles } from '../../styles/themedStyles';
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import { Ionicons } from '@expo/vector-icons';
 import MapboxGL from '@rnmapbox/maps';
 import { useIsFocused } from 'expo-router/react-navigation';
@@ -10,6 +12,7 @@ type Coordinates = { latitude: number; longitude: number };
 type Props = { centroMapa: Coordinates; minhaLocalizacao: Coordinates | null; posicaoVan: Coordinates | null };
 
 export const MapaRadarPassageiro = memo(function MapaRadarPassageiro({ centroMapa, minhaLocalizacao, posicaoVan }: Props) {
+    useThemeRevision();
     const focused = useIsFocused();
     const cameraRef = useRef<MapboxGL.Camera>(null);
     useEffect(() => {
@@ -49,7 +52,7 @@ export const MapaRadarPassageiro = memo(function MapaRadarPassageiro({ centroMap
                                 </MapboxGL.MapView>
     );
 });
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
     flexOne: { flex: 1 },
     vanMarker: {
         backgroundColor: '#1E1E1E',
@@ -79,4 +82,4 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-});
+}));

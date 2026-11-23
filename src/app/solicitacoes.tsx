@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { useEffect, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -12,11 +13,13 @@ import { PedidosRota } from '../components/PedidosRota';
 import { Screen, Section, ActionButton, Choice, Notice, RemoteLoading, ui } from '../components/ui/Primitives';
 
 export default function Solicitacoes() {
+    useThemeRevision();
     const { user } = useAuth();
     return <PedidosConta key={user.id} usuarioId={user.id} motorista={user.tipo === 'MOTORISTA'} />;
 }
 
 export function PedidosConta({ usuarioId, motorista }: { usuarioId: string | null; motorista: boolean }) {
+    useThemeRevision();
     const router = useRouter();
     const { contexto, avisoId } = useLocalSearchParams<{ contexto?: string; avisoId?: string }>();
     const [busy, setBusy] = useState(false), [erro, setErro] = useState('');

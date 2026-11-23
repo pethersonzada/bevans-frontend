@@ -1,3 +1,5 @@
+import { themedStyles } from '../styles/themedStyles';
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { AppState, BackHandler, Pressable, StyleSheet, Text, View, type AlertButton, type AlertOptions } from 'react-native';
@@ -15,6 +17,7 @@ export function useModalAlertClose() {
 }
 
 export function AppAlertModalLayer({ children }: { children: ReactNode }) {
+    useThemeRevision();
     const context = useContext(LayerContext);
     const register = context?.register;
     useEffect(() => register?.(), [register]);
@@ -26,6 +29,7 @@ export function AppAlertModalLayer({ children }: { children: ReactNode }) {
 
 // Native form modals share this queue and render its layer in their own view tree.
 export function AppAlertProvider({ children }: { children: ReactNode }) {
+    useThemeRevision();
     const [queue, setQueue] = useState<Request[]>([]);
     const current = queue[0];
     const selected = useRef<Request | null>(null);
@@ -104,7 +108,7 @@ export function useAppAlert() {
     }), [host]);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
     container: { flex: 1 },
     backdrop: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
     overlay: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 1000, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', padding: 24 },
@@ -115,4 +119,4 @@ const styles = StyleSheet.create({
     button: { minHeight: 48, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: theme.colors.border, borderRadius: 8, padding: 8 },
     label: { color: theme.colors.primary, fontSize: 16, fontWeight: '700' },
     destructive: { color: theme.colors.danger },
-});
+}));

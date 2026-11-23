@@ -1,3 +1,5 @@
+import { themedStyles } from '../styles/themedStyles';
+import { useThemeRevision } from '../hooks/useThemeRevision';
 
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
@@ -32,6 +34,7 @@ export default function MapMarker({
   tamanho = 42,
   numero,
 }: Props) {
+    useThemeRevision();
   return (
     <View
       collapsable={false}
@@ -54,7 +57,7 @@ export default function MapMarker({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   marcador: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -66,4 +69,4 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     shadowOffset: { width: 0, height: 2 },
   },
-});
+}));

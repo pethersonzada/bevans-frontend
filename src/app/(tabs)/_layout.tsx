@@ -1,9 +1,11 @@
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../styles/theme';
 
 export default function TabLayout() {
+    useThemeRevision();
     const insets = useSafeAreaInsets();
 
     return (

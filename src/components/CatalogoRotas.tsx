@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { RemoteLoading, Screen, Section, ActionButton as Button, Field, Choice, Pagination, ui } from './ui/Primitives';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
@@ -12,6 +13,7 @@ import { globalStyles as s } from '../styles/globalStyles';
 
 const initial: FiltrosCatalogo = { cidade: '', destino: '', categoria: '', somenteFavoritas: false };
 export function CatalogoRotas() {
+    useThemeRevision();
     const { user } = useAuth(); const router = useRouter();
     const [draft, setDraft] = useState(initial), [filters, setFilters] = useState(initial);
     const [page, setPage] = useState(0), [retry, setRetry] = useState(0);

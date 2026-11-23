@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BackHandler, Text, View } from 'react-native';
@@ -17,6 +18,7 @@ import { concluirCadastroTurma, etapasTurma, novoCadastroTurma, restaurarCadastr
 export function FormularioTurma({ userId, onExit, onColeta, alert, offline }: {
     userId: string; onExit: () => void; onColeta: (id: number) => void; alert: ReturnType<typeof useAppAlert>; offline: boolean;
 }) {
+    useThemeRevision();
     const key = `@bevans:cadastro-turma:v1:${userId}`;
     const [d, setD] = useState(novoCadastroTurma), [ready, setReady] = useState(false), [erro, setErro] = useState('');
     const [busy, setBusy] = useState(false), [mapa, setMapa] = useState<'origem'|'destino'|null>(null);

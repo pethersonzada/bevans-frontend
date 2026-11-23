@@ -1,3 +1,5 @@
+import { themedStyles } from '../styles/themedStyles';
+import { useThemeRevision } from '../hooks/useThemeRevision';
 
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
@@ -33,6 +35,7 @@ export default function EnderecoSearchInput({
   placeholder = 'Rua, número, bairro, cidade ou estabelecimento',
   proximidade,
 }: Props) {
+    useThemeRevision();
   const [texto, setTexto] = useState('');
   const [resultados, setResultados] =
     useState<EnderecoEncontrado[]>([]);
@@ -229,7 +232,7 @@ export default function EnderecoSearchInput({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   container: {
     zIndex: 20,
     backgroundColor: theme.colors.map.surface,
@@ -307,4 +310,4 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.size.small,
     color: theme.colors.map.text,
   },
-});
+}));

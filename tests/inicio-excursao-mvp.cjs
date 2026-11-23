@@ -1,7 +1,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
 const {harness,fixture,find,nodes}=require('./helpers/excursoes.cjs');
-function load(file,mocks={}){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{exports,Date,Error,JSON,Set,require:n=>mocks[n]});return exports;}
+function load(file,mocks={}){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{exports,Date,Error,JSON,Set,require:n=>{if(n.endsWith('/useThemeRevision'))return {useThemeRevision:()=> 'light'};if(n.endsWith('/themedStyles'))return {themedStyles:factory=>factory()};if(n.endsWith('/PreferenciaAparencia'))return {PreferenciaAparencia:'Appearance'};if(n.endsWith('/ThemeContext'))return {ThemeProvider:'ThemeProvider'};return mocks[n];}});return exports;}
 function setup(){
  const e=fixture();const state={e,execucoes:[],pontos:[{tipo:'ORIGEM',paradaId:null,nome:'Saída',latitude:-8,longitude:-35,participantes:[]},{tipo:'COLETA',paradaId:1,nome:'Encontro',latitude:-8.1,longitude:-35.1,participantes:[{inscricaoId:8,nome:'Pessoa teste'}]},{tipo:'DESTINO',paradaId:null,nome:'Destino',latitude:-8.2,longitude:-35.2,participantes:[]}]};
  const mapa=load('src/services/mapaExcursao.ts'),validacao=load('src/services/excursaoValidacao.ts',{'./mapaExcursao':mapa});

@@ -1,4 +1,7 @@
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { Stack } from 'expo-router';
+import { ThemeProvider } from '../contexts/ThemeContext';
+import { theme } from '../styles/theme';
 import { AppAlertProvider } from '../contexts/AppAlertContext';
 import { StatusBar, View, Button } from 'react-native';
 import { AsyncState } from '../components/AsyncState';
@@ -7,6 +10,7 @@ import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { AberturaPush } from '../components/AberturaPush';
 
 function RootLayoutNav() {
+    useThemeRevision();
     const { user, isLoading, sessionError, retrySession, signOut } = useAuth();
     if (isLoading) return <AsyncState loading />;
     if (sessionError) return (
@@ -17,7 +21,7 @@ function RootLayoutNav() {
     );
     const signedIn = Boolean(user.id);
     return (
-        <><AberturaPush/><Stack screenOptions={{ headerShown: false }}>
+        <><AberturaPush/><Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.colors.background } }}>
             <Stack.Screen name="index" />
             <Stack.Protected guard={!signedIn}>
                 <Stack.Screen name="(auth)" />
@@ -53,12 +57,13 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+    const darkMode = useThemeRevision() === 'dark';
     return (
-        <SafeAreaProvider>
-            <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+        <SafeAreaProvider><ThemeProvider>
+            <StatusBar barStyle={darkMode ? "light-content" : "dark-content"} backgroundColor="transparent" translucent />
             <AppAlertProvider><AuthProvider>
                 <RootLayoutNav />
             </AuthProvider></AppAlertProvider>
-        </SafeAreaProvider>
+        </ThemeProvider></SafeAreaProvider>
     );
 }

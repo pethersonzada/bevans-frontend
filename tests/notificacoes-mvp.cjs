@@ -1,7 +1,7 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
-function load(file,mocks={},globals={}){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports,Date,Error,Number,Map,Set,JSON,URLSearchParams,AbortController,...globals,require:name=>{if(!(name in mocks))throw Error(name);return mocks[name];}});return exports;}
+function load(file,mocks={},globals={}){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports,Date,Error,Number,Map,Set,JSON,URLSearchParams,AbortController,...globals,require:name=>{if(name.endsWith('/useThemeRevision'))return {useThemeRevision:()=> 'light'};if(name.endsWith('/themedStyles'))return {themedStyles:factory=>factory()};if(name.endsWith('/PreferenciaAparencia'))return {PreferenciaAparencia:'Appearance'};if(name.endsWith('/ThemeContext'))return {ThemeProvider:'ThemeProvider'};if(!(name in mocks))throw Error(name);return mocks[name];}});return exports;}
 const notice=(patch={})=>({id:7,tipo:'NOVA_SOLICITACAO',contextoTipo:'SOLICITACAO_VAGA',contextoId:12,titulo:'Atualização da viagem',mensagem:'Uma nova solicitação aguarda análise.',criadaEm:'2026-11-18T12:00:00Z',lidaEm:null,...patch});
 function service(api){return load('src/services/notificacoes.ts',{'../config/api':api,'./catalogo':load('src/services/catalogo.ts',{'../config/api':api})});}
 test('histórico aceita Spring e página própria, preserva metadados e remove IDs repetidos',async()=>{

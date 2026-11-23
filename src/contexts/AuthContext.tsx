@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
@@ -19,6 +20,7 @@ type AuthContextData = {
 const AuthContext = createContext<AuthContextData | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+    useThemeRevision();
     const [user, setUser] = useState<SessionUser>(EMPTY_USER);
     const currentUserRef=useRef(user);currentUserRef.current=user;
     const [isLoading, setIsLoading] = useState(true);

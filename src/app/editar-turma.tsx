@@ -1,3 +1,5 @@
+import { themedStyles } from '../styles/themedStyles';
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { useAppAlert } from '../contexts/AppAlertContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -23,6 +25,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { AsyncState } from '../components/AsyncState';
 
 export default function EditarTurma() {
+    const darkMode = useThemeRevision() === 'dark';
     const Alert = useAppAlert();
     const { id, nomeAtual, turnoAtual, origemAtual, destinoAtual } = useLocalSearchParams<{
         id: string;
@@ -165,7 +168,7 @@ export default function EditarTurma() {
 
     return (
         <View style={globalStyles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+            <StatusBar barStyle={darkMode ? "light-content" : "dark-content"} backgroundColor="transparent" translucent />
 
             <View style={[styles.header, { paddingTop: insets.top + theme.spacing.xs }]}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}>
@@ -292,7 +295,7 @@ export default function EditarTurma() {
     );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
     header: {
         paddingHorizontal: theme.spacing.md,
         paddingBottom: theme.spacing.md,
@@ -389,4 +392,4 @@ const styles = StyleSheet.create({
     buttonDisabled: {
         opacity: 0.6,
     },
-});
+}));

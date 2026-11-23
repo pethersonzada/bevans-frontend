@@ -1,3 +1,5 @@
+import { themedStyles } from '../../styles/themedStyles';
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import { Ionicons } from '@expo/vector-icons';
 import type { ReactNode } from 'react';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
@@ -25,6 +27,7 @@ function iconePorManobra(tipo: string): keyof typeof Ionicons.glyphMap {
 }
 
 export function PainelManobra({ manobraAtual, velocidadeAtual, children }: PainelManobraProps) {
+    useThemeRevision();
     const insets = useSafeAreaInsets();
 
     return (
@@ -53,7 +56,7 @@ export function PainelManobra({ manobraAtual, velocidadeAtual, children }: Paine
     );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
     container: {
         position: 'absolute',
         left: theme.spacing.md,
@@ -117,4 +120,4 @@ const styles = StyleSheet.create({
         fontSize: 9,
         fontWeight: '700',
     },
-});
+}));

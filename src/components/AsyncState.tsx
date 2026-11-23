@@ -1,3 +1,5 @@
+import { themedStyles } from '../styles/themedStyles';
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { Ionicons } from '@expo/vector-icons';
 import { useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -16,6 +18,7 @@ type Props = {
 };
 
 export function AsyncState({ status = 'error', loading = false, title, message, onRetry, onAction, actionLabel, appearance = 'default' }: Props) {
+    useThemeRevision();
     const [retrying, setRetrying] = useState(false);
     const [actionError, setActionError] = useState<string | null>(null);
     const pending = useRef(false);
@@ -55,11 +58,11 @@ export function AsyncState({ status = 'error', loading = false, title, message, 
     );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
     container: { padding: theme.spacing.lg, alignItems: 'center', gap: theme.spacing.sm, width: '100%' },
     title: { color: theme.colors.text, fontSize: theme.typography.size.regular, fontWeight: '700', textAlign: 'center' },
     message: { color: theme.colors.text, textAlign: 'center' },
     button: { minHeight: 48, paddingHorizontal: theme.spacing.md, justifyContent: 'center', borderRadius: theme.borderRadius.md,
         borderWidth: 1, borderColor: theme.colors.primary, backgroundColor: theme.colors.surface },
     action: { color: theme.colors.primary, fontWeight: '700', fontSize: theme.typography.size.regular, textAlign: 'center' },
-});
+}));

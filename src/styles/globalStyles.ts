@@ -1,7 +1,8 @@
+import { themedStyles } from './themedStyles';
 import { StyleSheet } from 'react-native';
 import { theme } from './theme';
 
-export const globalStyles = StyleSheet.create({
+export const globalStyles = themedStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -59,4 +60,4 @@ export const globalStyles = StyleSheet.create({
     marginTop: -theme.spacing.sm,
     marginBottom: theme.spacing.sm,
   }
-});
+}));

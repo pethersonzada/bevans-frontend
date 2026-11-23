@@ -1,3 +1,6 @@
+import { themedStyles } from '../../styles/themedStyles';
+import { useThemeRevision } from '../../hooks/useThemeRevision';
+import { PreferenciaAparencia } from '../../components/PreferenciaAparencia';
 import { Section, MenuRow, ActionButton } from '../../components/ui/Primitives';
 import { useAppAlert } from '../../contexts/AppAlertContext';
 import { AppModal as Modal } from '../../components/AppModal';
@@ -37,6 +40,7 @@ const WHATSAPP_URL = 'https://wa.me/5581991976404';
 const PALAVRA_CONFIRMACAO = 'EXCLUIR';
 
 export default function Perfil() {
+    const darkMode = useThemeRevision() === 'dark';
     const Alert = useAppAlert();
     const { user, signOut } = useAuth();
     const router = useRouter();
@@ -190,7 +194,7 @@ export default function Perfil() {
 
     return (
         <View style={globalStyles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+            <StatusBar barStyle={darkMode ? "light-content" : "dark-content"} backgroundColor="transparent" translucent />
 
             <ScrollView
                 accessibilityElementsHidden={confirmarSaida}
@@ -226,6 +230,7 @@ export default function Perfil() {
                 {ehPassageiro&&<Section title="Endereços"><MenuRow title="Meus endereços" description="Locais de embarque e desembarque." icon="location-outline" onPress={()=>router.push('/gerenciar-enderecos')}/></Section>}
                 {user.tipo==='MOTORISTA'&&<Section title="Seu trabalho"><MenuRow title="Contato comercial" description="Número de atendimento e autorização de divulgação." icon="call-outline" onPress={()=>router.push('/contato-comercial')}/></Section>}
                 <Section title="Segurança"><MenuRow title="Redefinir senha" description="Receba um link no e-mail da sua conta." icon="lock-closed-outline" onPress={()=>setModalSenhaVisivel(true)}/><MenuRow title="Excluir conta" description="Revise as consequências antes de confirmar." icon="trash-outline" onPress={()=>setModalDeletarVisivel(true)}/></Section>
+                <PreferenciaAparencia/>
                 <Section title="Suporte"><MenuRow title="Central de ajuda" description="Fale com o atendimento pelo WhatsApp." icon="headset-outline" onPress={()=>void abrirWhatsApp()}/></Section>
                 <ActionButton title="Sair da conta" variant="danger" icon="log-out-outline" onPress={sair}/>
             </ScrollView>
@@ -376,7 +381,7 @@ export default function Perfil() {
     );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
     scrollContent: {
         paddingHorizontal: theme.spacing.md,
     },
@@ -583,4 +588,4 @@ const styles = StyleSheet.create({
         fontSize: theme.typography.size.regular,
         fontWeight: theme.typography.weight.bold,
     },
-});
+}));

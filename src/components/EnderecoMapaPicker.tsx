@@ -1,3 +1,5 @@
+import { themedStyles } from '../styles/themedStyles';
+import { useThemeRevision } from '../hooks/useThemeRevision';
 
 import MapboxGL from '@rnmapbox/maps';
 import { Ionicons } from '@expo/vector-icons';
@@ -84,6 +86,7 @@ export default function EnderecoMapaPicker({
   onChange,
   resolverEndereco,
 }: Props) {
+    useThemeRevision();
   const camera = useRef<MapboxGL.Camera>(null);
 
   // Coordenadas previamente salvas no banco
@@ -363,7 +366,7 @@ export default function EnderecoMapaPicker({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   confirmar: { minHeight: 52, justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, marginVertical: 8, backgroundColor: '#177E72' },
   confirmarTexto: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
   container: {
@@ -418,4 +421,4 @@ const styles = StyleSheet.create({
     color: theme.colors.map.textLight,
     fontSize: theme.typography.size.small,
   },
-});
+}));

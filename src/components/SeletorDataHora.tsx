@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { useState } from 'react';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Platform, Text, View } from 'react-native';
@@ -5,6 +6,7 @@ import { ActionButton as Button, ui } from './ui/Primitives';
 import { selecionarDataHora } from '../services/excursaoFormulario';
 
 export function SeletorDataHora({label,value,onChange,optional=false}:{label:string;value:string;onChange:(value:string)=>void;optional?:boolean}) {
+    useThemeRevision();
     const [modo,setModo]=useState<'date'|'time'|null>(null);
     const valido=Number.isFinite(Date.parse(value));
     const data=valido?new Date(value):new Date();

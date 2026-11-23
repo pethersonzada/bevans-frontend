@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import { useEffect, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 import { buscarExecucaoExcursao, listarExecucoes, iniciarExcursao, finalizarExcursao, type Excursao, type ExecucaoExcursao } from '../../services/excursoes';
@@ -10,6 +11,7 @@ import { RoteiroExecucaoExcursao } from './RoteiroExecucaoExcursao';
 import { revisarTrechoExcursao, conferirRevisaoTrecho, type RevisaoTrechoExcursao } from '../../services/inicioExcursao';
 
 export function OperacaoExcursao({e,execucoes,offline,dirty,onRefresh,onEdit,onPublicar,onControle}:{e:Excursao;execucoes:ExecucaoExcursao[]|null;offline:boolean;dirty:boolean;onRefresh:()=>void;onEdit?:(m:Momento)=>void;onPublicar:()=>void;onControle:(id:number)=>void}) {
+    useThemeRevision();
     const [incerto,setIncerto]=useState<'IDA'|'VOLTA'|null>(null),[roteiro,setRoteiro]=useState<number|null>(null);
     const [revisao,setRevisao]=useState<RevisaoTrechoExcursao|null>(null);
     const pending=useRef(false);

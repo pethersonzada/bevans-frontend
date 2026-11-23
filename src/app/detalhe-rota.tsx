@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../hooks/useThemeRevision';
 ﻿import { useEffect, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -20,10 +21,12 @@ import { ContatoProtegido } from '../components/ContatoProtegido';
 import { Screen, Section, ActionButton as Button, Choice, Notice, RemoteLoading, ui } from '../components/ui/Primitives';
 
 export default function DetalheRota() {
+    useThemeRevision();
     const {id}=useLocalSearchParams<{id:string}>(),{user}=useAuth();
     return <RotaPassageiro key={`${user.id}:${id}`} id={id} usuarioId={user.id} motorista={user.tipo==='MOTORISTA'}/>;
 }
 export function RotaPassageiro({id,usuarioId,motorista}:{id:string;usuarioId:string|null;motorista:boolean}) {
+    useThemeRevision();
     const router=useRouter();
     const rota=useRemoteResource(usuarioId?`rota:${id}`:false,()=>buscarRotaPublica(id));
     const pedidos=useRemoteResource(usuarioId&&!motorista?'pedidos-publicos':false,meusEmbarques);

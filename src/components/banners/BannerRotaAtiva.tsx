@@ -1,3 +1,5 @@
+import { themedStyles } from '../../styles/themedStyles';
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { theme } from '../../styles/theme';
@@ -7,6 +9,7 @@ type Props = {
 };
 
 export function BannerRotaAtiva({ onPress }: Props) {
+    useThemeRevision();
     return (
         <TouchableOpacity 
             style={styles.container} 
@@ -27,7 +30,7 @@ export function BannerRotaAtiva({ onPress }: Props) {
     );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
     container: {
         backgroundColor: theme.colors.attention,
         padding: theme.spacing.md,
@@ -64,4 +67,4 @@ const styles = StyleSheet.create({
         fontSize: theme.typography.size.small,
         color: 'rgba(255, 255, 255, 0.85)',
     },
-});
+}));

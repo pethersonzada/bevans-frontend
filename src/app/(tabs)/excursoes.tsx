@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
@@ -10,7 +11,9 @@ import { Notice, Pagination, RemoteLoading } from '../../components/ui/Primitive
 import { BlocoViagem, CabecalhoViagem, CartaoViagem, PaginaViagem, trip } from '../../components/excursoes/ViagemUI';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { AcessoPassageiro } from '../../components/excursoes/AcessoPassageiro';
+import { theme } from '../../styles/theme';
 export default function ExcursoesTab() {
+    useThemeRevision();
     const {user}=useAuth(),router=useRouter(),network=useNetInfo();
     const [page,setPage]=useState(0);
     const {data,error,reload}=useRemoteResource(user.tipo==='MOTORISTA'?`excursoes:${page}`:false,signal=>listarExcursoes(page,signal));
@@ -36,7 +39,7 @@ export default function ExcursoesTab() {
             <Pressable accessibilityRole="button" accessibilityLabel="Criar excursão" onPress={()=>router.push('/editar-excursao')} style={[trip.hero,{flexDirection:'row',alignItems:'center',gap:18}]}><View style={[trip.heroIcon,{width:56,height:56}]}><Ionicons name="add" size={32} color="#fff"/></View><View style={{flex:1,gap:6}}><Text style={[trip.heroTitle,{fontSize:22,lineHeight:28}]}>Montar uma viagem</Text><Text style={trip.heroSubtitle}>Comece escolhendo o destino</Text></View></Pressable>
             {(network.isConnected===false||network.isInternetReachable===false)&&<Notice>Sem conexão. Reconecte para atualizar suas viagens.</Notice>}
             {error?<AsyncState message={error} onRetry={reload}/>:!data?<RemoteLoading/>:<>
-                {!data.itens.length&&<View style={[trip.travelCard,{alignItems:'center',paddingVertical:32}]}><Ionicons name="compass-outline" size={44} color="#14253A"/><Text style={trip.sectionTitle}>O primeiro destino é com você</Text><Text style={[trip.muted,{textAlign:'center'}]}>Escolha o lugar, combine o dia e organize os embarques. O convite vem depois.</Text></View>}
+                {!data.itens.length&&<View style={[trip.travelCard,{alignItems:'center',paddingVertical:32}]}><Ionicons name="compass-outline" size={44} color={theme.colors.primary}/><Text style={trip.sectionTitle}>O primeiro destino é com você</Text><Text style={[trip.muted,{textAlign:'center'}]}>Escolha o lugar, combine o dia e organize os embarques. O convite vem depois.</Text></View>}
                 {grupos.filter(g=>g.itens.length).map(g=><BlocoViagem key={g.title} title={g.title}>{g.itens.map(e=><CartaoViagem key={e.id} e={e} emAndamento={g.title==='Em viagem'} onPress={()=>router.push({pathname:'/editar-excursao',params:{id:String(e.id)}})}/>)}</BlocoViagem>)}
                 {!!operacao.data?.unavailable.length&&<Text style={trip.caption}>Não foi possível verificar algumas execuções. Abra a viagem para atualizar o acompanhamento.</Text>}
                 {data.totalPaginas>1&&<Text style={trip.caption}>Os grupos mostram as viagens desta página.</Text>}

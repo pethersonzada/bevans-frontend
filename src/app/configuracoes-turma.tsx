@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Text } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
@@ -6,6 +7,7 @@ import { buscarTurmaMotorista } from '../services/turmas';
 import { AsyncState } from '../components/AsyncState';
 import { RemoteLoading, Screen, Section, MenuRow, Notice, ui } from '../components/ui/Primitives';
 export default function ConfiguracoesTurma() {
+    useThemeRevision();
     const { turmaId } = useLocalSearchParams<{ turmaId: string }>(), { user } = useAuth(), router = useRouter();
     const allowed = user.tipo === 'MOTORISTA' && !!user.id;
     const { data, error, reload } = useRemoteResource(allowed ? `configuracoes-turma:${turmaId}` : false, () => buscarTurmaMotorista(user.id!, turmaId));

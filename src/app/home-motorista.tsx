@@ -1,3 +1,5 @@
+import { themedStyles } from '../styles/themedStyles';
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -36,6 +38,7 @@ import { PainelTurmaSelecionada } from '../components/motorista/PainelTurmaSelec
 import type { PassageiroTurma as Aluno, Turma, SolicitacaoTurma as VinculoPendente } from '../types/turma';
 
 export default function HomeMotorista() {
+    const darkMode = useThemeRevision() === 'dark';
     const Alert = useAppAlert();
     const { user } = useAuth();
     const router = useRouter();
@@ -338,7 +341,7 @@ export default function HomeMotorista() {
     return (
 
         <View style={styles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+            <StatusBar barStyle={darkMode ? "light-content" : "dark-content"} backgroundColor="transparent" translucent />
 
             <HeaderMotorista
                 nomeMotorista={user.nome}
@@ -611,7 +614,7 @@ export default function HomeMotorista() {
     );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
     sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: theme.spacing.sm },
     sectionHeaderText: { flex: 1, gap: 3 },
     eyebrow: { color: theme.colors.textLight, fontSize: 11, fontWeight: '700', letterSpacing: 1.2 },
@@ -770,4 +773,4 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-});
+}));

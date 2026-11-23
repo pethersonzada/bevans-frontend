@@ -1,9 +1,11 @@
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import { Text, View } from 'react-native';
 import type { ExecucaoExcursao } from '../../services/excursoes';
 import MapaPreviaPublica from '../MapaPreviaPublica';
 import { trip } from './ViagemUI';
 
 export function RoteiroExecucaoExcursao({execucao}:{execucao:ExecucaoExcursao}) {
+    useThemeRevision();
     return <View style={{gap:12}}>
         <Text accessibilityRole="header" style={trip.sectionTitle}>Roteiro da execução · {execucao.sentido==='IDA'?'Ida':'Volta'}</Text>
         <Text style={trip.caption}>Pontos registrados pelo servidor ao iniciar este trecho. Alterações no cadastro não substituem este roteiro.</Text>

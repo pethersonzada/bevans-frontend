@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { VisaoGeralViagem } from '../components/excursoes/VisaoGeralViagem';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BackHandler, Text, View } from 'react-native';
@@ -21,10 +22,12 @@ export { AsyncAction } from '../components/excursoes/AcaoExcursao';
 export { PlanejarExcursao as Editor } from '../components/excursoes/PlanejarExcursao';
 type Vista='visao'|'planejar'|'convites'|'participantes'|'operacao'|'publicacao';
 export default function EditarExcursao() {
+    useThemeRevision();
     const {id}=useLocalSearchParams<{id?:string}>(),{user}=useAuth();
     return <TelaExcursao key={`${user.id}:${id||'nova'}`} id={id} motorista={user.tipo==='MOTORISTA'}/>;
 }
 export function TelaExcursao({id,motorista}:{id?:string;motorista:boolean}) {
+    useThemeRevision();
     const router=useRouter(),network=useNetInfo();
     const [snapshot,setSnapshot]=useState<Excursao|null>(null),[vista,setVista]=useState<Vista>(id?'visao':'planejar');
     const [momento,setMomento]=useState<Momento>('Destino'),[command,setCommand]=useState(0),[revision,setRevision]=useState(0);

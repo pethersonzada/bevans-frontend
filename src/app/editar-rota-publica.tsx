@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { useEffect, useState } from 'react';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,12 +11,14 @@ import { PaginaViagem } from '../components/excursoes/ViagemUI';
 import { PlanejarRotaPublica } from '../components/rotasPublicas/PlanejarRotaPublica';
 
 export default function EditarRotaPublica() {
+    useThemeRevision();
     const {id,turmaId}=useLocalSearchParams<{id?:string;turmaId?:string}>(),{user,isLoading}=useAuth();
     if(isLoading)return <RemoteLoading/>;
     if(!user.id||user.tipo!=='MOTORISTA')return <AsyncState message="Entre como motorista para editar rotas."/>;
     return <CarregarRota key={`${user.id}:${id||'nova'}:${turmaId||''}`} id={id} turmaId={turmaId} motoristaId={user.id}/>;
 }
 export function CarregarRota({id,turmaId,motoristaId}:{id?:string;turmaId?:string;motoristaId:string}) {
+    useThemeRevision();
     const router=useRouter(),navigation=useNavigation();
     // Keep native swipe-back from bypassing the draft's explicit exit confirmation.
     useEffect(()=>{navigation.setOptions({gestureEnabled:false});},[navigation]);

@@ -3,7 +3,7 @@ function load(file, mocks = {}, globals = {}) {
     const exports = {};
     vm.runInNewContext(ts.transpileModule(fs.readFileSync(file, 'utf8'), {
         compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
-    }).outputText, { exports, require: name => {
+    }).outputText, { exports, require: name => {if(name.endsWith('/useThemeRevision'))return {useThemeRevision:()=> 'light'};if(name.endsWith('/themedStyles'))return {themedStyles:factory=>factory()};if(name.endsWith('/PreferenciaAparencia'))return {PreferenciaAparencia:'Appearance'};if(name.endsWith('/ThemeContext'))return {ThemeProvider:'ThemeProvider'};
         if (!(name in mocks)) throw Error(`Import inesperado: ${name}`);
         return mocks[name];
     }, Error, Response, Headers, AbortController, setTimeout, clearTimeout, ...globals });

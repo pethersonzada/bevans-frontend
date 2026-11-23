@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { ActionButton, ui } from './ui/Primitives';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
@@ -7,10 +8,12 @@ import { errorMessage } from '../config/api';
 import { theme } from '../styles/theme';
 
 export function PreferenciaPush() {
+    useThemeRevision();
     const { user } = useAuth();
     return user.id ? <PushControls key={user.id} owner={user.id} /> : null;
 }
 function PushControls({ owner }: { owner: string }) {
+    useThemeRevision();
     const [busy, setBusy] = useState(false), [message, setMessage] = useState('');
     const mounted = useRef(true), pending = useRef(false);
     useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);

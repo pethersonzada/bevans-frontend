@@ -1,3 +1,5 @@
+import { themedStyles } from '../styles/themedStyles';
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
@@ -281,6 +283,7 @@ function distanciaRestanteDesde(
 }
 
 export default function Mapa() {
+    useThemeRevision();
     const Alert = useAppAlert();
     const router = useRouter();
     const insets = useSafeAreaInsets();
@@ -2020,7 +2023,7 @@ export default function Mapa() {
     );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
     fullScreenContainer: {
         flex: 1,
         backgroundColor: '#0F172A',
@@ -2114,4 +2117,4 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-});
+}));

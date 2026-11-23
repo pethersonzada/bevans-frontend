@@ -1,3 +1,5 @@
+import { themedStyles } from '../styles/themedStyles';
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { useAppAlert } from '../contexts/AppAlertContext';
 import { AppModal as Modal } from '../components/AppModal';
 
@@ -31,6 +33,7 @@ import { theme } from '../styles/theme';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function CadastroEndereco() {
+    useThemeRevision();
     const Alert = useAppAlert();
   const { user, isLoading, updateAddress } = useAuth();
   const router = useRouter();
@@ -259,7 +262,7 @@ export default function CadastroEndereco() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   tela: {
     flex: 1,
     backgroundColor: theme.colors.map.background,
@@ -361,4 +364,4 @@ const styles = StyleSheet.create({
     color: theme.colors.map.text,
     fontWeight: theme.typography.weight.bold,
   },
-});
+}));

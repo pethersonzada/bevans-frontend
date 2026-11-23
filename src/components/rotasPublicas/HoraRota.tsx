@@ -1,9 +1,11 @@
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import { useState } from 'react';
 import { Platform, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { ActionButton, AtalhoViagem } from '../excursoes/ViagemUI';
 
 export function HoraRota({label,value,onChange}:{label:string;value:string|null;onChange:(value:string|null)=>void}) {
+    useThemeRevision();
     const [open,setOpen]=useState(false);
     const date=new Date();const [h,m,s]=(value||'07:00').split(':').map(Number);date.setHours(h,m,s||0,0);
     return <View style={{gap:8}}>

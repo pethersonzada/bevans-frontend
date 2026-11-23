@@ -1,3 +1,5 @@
+import { themedStyles } from '../styles/themedStyles';
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { Redirect } from 'expo-router';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
@@ -6,6 +8,7 @@ import { theme } from '../styles/theme';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Index() {
+    useThemeRevision();
     const { user, isLoading } = useAuth();
 
     if (isLoading) {
@@ -23,9 +26,9 @@ export default function Index() {
     return <Redirect href="/login" />;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
     center: {
         justifyContent: 'center',
         alignItems: 'center',
     },
-});
+}));

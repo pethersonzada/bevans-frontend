@@ -1,3 +1,5 @@
+import { themedStyles } from '../../styles/themedStyles';
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { theme } from '../../styles/theme';
@@ -9,6 +11,7 @@ interface BotoesAcaoMotoristaProps {
 }
 
 export function BotoesAcaoMotorista({ viagemAtiva, todosResponderam, onIniciarRota }: BotoesAcaoMotoristaProps) {
+    useThemeRevision();
     const isDesabilitado = viagemAtiva;
     const btnColor = isDesabilitado
         ? theme.colors.border
@@ -43,7 +46,7 @@ export function BotoesAcaoMotorista({ viagemAtiva, todosResponderam, onIniciarRo
     );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
     actionContainer: {
         marginBottom: theme.spacing.sm,
     },
@@ -82,4 +85,4 @@ const styles = StyleSheet.create({
     btnTextDisabled: {
         color: theme.colors.textLight,
     },
-});
+}));

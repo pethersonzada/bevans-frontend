@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { useEffect, useRef } from 'react';
 import { AppState, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -9,6 +10,7 @@ import { criarAberturaPush } from '../services/aberturaPush';
 import { avisarNotificacoesChanged } from '../services/notificacoes';
 
 export function AberturaPush() {
+    useThemeRevision();
     const { user } = useAuth(); const router = useRouter();
     const previous = useRef<string | null | undefined>(undefined);
     useEffect(() => {

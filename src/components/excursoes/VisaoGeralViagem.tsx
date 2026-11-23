@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import { View } from 'react-native';
 import type { Excursao, ExecucaoExcursao } from '../../services/excursoes';
 import type { Momento } from './Planejamento';
@@ -6,6 +7,7 @@ import { useNomesExcursao } from './useNomesExcursao';
 import { Notice } from '../ui/Primitives';
 type Gestao='participantes'|'convites'|'operacao'|'publicacao';
 export function VisaoGeralViagem({e:original,active,dirty,onEdit,onSection,onResume,onRefresh,hasExecutions=false}:{e:Excursao;active?:ExecucaoExcursao;dirty:boolean;onEdit:(m:Momento)=>void;onSection:(s:Gestao)=>void;onResume:()=>void;onRefresh:()=>void;hasExecutions?:boolean}) {
+    useThemeRevision();
     const {exibicao:e,consultando,consultados,falhas}=useNomesExcursao(original);
     const origem=e.origemNome&&e.origemLatitude!=null&&e.origemLongitude!=null?{nome:e.origemNome,latitude:e.origemLatitude,longitude:e.origemLongitude}:null;
     const destino={nome:e.destinoNome,latitude:e.destinoLatitude,longitude:e.destinoLongitude};

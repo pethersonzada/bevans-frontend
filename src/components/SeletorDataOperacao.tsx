@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { useState } from 'react';
 import { Platform, Text, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -7,6 +8,7 @@ import { ActionButton, ui } from './ui/Primitives';
 export function SeletorDataOperacao({ label, value, onChange, disabled = false }: {
     label: string; value: string; onChange: (value: string) => void; disabled?: boolean;
 }) {
+    useThemeRevision();
     const [aberto, setAberto] = useState(false);
     const data = value ? lerDataLocal(value) : new Date();
     return <View style={{ gap: 8 }}>

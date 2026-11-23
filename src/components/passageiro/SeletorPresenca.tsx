@@ -1,3 +1,5 @@
+import { themedStyles } from '../../styles/themedStyles';
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import { useAppAlert } from '../../contexts/AppAlertContext';
 
 import { Ionicons } from '@expo/vector-icons';
@@ -58,6 +60,7 @@ export function SeletorPresenca({
     usaParadasIda = false,
     usaParadasVolta = false,
 }: Props) {
+    useThemeRevision();
     const Alert = useAppAlert();
     const [editando, setEditando] = useState(false);
     const [status, setStatus] = useState('');
@@ -343,7 +346,7 @@ export function SeletorPresenca({
                         disabled={!status || salvando}
                     >
                         {salvando ? (
-                            <ActivityIndicator color="#FFFFFF" />
+                            <ActivityIndicator color={theme.colors.surface} />
                         ) : (
                             <Text style={styles.textoConfirmar}>
                                 Salvar confirmação
@@ -368,7 +371,7 @@ export function SeletorPresenca({
     );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
     card: {
         padding: theme.spacing.md,
         backgroundColor: theme.colors.surface,
@@ -416,7 +419,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     textoOpcaoAtiva: {
-        color: '#FFFFFF',
+        color: theme.colors.surface,
     },
     enderecoGrupo: {
         gap: 6,
@@ -493,7 +496,7 @@ const styles = StyleSheet.create({
         opacity: 0.5,
     },
     textoConfirmar: {
-        color: '#FFFFFF',
+        color: theme.colors.surface,
         fontWeight: '700',
     },
     botaoSecundario: {
@@ -509,4 +512,4 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         fontSize: theme.typography.size.small,
     },
-});
+}));

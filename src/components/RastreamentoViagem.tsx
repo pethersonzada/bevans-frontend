@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { useEffect,useState } from 'react';
 import { useIsFocused } from 'expo-router/react-navigation';
 import { Button,Text,View } from 'react-native';
@@ -8,6 +9,7 @@ import { consultarGps,posicaoRecente,publicarGps } from '../services/rastreament
 import { errorMessage } from '../config/api';
 import MapaPreviaPublica from './MapaPreviaPublica';
 export function RastreamentoViagem({tipo,id,motorista}:{tipo:string;id:string;motorista:boolean}) {
+    useThemeRevision();
     const focused=useIsFocused();const [compartilhar,setCompartilhar]=useState(false),[erro,setErro]=useState(''),[agora,setAgora]=useState(Date.now());
     const [finalizada,setFinalizada]=useState(false);
     const {data,error}=useRemoteResource(finalizada?false:`gps:${tipo}:${id}`,async signal=>{const p=await consultarGps(tipo,id,signal);if(!signal.aborted&&p.estado==='FINALIZADA'){setFinalizada(true);setCompartilhar(false);}return p;},10000);

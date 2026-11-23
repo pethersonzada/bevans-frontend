@@ -1,3 +1,5 @@
+import { themedStyles } from '../styles/themedStyles';
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { useAppAlert } from '../contexts/AppAlertContext';
 
 import { Ionicons } from '@expo/vector-icons';
@@ -33,6 +35,7 @@ type Endereco = {
 };
 
 export default function GerenciarEnderecos() {
+    const darkMode = useThemeRevision() === 'dark';
     const Alert = useAppAlert();
   const { user, isLoading } = useAuth();
   const router = useRouter();
@@ -172,7 +175,7 @@ export default function GerenciarEnderecos() {
   return (
     <View style={styles.container}>
       <StatusBar
-        barStyle="dark-content"
+        barStyle={darkMode ? "light-content" : "dark-content"}
         backgroundColor="transparent"
         translucent
       />
@@ -292,7 +295,7 @@ export default function GerenciarEnderecos() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -398,4 +401,4 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.size.regular,
     fontWeight: theme.typography.weight.bold,
   },
-});
+}));

@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BackHandler, Pressable, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -26,6 +27,7 @@ import { OperacaoRotaPublica } from './OperacaoRotaPublica';
 type Escolha={tipo:'origem'|'destino'|'parada';chave?:string};
 const categorias={ESCOLAR:'Escolar',UNIVERSITARIA:'Universitária',OUTROS:'Outros'} as const;
 export function PlanejarRotaPublica({initial,turmaId,motoristaId,onExit,abrirGestao=false}:{initial?:RotaPublica;turmaId?:number;motoristaId:string;onExit:()=>void;abrirGestao?:boolean}) {
+    useThemeRevision();
     const router=useRouter(),network=useNetInfo();
     const [d,setD]=useState(()=>initial?rascunhoDaRota(initial):novoRascunhoRota(turmaId||null));
     const [etapa,setEtapa]=useState<EtapaRota>('Informações'),[vista,setVista]=useState<'planejar'|'gestao'>(initial&&abrirGestao?'gestao':'planejar');

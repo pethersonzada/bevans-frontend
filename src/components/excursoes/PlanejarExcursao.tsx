@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BackHandler, Pressable, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
@@ -16,6 +17,7 @@ type EscolhaMapa={tipo:'destino'|'origem'|'parada';index?:number};
 type Props={initial?:Excursao;visible?:boolean;initialMoment?:Momento;command?:number;latestVersion?:number;onClose:()=>void;onPersisted:(e:Excursao)=>void;onSaved:(id:number,e:Excursao)=>Promise<void>;onDirty?:(dirty:boolean)=>void;locked?:()=>boolean};
 const descricoes={PORTA_A_PORTA:['home-outline','Porta a porta','Cada pessoa confirma seu próprio ponto na inscrição.'],PARADA_UNICA:['location-outline','Um ponto de encontro','A van encontra todo o grupo no mesmo lugar.'],MULTIPLAS_PARADAS:['map-outline','Vários pontos de encontro','Organize a sequência de embarques até o destino.']} as const;
 export function PlanejarExcursao({initial,visible=true,initialMoment='Destino',command=0,latestVersion,onClose,onPersisted,onSaved,onDirty,locked}:Props) {
+    useThemeRevision();
     const [d,setD]=useState<RascunhoViagem>(()=>rascunhoInicial(initial));
     const [base,setBase]=useState(initial),[momento,setMomento]=useState<Momento>(initialMoment),[erro,setErro]=useState('');
     const [mapa,setMapa]=useState<EscolhaMapa|null>(null),[candidato,setCandidato]=useState<PontoViagem|null>(null),[editando,setEditando]=useState<number|null>(null);

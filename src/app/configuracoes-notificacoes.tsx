@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { useEffect, useRef, useState } from 'react';
 import { Switch, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -9,10 +10,12 @@ import { PreferenciaPush } from '../components/PreferenciaPush';
 import { AsyncState } from '../components/AsyncState';
 import { Screen, Section, Notice, ui } from '../components/ui/Primitives';
 export default function ConfiguracoesNotificacoes() {
+    useThemeRevision();
     const { user } = useAuth();
     return <Preferencias key={user.id} />;
 }
 export function Preferencias() {
+    useThemeRevision();
     const router = useRouter(), connection = useNetInfo();
     const offline = connection.isConnected === false || connection.isInternetReachable === false;
     const { data, error, reload } = useRemoteResource('notificacoes:preferencias', preferenciasNotificacao);

@@ -1,3 +1,5 @@
+import { themedStyles } from '../../styles/themedStyles';
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import { useAppAlert } from '../../contexts/AppAlertContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -26,6 +28,7 @@ import { theme } from '../../styles/theme';
 import { FormFeedback } from '../../components/FormFeedback';
 
 export default function Signup() {
+    const darkMode = useThemeRevision() === 'dark';
     const Alert = useAppAlert();
     const { tipo } = useLocalSearchParams();
     const router = useRouter();
@@ -142,7 +145,7 @@ export default function Signup() {
 
     return (
         <View style={globalStyles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+            <StatusBar barStyle={darkMode ? "light-content" : "dark-content"} backgroundColor="transparent" translucent />
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flexOne}>
                 <ScrollView
                     contentContainerStyle={[
@@ -325,7 +328,7 @@ export default function Signup() {
     );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
     flexOne: {
         flex: 1,
     },
@@ -421,4 +424,4 @@ const styles = StyleSheet.create({
     buttonDisabled: {
         opacity: 0.6,
     },
-});
+}));

@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { RemoteLoading, ActionButton as Button, Choice, Section, Pagination, ui } from './ui/Primitives';
 import { Ionicons } from '@expo/vector-icons';
 import { trip } from './excursoes/ViagemUI';
@@ -21,6 +22,7 @@ export function GestaoExcursao({id,excursao,secao='participantes',origemConfigur
     onEditarPontos?:()=>void;
     executados?:string[];
 }){
+    useThemeRevision();
     const [,setRevision]=useState(0);
     useEffect(()=>onConvitesChanged(()=>setRevision(v=>v+1)),[]);
     const lock=useContext(ExcursaoActionContext);

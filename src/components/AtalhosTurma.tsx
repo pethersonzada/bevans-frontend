@@ -1,3 +1,4 @@
+import { useThemeRevision } from '../hooks/useThemeRevision';
 
 import { useRouter } from 'expo-router';
 import { Text, View } from 'react-native';
@@ -9,6 +10,7 @@ import { ContatoProtegido } from './ContatoProtegido';
 import { MenuRow, ui } from './ui/Primitives';
 
 export function AtalhosTurma({ turmaId }: { turmaId: number }) {
+    useThemeRevision();
     const { user } = useAuth();
     const router = useRouter();
 

@@ -1,3 +1,5 @@
+import { themedStyles } from '../../styles/themedStyles';
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 import { theme } from '../../styles/theme';
@@ -8,6 +10,7 @@ interface CardTurmaPassageiroProps {
 }
 
 export function CardTurmaPassageiro({ turma }: CardTurmaPassageiroProps) {
+    useThemeRevision();
     if (!turma) {
         return null;
     }
@@ -25,7 +28,7 @@ export function CardTurmaPassageiro({ turma }: CardTurmaPassageiroProps) {
     );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
     card: {
         backgroundColor: theme.colors.surface,
         padding: theme.spacing.md,
@@ -54,4 +57,4 @@ const styles = StyleSheet.create({
         color: theme.colors.textLight,
         marginTop: 2,
     },
-});
+}));

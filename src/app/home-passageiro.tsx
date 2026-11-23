@@ -1,3 +1,5 @@
+import { themedStyles } from '../styles/themedStyles';
+import { useThemeRevision } from '../hooks/useThemeRevision';
 import { HeaderHome } from '../components/HeaderHome';
 import { useAppAlert } from '../contexts/AppAlertContext';
 import { CardsTurmasPassageiro } from '../components/cards/CardsTurmasPassageiro';
@@ -38,6 +40,7 @@ interface Coordenadas {
 }
 
 export default function HomePassageiro() {
+    const darkMode = useThemeRevision() === 'dark';
     const Alert = useAppAlert();
     const { user } = useAuth();
     const router = useRouter();
@@ -345,7 +348,7 @@ export default function HomePassageiro() {
 
     return (
         <View style={globalStyles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+            <StatusBar barStyle={darkMode ? "light-content" : "dark-content"} backgroundColor="transparent" translucent />
 
             <HeaderHome nome={user.nome} />
 
@@ -487,7 +490,7 @@ export default function HomePassageiro() {
     );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
     center: {
         flex: 1,
         justifyContent: 'center',
@@ -783,4 +786,4 @@ const styles = StyleSheet.create({
         fontSize: 16,
         letterSpacing: 0.5,
     },
-});
+}));

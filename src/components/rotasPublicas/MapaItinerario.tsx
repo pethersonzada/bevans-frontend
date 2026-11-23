@@ -1,3 +1,5 @@
+import { themedStyles } from '../../styles/themedStyles';
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import MapboxGL from '@rnmapbox/maps';
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -5,6 +7,7 @@ import type { PontoItinerario } from '../../services/itinerarioRotaPublica';
 import { theme } from '../../styles/theme';
 type Props={pontos:PontoItinerario[];selecionado:string|null;onSelect:(key:string)=>void;onMove?:(key:string,latitude:number,longitude:number)=>void};
 export function MapaItinerario({pontos,selecionado,onSelect,onMove}:Props) {
+    useThemeRevision();
     const camera=useRef<MapboxGL.Camera>(null),annotations=useRef<Record<string,MapboxGL.PointAnnotation|null>>({});
     const [ready,setReady]=useState(false);
     const selected=pontos.find(p=>p.chave===selecionado);
@@ -31,4 +34,4 @@ export function MapaItinerario({pontos,selecionado,onSelect,onMove}:Props) {
         </MapboxGL.MapView>
     </View>;
 }
-const styles=StyleSheet.create({map:{height:330,borderRadius:18,overflow:'hidden',backgroundColor:theme.colors.map.background},empty:{padding:24,alignItems:'center',justifyContent:'center'},emptyText:{color:theme.colors.map.text,fontSize:15,lineHeight:23,textAlign:'center'},marker:{height:44,width:44,borderRadius:22,alignItems:'center',justifyContent:'center'},markerText:{fontSize:17,fontWeight:'700',color:'#fff'}});
+const styles=themedStyles(() => StyleSheet.create({map:{height:330,borderRadius:18,overflow:'hidden',backgroundColor:theme.colors.map.background},empty:{padding:24,alignItems:'center',justifyContent:'center'},emptyText:{color:theme.colors.map.text,fontSize:15,lineHeight:23,textAlign:'center'},marker:{height:44,width:44,borderRadius:22,alignItems:'center',justifyContent:'center'},markerText:{fontSize:17,fontWeight:'700',color:'#fff'}}));

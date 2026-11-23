@@ -1,3 +1,5 @@
+import { themedStyles } from '../../styles/themedStyles';
+import { useThemeRevision } from '../../hooks/useThemeRevision';
 import { useAppAlert } from '../../contexts/AppAlertContext';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
@@ -14,6 +16,7 @@ type Props = {
 };
 
 export function PainelTurmaSelecionada({ turma, onAtualizarTurma }: Props) {
+    useThemeRevision();
     const Alert = useAppAlert();
     const [carregandoCodigo, setCarregandoCodigo] = useState(false);
     const [copiado, setCopiado] = useState(false);
@@ -123,7 +126,7 @@ export function PainelTurmaSelecionada({ turma, onAtualizarTurma }: Props) {
     );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
     card: {
         backgroundColor: theme.colors.surface,
         padding: theme.spacing.md,
@@ -205,4 +208,4 @@ const styles = StyleSheet.create({
         fontWeight: theme.typography.weight.bold,
         fontSize: theme.typography.size.small,
     },
-});
+}));
