@@ -52,3 +52,26 @@ test('falha na revisão anterior ao POST não é apresentada como uma partida po
  const h=harness('src/components/rotasPublicas/OperacaoRotaPublica.tsx',{resources:()=>({data:{status:'INATIVA'},reload(){}}),extras:{'../../services/inicioRotaPublica':{revisarInicioPublico:async()=>review,iniciarTrechoPublico:async()=>{throw Error('Os pedidos mudaram. Revise novamente.');}}}});
  const props={rota,bloqueada:false,offline:false};find(h.render('OperacaoRotaPublica',props),'Revisar viagem IDA').props.onPress();await new Promise(setImmediate);find(h.render('OperacaoRotaPublica',props),'Confirmar início IDA').props.onPress();await new Promise(setImmediate);const t=h.render('OperacaoRotaPublica',props);assert.equal(find(t,'Conferir início da rota'),undefined);assert.equal(find(t,'Confirmar início IDA').props.disabled,false);h.unmount();
 });
+
+test('revisão antiga deixa de oferecer confirmação após servidor informar viagem ativa',async()=>{
+ const rota=fixture({publicada:true,horarioVolta:'23:59'});
+ let status='INATIVA';
+ const review={rota,sentido:'IDA',data:'2026-11-18',pontos:[{nome:'Origem'},{nome:'Destino'}],aprovados:0};
+ const h=harness('src/components/rotasPublicas/OperacaoRotaPublica.tsx',{
+  resources:()=>({data:{status,sentido:'IDA'},error:'',reload(){}}),
+  extras:{'../../services/inicioRotaPublica':{
+   revisarInicioPublico:async()=>review,
+   iniciarTrechoPublico:async()=>{throw Error('Não deveria tentar iniciar novamente');},
+   confirmarExecucaoPublica:async()=>({viagemId:42,sentido:'IDA'})
+  }}
+ });
+ const props={rota,bloqueada:false,offline:false};
+ find(h.render('OperacaoRotaPublica',props),'Revisar viagem IDA').props.onPress();
+ await new Promise(setImmediate);
+ assert.ok(find(h.render('OperacaoRotaPublica',props),'Confirmar início IDA'));
+ status='ATIVA';
+ const updated=h.render('OperacaoRotaPublica',props);
+ assert.equal(find(updated,'Confirmar início IDA'),undefined);
+ assert.ok(find(updated,'Abrir navegação'));
+ h.unmount();
+});

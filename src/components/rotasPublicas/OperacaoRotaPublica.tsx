@@ -29,7 +29,7 @@ export function OperacaoRotaPublica({ rota, bloqueada, offline }: { rota: RotaPu
         router.push(controle?{pathname:'/controle-viagem',params:{tipo:'VIAGEM',id:String(confirmada.viagemId)}}:{pathname:'/mapa',params:{modalidade:'PUBLICA',rotaId:String(rota.id),turmaId:String(rota.turmaId),viagemId:String(confirmada.viagemId),sentido:confirmada.sentido!.toLowerCase()}});
     };
     return <View style={{gap:16}}>
-        <Text style={ui.body}>Data operacional: {dataLocal().split('-').reverse().join('/')} · O início utiliza o dia atual do servidor.</Text>
+        <Text style={ui.body}>Data para revisão: {dataLocal().split('-').reverse().join('/')} (relógio do aparelho). O servidor confirma a operação ao iniciar.</Text>
         {!!erro&&<Notice>{erro}</Notice>}
         {estado.error?<AsyncState message={estado.error} onRetry={estado.reload}/>:!estado.data?<RemoteLoading/>:null}
         {incerto&&<><Notice>O início pode ter sido registrado. Confira o servidor antes de qualquer nova tentativa.</Notice><ActionButton title="Conferir início da rota" disabled={busy||offline} onPress={()=>void run(async()=>{const atual=await consultarEstadoViagem(rota.turmaId);if(mounted.current){setIncerto(false);setRevisao(null);}if(atual.status==='ATIVA')await navegar(false);})}/></>}
@@ -45,7 +45,7 @@ export function OperacaoRotaPublica({ rota, bloqueada, offline }: { rota: RotaPu
                     {impedimento&&<Text style={ui.body}>{impedimento}</Text>}
                     {!impedimento&&<ActionButton title={`Revisar viagem ${sentido}`} disabled={busy||offline||incerto||!estado.data||!!estado.error} onPress={()=>void run(async()=>{const r=await revisarInicioPublico(rota,sentido);if(mounted.current)setRevisao(r);})}/>}
                 </>}
-                {revisao?.sentido===sentido&&<>
+                {revisao?.sentido===sentido && !ativa && !impedimento && estado.data?.status !== 'ATIVA' && <>
                     <Text style={ui.label}>Revisão confirmada pelo servidor</Text><Text style={ui.body}>{revisao.aprovados} embarques aprovados · {revisao.pontos.length-2} pontos intermediários</Text>
                     {revisao.pontos.map((p,i)=><Text key={i} style={ui.body}>{i+1}. {p.nome}</Text>)}
                     <ActionButton variant="primary" title={`Confirmar início ${sentido}`} disabled={busy||offline||incerto||bloqueada} onPress={()=>void run(async()=>{
