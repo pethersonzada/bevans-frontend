@@ -9,11 +9,11 @@ import { useFocusedPolling } from '../hooks/useFocusedPolling';
 import { consultarGps,posicaoRecente,publicarGps } from '../services/rastreamento';
 import { errorMessage } from '../config/api';
 import MapaPreviaPublica from './MapaPreviaPublica';
-export function RastreamentoViagem({tipo,id,motorista}:{tipo:string;id:string;motorista:boolean}) {
+export function RastreamentoViagem({tipo,id,motorista,onFinalizada}:{tipo:string;id:string;motorista:boolean;onFinalizada?:()=>void}) {
     useThemeRevision();
     const focused=useIsFocused();const [compartilhar,setCompartilhar]=useState(false),[erro,setErro]=useState(''),[agora,setAgora]=useState(Date.now());
     const [finalizada,setFinalizada]=useState(false);
-    const {data,error}=useRemoteResource(finalizada?false:`gps:${tipo}:${id}`,async signal=>{const p=await consultarGps(tipo,id,signal);if(!signal.aborted&&p.estado==='FINALIZADA'){setFinalizada(true);setCompartilhar(false);}return p;},10000);
+    const {data,error}=useRemoteResource(finalizada?false:`gps:${tipo}:${id}`,async signal=>{const p=await consultarGps(tipo,id,signal);if(!signal.aborted&&p.estado==='FINALIZADA'){setFinalizada(true);setCompartilhar(false);onFinalizada?.();}return p;},10000);
     useEffect(()=>{if(!focused)return;const timer=setInterval(()=>setAgora(Date.now()),1000);return()=>clearInterval(timer);},[focused]);
     useFocusedPolling(async signal=>{
         try {const permission=await Location.getForegroundPermissionsAsync();if(signal.aborted)return;if(permission.status!=='granted')throw new Error('Permissão de localização revogada.');

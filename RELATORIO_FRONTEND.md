@@ -233,3 +233,32 @@ Check completo da árvore: arquitetura, TypeScript e 379 testes aprovados. Inclu
 as cinco modificações externas. Bundle e nova extração limpa seguem para o final
 do lote. #31/#40/#45 continuam abertas pelos demais critérios, inclusive campo,
 sessão expirada e matriz de turmas/contas. Nenhum backend alterado ou push.
+
+### FLEXÍVEL/VOLTA e bloqueio após encerramento
+
+Turma 12/rota pública 5, somente a conta passageira autorizada. Vínculo aprovado
+na interface motorista; pedido 6 rejeitado e «Pedido recusado» observado no segundo
+emulador. Passageiro criou o pedido 9/VOLTA com pin público explicitamente
+confirmado; motorista aprovou pela interface. Revisão e início nativos geraram
+viagem 76/PUBLICA/VOLTA. Snapshot: quatro pontos, um esperado, extremos públicos
+invertidos e ponto excepcional próprio presente. Pedidos 7 (24/11/VOLTA) e 8
+(23/11/IDA), preparados/aprovados via serviços HTTP para controle, ficaram fora.
+Geometria nativa de 76 contém PARADA:6, EXCEPCIONAL e DESTINO. O mapa mostrou
+ROTA VOLTA e parada pública; passageiro mostrou viagem em andamento e localização
+indisponível/desatualizada, sem confundir isso com encerramento.
+
+76 encerrada pelo mapa e conferida FINALIZADA/INATIVA; rota 5 despublicada ao fim.
+Timeouts nativos continuaram; GPS recente neste trecho público não foi confirmado.
+Lotação com outra conta e aparelho físico seguem pendentes. Registros sanitizados
+em `docs/evidencias/frontend-2026-11-23/quinto-publico.json`; capturas com identificação
+permanecem locais. #44 atualizada e mantida aberta pelos critérios restantes.
+
+Achado nativo em 76 já encerrada: o controle próprio mostrava «Viagem encerrada»
+mas mantinha Embarquei habilitado. O encerramento oficial recebido na consulta de
+GPS agora bloqueia as ações do painel e fecha confirmação aberta; callbacks
+anteriores também verificam o bloqueio atual. Nenhuma consulta extra ou aprovação
+por GPS foi adicionada. Três regressões cobrem encerramento, leitura cancelada,
+GPS ausente e callbacks antigos. Nove testes operacionais direcionados aprovados;
+check da árvore aprovado em 382 testes (inclui alterações externas), antes do
+ajuste posterior de rótulos acessíveis da excursão. Reteste nativo e bundle final
+registrados na etapa seguinte.

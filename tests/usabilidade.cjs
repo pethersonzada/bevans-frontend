@@ -4,7 +4,7 @@ const nodes=t=>!t||typeof t!=='object'?[]:[t,...[t.props?.children].flat(Infinit
 const texts=t=>nodes(t).filter(n=>n.type==='Text').map(n=>[n.props.children].flat(Infinity).join('')).join(' ');
 function painelHarness(motorista=true,{tipo='VIAGEM',snapshot=null,excursaoId}={}){
     const slots=[];let cursor=0,reloads=0,finish;const calls=[];
-    const react={useState:initial=>{const i=cursor++;if(!(i in slots))slots[i]=initial;return [slots[i],v=>slots[i]=typeof v==='function'?v(slots[i]):v];},useRef:value=>{const i=cursor++;return slots[i]??(slots[i]={current:value});},useEffect:()=>{}};
+    const react={useState:initial=>{const i=cursor++;if(!(i in slots))slots[i]=initial;return [slots[i],v=>slots[i]=typeof v==='function'?v(slots[i]):v];},useRef:value=>{const i=cursor++;return slots[i]??(slots[i]={current:value});},useEffect:()=>{},useCallback:fn=>fn};
     const e=(type,props)=>({type,props}),theme={colors:{}};
     const real=load('src/services/operacoes.ts',{'../config/api':{},'./catalogo':{recursoId:Number}});
     const record={id:8,nome:'Ana',estado:'AGUARDANDO',versao:2,ordem:1};

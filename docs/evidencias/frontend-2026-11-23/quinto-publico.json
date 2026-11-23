@@ -1,0 +1,252 @@
+{
+  "data": "2026-11-23",
+  "ambiente": "Dois emuladores Android independentes, APK existente e Metro 8083",
+  "rotaId": 5,
+  "turmaId": 12,
+  "viagemId": 76,
+  "nativo": [
+    "vínculo aprovado",
+    "pedido 6 rejeitado e estado próprio observado",
+    "pedido 9 criado com pin confirmado e aprovado",
+    "revisão e início VOLTA",
+    "mapa com parada pública",
+    "encerramento"
+  ],
+  "httpControle": [
+    "pedido 7 outra data",
+    "pedido 8 outro sentido",
+    "404 despublicada",
+    "400 parada inativa",
+    "409 horário passado"
+  ],
+  "limites": [
+    "GPS público recente não confirmado neste trecho",
+    "capacidade com outra conta pendente",
+    "timeouts intermitentes"
+  ],
+  "cache": [
+    {
+      "tipo": "geometria",
+      "turmaId": 12,
+      "viagemId": 76,
+      "sentido": "VOLTA",
+      "confirmacao": null,
+      "chaves": [
+        "1:PARADA:6",
+        "2:EXCEPCIONAL:",
+        "3:DESTINO:"
+      ],
+      "campos": [
+        "paradas",
+        "pendentes"
+      ]
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-11-23T13:27:52.665Z",
+      "step": "pedidos-proprios",
+      "rotaId": 5,
+      "pedidos": [
+        {
+          "id": 6,
+          "status": "PENDENTE",
+          "sentido": "VOLTA",
+          "data": "2026-11-23",
+          "paradaDeTeste": false
+        }
+      ]
+    },
+    {
+      "at": "2026-11-23T13:33:38.937Z",
+      "step": "erros-publicos-restaurados",
+      "rotaId": 5,
+      "paradaId": 6,
+      "publicada": true
+    },
+    {
+      "at": "2026-11-23T13:43:28.649Z",
+      "step": "pedido-de-isolamento-aprovado",
+      "rotaId": 5,
+      "pedidoId": 7,
+      "data": "2026-11-24",
+      "sentido": "VOLTA"
+    },
+    {
+      "at": "2026-11-23T13:43:31.565Z",
+      "step": "pedido-de-isolamento-aprovado",
+      "rotaId": 5,
+      "pedidoId": 8,
+      "data": "2026-11-23",
+      "sentido": "IDA"
+    },
+    {
+      "at": "2026-11-23T13:44:08.497Z",
+      "step": "pedidos-proprios",
+      "rotaId": 5,
+      "pedidos": [
+        {
+          "id": 8,
+          "status": "APROVADO",
+          "sentido": "IDA",
+          "data": "2026-11-23",
+          "paradaDeTeste": false
+        },
+        {
+          "id": 7,
+          "status": "APROVADO",
+          "sentido": "VOLTA",
+          "data": "2026-11-24",
+          "paradaDeTeste": false
+        },
+        {
+          "id": 6,
+          "status": "REJEITADO",
+          "sentido": "VOLTA",
+          "data": "2026-11-23",
+          "paradaDeTeste": false
+        }
+      ]
+    },
+    {
+      "at": "2026-11-23T13:48:24.446Z",
+      "step": "pedidos-proprios",
+      "rotaId": 5,
+      "pedidos": [
+        {
+          "id": 8,
+          "status": "APROVADO",
+          "sentido": "IDA",
+          "data": "2026-11-23",
+          "paradaDeTeste": false
+        },
+        {
+          "id": 7,
+          "status": "APROVADO",
+          "sentido": "VOLTA",
+          "data": "2026-11-24",
+          "paradaDeTeste": false
+        },
+        {
+          "id": 6,
+          "status": "REJEITADO",
+          "sentido": "VOLTA",
+          "data": "2026-11-23",
+          "paradaDeTeste": false
+        }
+      ]
+    },
+    {
+      "at": "2026-11-23T13:50:51.270Z",
+      "step": "pedidos-proprios",
+      "rotaId": 5,
+      "pedidos": [
+        {
+          "id": 8,
+          "status": "APROVADO",
+          "sentido": "IDA",
+          "data": "2026-11-23",
+          "paradaDeTeste": false
+        },
+        {
+          "id": 7,
+          "status": "APROVADO",
+          "sentido": "VOLTA",
+          "data": "2026-11-24",
+          "paradaDeTeste": false
+        },
+        {
+          "id": 6,
+          "status": "REJEITADO",
+          "sentido": "VOLTA",
+          "data": "2026-11-23",
+          "paradaDeTeste": false
+        }
+      ]
+    },
+    {
+      "at": "2026-11-23T13:51:49.638Z",
+      "step": "pedidos-proprios",
+      "rotaId": 5,
+      "pedidos": [
+        {
+          "id": 9,
+          "status": "PENDENTE",
+          "sentido": "VOLTA",
+          "data": "2026-11-23",
+          "paradaDeTeste": false
+        },
+        {
+          "id": 8,
+          "status": "APROVADO",
+          "sentido": "IDA",
+          "data": "2026-11-23",
+          "paradaDeTeste": false
+        },
+        {
+          "id": 7,
+          "status": "APROVADO",
+          "sentido": "VOLTA",
+          "data": "2026-11-24",
+          "paradaDeTeste": false
+        },
+        {
+          "id": 6,
+          "status": "REJEITADO",
+          "sentido": "VOLTA",
+          "data": "2026-11-23",
+          "paradaDeTeste": false
+        }
+      ]
+    },
+    {
+      "at": "2026-11-23T13:54:17.416Z",
+      "step": "pedido-volta-proprio",
+      "pedidoId": 9,
+      "status": "APROVADO"
+    },
+    {
+      "at": "2026-11-23T13:55:54.327Z",
+      "step": "pedido-volta-proprio",
+      "pedidoId": 9,
+      "status": "APROVADO"
+    },
+    {
+      "at": "2026-11-23T13:56:34.202Z",
+      "step": "pedido-volta-proprio",
+      "pedidoId": 9,
+      "status": "APROVADO"
+    },
+    {
+      "at": "2026-11-23T13:56:35.642Z",
+      "step": "snapshot-flexivel-volta",
+      "viagemId": 76,
+      "pontos": 4,
+      "esperados": 1,
+      "extremosInvertidos": true,
+      "pontoExcepcionalProprio": true,
+      "outrosDiasESentidosExcluidos": true
+    },
+    {
+      "at": "2026-11-23T13:56:36.460Z",
+      "step": "operacao-propria-flexivel",
+      "viagemId": 76,
+      "estado": "AGUARDANDO"
+    },
+    {
+      "at": "2026-11-23T13:58:39.937Z",
+      "step": "pedido-volta-proprio",
+      "pedidoId": 9,
+      "status": "APROVADO"
+    },
+    {
+      "at": "2026-11-23T13:59:08.500Z",
+      "step": "flexivel-finalizada-despublicada",
+      "rotaId": 5,
+      "turmaId": 12,
+      "ultimaViagemId": 76,
+      "publicada": false,
+      "status": "INATIVA"
+    }
+  ]
+}

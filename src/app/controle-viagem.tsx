@@ -1,6 +1,6 @@
 import { themedStyles } from '../styles/themedStyles';
 import { useThemeRevision } from '../hooks/useThemeRevision';
-﻿import { useEffect, useRef, useState } from 'react';
+﻿import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ScrollView, Text, Pressable, View, TextInput, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -28,13 +28,16 @@ export function Painel({ tipo, id, motorista, excursaoId }: { tipo: string; id: 
         catch (e) { throw new Error(mensagemErroOperacao(e,'consulta')); }
     }, 10000);
     const execucao=useRemoteResource(tipo==='EXCURSAO'&&motorista&&excursaoId?`snapshot-excursao:${excursaoId}:${id}`:false,signal=>buscarExecucaoExcursao(Number(excursaoId),Number(id),signal),10000);
-    const operacaoBloqueada=tipo==='EXCURSAO'&&motorista&&(!execucao.data||execucao.data.estado!=='EM_ANDAMENTO');
+    const [finalizada,setFinalizada]=useState(false);
+    const operacaoBloqueada=finalizada||(tipo==='EXCURSAO'&&motorista&&(!execucao.data||execucao.data.estado!=='EM_ANDAMENTO'));
     const [busy, setBusy] = useState(false), [feedback, setFeedback] = useState('');
     const [motivo, setMotivo] = useState(''), [confirmacao, setConfirmacao] = useState<Acao | null>(null);
     const pending = useRef(false), mounted = useRef(true);
+    const bloqueada=useRef(operacaoBloqueada);bloqueada.current=operacaoBloqueada;
+    const aoFinalizar=useCallback(()=>{bloqueada.current=true;setFinalizada(true);setConfirmacao(null);},[]);
     useEffect(() => () => { mounted.current = false; }, []);
     const alterar = async (acao: Acao) => {
-        if (pending.current||operacaoBloqueada) return;
+        if (pending.current||bloqueada.current) return;
         pending.current = true; setBusy(true); setFeedback('');
         try {
             await alterarEstadoOperacional(tipo, id, acao.registro, motorista, acao.estado, acao.correcao ? motivo.trim() : undefined);
@@ -43,6 +46,7 @@ export function Painel({ tipo, id, motorista, excursaoId }: { tipo: string; id: 
         finally { pending.current = false; if (mounted.current) { setConfirmacao(null); reload(); setBusy(false); } }
     };
     const solicitar = (registro: RegistroOperacional, estado: EstadoOperacional, correcao = false) => {
+        if(bloqueada.current)return;
         const acao = { registro, estado, correcao };
         if (estado === 'EMBARCADO') void alterar(acao); else setConfirmacao(acao);
     };
@@ -88,7 +92,7 @@ export function Painel({ tipo, id, motorista, excursaoId }: { tipo: string; id: 
                 </> : <Text style={{ color: theme.colors.text }}>Em caso de toque acidental, peça uma correção ao motorista.</Text>}
             </View>)}
         </>}
-        {(tipo === 'VIAGEM' || motorista) && <RastreamentoViagem key={`${tipo}:${id}`} tipo={tipo} id={id} motorista={motorista} />}
+        {(tipo === 'VIAGEM' || motorista) && <RastreamentoViagem key={`${tipo}:${id}`} tipo={tipo} id={id} motorista={motorista} onFinalizada={aoFinalizar} />}
     </ScrollView></SafeAreaView>;
 }
 const styles = themedStyles(() => StyleSheet.create({
