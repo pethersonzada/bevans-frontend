@@ -1,0 +1,55 @@
+{
+  "data": "2026-11-23",
+  "commit": "e5790b175ddb92b4065c05dc2c926eb87eefef73",
+  "limpo": {
+    "origem": "git archive",
+    "semAlteracoesExternas": true,
+    "semDotenv": true,
+    "dependencias": "node_modules instalado, compartilhado por junction; sem novo npm ci",
+    "arquitetura": true,
+    "typeScript": true,
+    "testes": 381,
+    "aprovados": 381,
+    "falhas": 0,
+    "bundleAndroid": true,
+    "hashCheck": "95d95a87c2c4cc780380e644fcab36ec3f9756204efb785a5d0e646169e62058",
+    "hashBundle": "7f72fad935b31a3671719bfd66f3c070b931486ab1babe797487accd6fa10877"
+  },
+  "arvoreComCincoAlteracoesExternas": {
+    "arquitetura": true,
+    "typeScript": true,
+    "testes": 382,
+    "aprovados": 382,
+    "falhas": 0,
+    "bundleAndroid": true,
+    "hashCheck": "93d1fb0951ca7cc20a6488b2ec9df0c4df48a9b1ad7ddc184296ccf38fa8e533",
+    "hashBundle": "379754cd739b275371ab2137c852cfab91485ed3b33fbce235451f418ea86f42"
+  },
+  "issuesAbertas": 34,
+  "encerradasNesteLote": [],
+  "dependenciasBackendAbertas": [
+    68,
+    69
+  ],
+  "ambienteRestaurado": {
+    "hostNativo": "vazio original",
+    "metroOriginal": {
+      "porta": 8081,
+      "pid": 21692,
+      "preservado": true
+    },
+    "metroTeste8083": "encerrado",
+    "emuladorIsolado5556": "encerrado",
+    "fonte": 1,
+    "tamanho": "1080x2340",
+    "tema": "Sistema; Android claro",
+    "talkBack": "desativado, configuração original",
+    "notificacoesTalkBack": "permissão temporária revogada"
+  },
+  "viagensSinteticasAtivas": 0,
+  "rota5Publicada": false,
+  "excursao8": "CANCELADA",
+  "convitesExcursao8": "todos revogados",
+  "push": false,
+  "backendModificado": false
+}

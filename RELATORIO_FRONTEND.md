@@ -308,3 +308,50 @@ Desembarquei ficaram desabilitados junto de Viagem encerrada. Force-stop e nova
 abertura do controle próprio preservaram sessão e bloqueio. Isso amplia o teste
 de troca de papel, sem completar cache legado, mudança de endereço ou duas contas
 passageiras distintas. Captura sem identificação em `quinto-76-encerrada.png`.
+
+### Fechamento verificável do quinto lote
+
+- `7683487` — Registrando a validação do cache por execução.
+- `c697a64` — Preservando pedidos de embarque durante falhas de consulta.
+- `9979996` — Respeitando o intervalo do GPS e conferindo a operação do passageiro.
+- `39331e6` — Bloqueando confirmações após o encerramento e validando a volta pública.
+- `e5790b1` — Validando convites e tornando a escolha de embarque acessível.
+
+`node scripts/validar-commit.cjs HEAD` foi executado de ponta a ponta sobre
+`e5790b175ddb92b4065c05dc2c926eb87eefef73`: git archive limpo, sem .env e sem as
+alterações externas; arquitetura, TypeScript, **381 testes e bundle Android
+Metro/Hermes aprovados**. Dependências compartilhadas por junction, sem npm ci
+novo. Logs locais na extração `.expo/validacao-commits/e5790b175ddb92b4065c05dc2c926eb87eefef73-1795444143167`.
+Verificação anterior do baseline 1b7c362 passou em 374 testes e bundle.
+
+Árvore com as cinco alterações externas: **382 testes, arquitetura, TypeScript
+e bundle Android aprovados**. Logs `.expo/quinto-check-382-final.log` e
+`.expo/quinto-bundle-arvore.log`. São resultados distintos; o teste adicional
+externo não foi incluído nos commits. Resumo e hashes dos logs em
+`docs/evidencias/frontend-2026-11-23/quinto-validacao-final.json`. O commit de
+fechamento altera somente documentação/evidências; o código é o de e5790b1.
+
+As 34 issues foram reconsultadas ao fechar; nenhuma encerrada neste lote.
+Atualizadas #6, #16, #31, #35, #40, #44, #45 e a evidência de testes em #7.
+O cenário obrigatório 73 visitada → 74 nova IDA passou, mas #40 ainda requer cache
+legado, alteração de endereço e matriz restante. #44 ainda requer lotação com outra
+conta e demais erros visualmente; #45 ainda requer matriz completa simultânea,
+background/401/403/TTL GPS, duas turmas e campo. #31 mantém pendências operacionais;
+#16/#35 não equivalem ao aceite dos três modos, iOS ou inscrição completa.
+Backend #68 e #69 reconsultadas e abertas; nenhum código/configuração backend
+alterado. Falta de configuração de mapa web registrada em webapp #14.
+
+Todos os recursos sintéticos conferidos sem viagem ativa; rota 5 despublicada,
+excursão 8 cancelada, convites 7/8/9 revogados. Conta motorista restaurada no
+principal. Host de debug voltou a vazio; Home utilizável no Metro original 8081,
+PID 21692 preservado. Metro dedicado 8083 e emulador isolado encerrados;
+redirecionamento 8083 removido. Fonte 1.0, tamanho 1080x2340, tema Sistema/Android
+claro e acessibilidade originais conferidos. Permissão temporária de notificações
+do TalkBack voltou a negada; sem avaliação auditiva ou aparelho físico.
+
+Fetch final confirmou 12 commits locais exclusivos e um remoto exclusivo antes
+deste registro final; o remoto d910667 continua somente README. Com este commit
+documental, são 13 locais/um remoto. Não houve merge, branch, push ou novo APK.
+Permanecem exatamente as cinco modificações externas, preservadas e fora dos
+commits: notificações, botões do motorista, operação pública, cadastro de turma
+e teste público correspondente.
