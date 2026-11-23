@@ -77,6 +77,9 @@ async function inspect(){
   const ownPoint=points.find(p=>p.passageiros?.some(a=>a.id===passenger.id));
   const matches=!!expectedAddress&&!!ownPoint&&Math.abs(ownPoint.latitude-expectedAddress.latitude)<1e-7&&Math.abs(ownPoint.longitude-expectedAddress.longitude)<1e-7;
   check(matches,'O ponto do snapshot não corresponde ao endereço confirmado para este sentido.');
+  const prefix=driver.sentido==='IDA'?'origem':'destino';
+  if(Math.abs(ownPoint.latitude-t[prefix+'Latitude'])<1e-7&&Math.abs(ownPoint.longitude-t[prefix+'Longitude'])<1e-7)
+   fs.writeFileSync(path.join(out,'gps-ponto-atual.json'),JSON.stringify({latitude:ownPoint.latitude,longitude:ownPoint.longitude}));
   record('execucao-conferida',{turmaId:t.id,viagemId:driver.viagemId,sentido:driver.sentido,pontos:points.length,esperados:panel.contadores.esperados,passageiroIncluido:included,pontoDoEnderecoCorreto:matches,estadoProprio:self.estado});
   const location=await call('passageiro',`/viagens/${driver.viagemId}/localizacao`);
   record('gps-autorizado',{viagemId:driver.viagemId,estado:location?.estado||'SEM_RESPOSTA',observadoEm:location?.observadoEm||null});

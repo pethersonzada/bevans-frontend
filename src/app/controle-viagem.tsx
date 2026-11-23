@@ -25,7 +25,7 @@ export function Painel({ tipo, id, motorista, excursaoId }: { tipo: string; id: 
     const router = useRouter();
     const { data, error, reload } = useRemoteResource(`operacao:${tipo}:${id}:${motorista}`, async signal => {
         try { return await consultarOperacao(tipo, id, motorista, signal); }
-        catch (e) { throw new Error(mensagemErroOperacao(e)); }
+        catch (e) { throw new Error(mensagemErroOperacao(e,'consulta')); }
     }, 10000);
     const execucao=useRemoteResource(tipo==='EXCURSAO'&&motorista&&excursaoId?`snapshot-excursao:${excursaoId}:${id}`:false,signal=>buscarExecucaoExcursao(Number(excursaoId),Number(id),signal),10000);
     const operacaoBloqueada=tipo==='EXCURSAO'&&motorista&&(!execucao.data||execucao.data.estado!=='EM_ANDAMENTO');
@@ -52,7 +52,7 @@ export function Painel({ tipo, id, motorista, excursaoId }: { tipo: string; id: 
     return <SafeAreaView style={styles.screen}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {botao('Voltar', () => router.back())}
         <Text style={styles.title} accessibilityRole="header">Controle da viagem</Text>
-        <Text style={{ color: theme.colors.text }}>{tipo === 'EXCURSAO' ? 'Excursão' : 'Viagem'} · {data && 'sentido' in data ? data.sentido : ''}</Text>
+        <Text style={{ color: theme.colors.text }}>{tipo === 'EXCURSAO' ? 'Excursão' : 'Viagem'} #{id}{data && 'sentido' in data ? ` · ${data.sentido}` : ''}</Text>
         <Text style={{ color: theme.colors.text }}>GPS e presença planejada não confirmam embarque.</Text>
         <Text style={{ color: theme.colors.text }} accessibilityLiveRegion="polite">{feedback}</Text>
         {tipo==='EXCURSAO'&&motorista&&<>

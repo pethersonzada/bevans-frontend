@@ -733,7 +733,7 @@ export default function Mapa() {
         } catch (error) {
             if (!signal.aborted && montadoRef.current && execucao === execucaoRef.current && leitura === leituraOperacaoRef.current) {
                 setPainelOperacional(null);
-                setFeedbackParada(mensagemErroOperacao(error));
+                setFeedbackParada(mensagemErroOperacao(error,'consulta'));
             }
         } finally {
             if (reconciliando) {
@@ -790,7 +790,7 @@ export default function Mapa() {
             }
             setFeedbackParada(`Parada concluída: ${ponto.nome}.`);
         } catch (error) {
-            if (montadoRef.current && execucao === execucaoRef.current) setFeedbackParada(mensagemErroOperacao(error));
+            if (montadoRef.current && execucao === execucaoRef.current) setFeedbackParada(mensagemErroOperacao(error,'consulta'));
         } finally {
             confirmandoParadaRef.current = false;
             if (montadoRef.current) setConfirmandoParada(false);

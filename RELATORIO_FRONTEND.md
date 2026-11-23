@@ -202,3 +202,34 @@ e horário restaurados. Isso não substitui aceite visual dos três erros ou lot
 com outra conta passageira. Nenhum endpoint de motorista foi consultado como
 passageiro. Check da árvore durante esta etapa: arquitetura, TypeScript e 378
 testes aprovados; alterações externas incluídas. Bundle final ainda pendente.
+
+### GPS e operação própria em dois emuladores
+
+Na VOLTA 75, comparação autorizada confirmou o endereço VOLTA distinto e três
+pontos com um esperado; geometria separada de IDA/73. Após recarregar o bundle,
+GPS simulado no local público foi publicado. Não houve nova rejeição por intervalo
+no trecho observado, sem atribuir resolução definitiva aos timeouts de rede.
+
+Reproduzida rejeição de GPS por intervalo mínimo: o emissor contava cinco segundos
+desde o começo da requisição, permitindo envio imediatamente após uma resposta
+demorada. Agora aguarda cinco segundos após o término, tanto em sucesso como em
+falha, sem fila de amostras antigas. Dois testes falharam antes e passaram depois.
+
+Controle passageiro passou a mostrar a referência da execução (#75), inclusive
+quando a resposta própria não informa sentido. Timeout de GET agora informa
+consulta demorada; somente falha de escrita alerta para confirmação possivelmente
+registrada. Mesma distinção nas consultas do painel do mapa.
+
+75: sem Wi-Fi/dados, Embarquei mostrou erro e API manteve AGUARDANDO/versão 0.
+Conectividade original restaurada; embarque pela interface levou a EMBARCADO/1,
+uma pessoa na van. Repetição HTTP do próprio embarque retornou 200 sem incrementar
+versão/contagem; desembarque com versão antiga retornou 409 e preservou EMBARCADO.
+Desembarque pela interface, após revisão, confirmou DESEMBARCADO/2, zero na van e
+um desembarcado. Encerramento nativo e INATIVA conferidos nas duas contas.
+Evidências sem dados pessoais em `quinto-operacao.json`. Duplicidade/conflito de
+contrato via HTTP não são apresentados como conflito reproduzido visualmente.
+
+Check completo da árvore: arquitetura, TypeScript e 379 testes aprovados. Inclui
+as cinco modificações externas. Bundle e nova extração limpa seguem para o final
+do lote. #31/#40/#45 continuam abertas pelos demais critérios, inclusive campo,
+sessão expirada e matriz de turmas/contas. Nenhum backend alterado ou push.

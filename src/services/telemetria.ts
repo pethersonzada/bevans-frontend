@@ -25,7 +25,13 @@ export function createPositionSender(ownerId: string, context: () => Context) {
                 return !controller.signal.aborted && latest.mounted && latest.online && latest.active && latest.userId === ownerId &&
                     latest.turmaId === snapshot.turmaId;
             } finally {
-                if (current === controller) current = null;
+                if (current === controller) {
+                    // A API limita o intervalo entre recebimentos. Uma leitura
+                    // de status lenta antes do PUT não pode liberar nova amostra
+                    // imediatamente após a resposta da anterior.
+                    lastAttempt = Date.now();
+                    current = null;
+                }
             }
         },
         cancel() { current?.abort(); current = null; },

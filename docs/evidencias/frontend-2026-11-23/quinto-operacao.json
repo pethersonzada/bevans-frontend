@@ -1,0 +1,468 @@
+{
+    "data":  "2026-11-23",
+    "turmaId":  10,
+    "viagemId":  75,
+    "sentido":  "VOLTA",
+    "contexto":  "Dois emuladores independentes; APK existente, JavaScript atual; alterações externas preservadas",
+    "passos":  [
+                   "GET próprio e painel motorista: AGUARDANDO, versão 0, um esperado",
+                   "Wi-Fi e dados móveis do emulador passageiro desativados; Embarquei exibiu erro sem sucesso local",
+                   "Após restaurar a conectividade, GET próprio e painel continuaram AGUARDANDO",
+                   "Embarque pela interface após reconectar: EMBARCADO, versão 1, uma pessoa na van",
+                   "Repetição HTTP do próprio embarque com versão antiga: 200, mesma versão e contagem",
+                   "Desembarque HTTP com versão antiga: 409, EMBARCADO preservado",
+                   "Desembarque pela interface com revisão: DESEMBARCADO, versão 2, zero na van e um desembarcado",
+                   "Encerramento pelo mapa; INATIVA conferida pelas duas contas em 2026-11-23T13:39:16.085Z"
+               ],
+    "gps":  {
+                "semNovaRejeicaoNoTrechoObservado":  true,
+                "deslocamentoReal":  false,
+                "recarregadoAposCorrecao":  true,
+                "simulado":  true
+            },
+    "limites":  [
+                    "Sem aceite físico ou iOS",
+                    "Conflito e duplicação de contrato via HTTP; offline e estados próprios também na interface",
+                    "Timeouts intermitentes de consultas continuam sem causa isolada",
+                    "Sem comprovar todos os cenários de sessão expirada, lotação e turmas diferentes"
+                ],
+    "http":  [
+                 {
+                     "at":  "2026-11-23T13:32:22.091Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/motorista/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:32:22.442Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/{id}/passageiros",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:32:22.792Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/rota/status-atual",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:32:23.130Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}/minha",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:32:23.505Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:32:23.506Z",
+                     "step":  "operacao-propria",
+                     "viagemId":  75,
+                     "estado":  "AGUARDANDO",
+                     "versao":  0,
+                     "contadores":  {
+                                        "esperados":  1,
+                                        "aguardando":  1,
+                                        "naVan":  0,
+                                        "naoEmbarcaram":  0,
+                                        "desembarcados":  0
+                                    },
+                     "mesmoEstado":  true
+                 },
+                 {
+                     "at":  "2026-11-23T13:33:19.235Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/motorista/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:33:19.622Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/{id}/passageiros",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:33:20.030Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/rota/status-atual",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:33:20.438Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}/minha",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:33:20.843Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:33:20.844Z",
+                     "step":  "operacao-propria",
+                     "viagemId":  75,
+                     "estado":  "AGUARDANDO",
+                     "versao":  0,
+                     "contadores":  {
+                                        "esperados":  1,
+                                        "aguardando":  1,
+                                        "naVan":  0,
+                                        "naoEmbarcaram":  0,
+                                        "desembarcados":  0
+                                    },
+                     "mesmoEstado":  true
+                 },
+                 {
+                     "at":  "2026-11-23T13:34:35.718Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/motorista/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:34:36.114Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/{id}/passageiros",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:34:36.475Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/rota/status-atual",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:34:36.783Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}/minha",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:34:37.147Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:34:37.147Z",
+                     "step":  "operacao-propria",
+                     "viagemId":  75,
+                     "estado":  "AGUARDANDO",
+                     "versao":  0,
+                     "contadores":  {
+                                        "esperados":  1,
+                                        "aguardando":  1,
+                                        "naVan":  0,
+                                        "naoEmbarcaram":  0,
+                                        "desembarcados":  0
+                                    },
+                     "mesmoEstado":  true
+                 },
+                 {
+                     "at":  "2026-11-23T13:35:28.503Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/motorista/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:35:28.847Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/{id}/passageiros",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:35:29.168Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/rota/status-atual",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:35:29.507Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}/minha",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:35:29.840Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:35:29.843Z",
+                     "step":  "operacao-propria",
+                     "viagemId":  75,
+                     "estado":  "EMBARCADO",
+                     "versao":  1,
+                     "contadores":  {
+                                        "esperados":  1,
+                                        "aguardando":  0,
+                                        "naVan":  1,
+                                        "naoEmbarcaram":  0,
+                                        "desembarcados":  0
+                                    },
+                     "mesmoEstado":  true
+                 },
+                 {
+                     "at":  "2026-11-23T13:35:51.748Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/motorista/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:35:52.094Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/{id}/passageiros",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:35:52.502Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/rota/status-atual",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:35:52.928Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}/minha",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:35:53.322Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:35:53.324Z",
+                     "step":  "operacao-propria",
+                     "viagemId":  75,
+                     "estado":  "EMBARCADO",
+                     "versao":  1,
+                     "contadores":  {
+                                        "esperados":  1,
+                                        "aguardando":  0,
+                                        "naVan":  1,
+                                        "naoEmbarcaram":  0,
+                                        "desembarcados":  0
+                                    },
+                     "mesmoEstado":  true
+                 },
+                 {
+                     "at":  "2026-11-23T13:35:53.731Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "PUT",
+                     "path":  "/operacoes/VIAGEM/{id}/minha/estado",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:35:53.732Z",
+                     "step":  "embarque-duplicado-idempotente",
+                     "viagemId":  75,
+                     "versaoMantida":  true
+                 },
+                 {
+                     "at":  "2026-11-23T13:35:54.095Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "PUT",
+                     "path":  "/operacoes/VIAGEM/{id}/minha/estado",
+                     "status":  409
+                 },
+                 {
+                     "at":  "2026-11-23T13:35:54.405Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/motorista/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:35:54.755Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/{id}/passageiros",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:35:55.164Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/rota/status-atual",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:35:55.562Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}/minha",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:35:55.984Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:35:55.984Z",
+                     "step":  "operacao-propria",
+                     "viagemId":  75,
+                     "estado":  "EMBARCADO",
+                     "versao":  1,
+                     "contadores":  {
+                                        "esperados":  1,
+                                        "aguardando":  0,
+                                        "naVan":  1,
+                                        "naoEmbarcaram":  0,
+                                        "desembarcados":  0
+                                    },
+                     "mesmoEstado":  true
+                 },
+                 {
+                     "at":  "2026-11-23T13:35:55.985Z",
+                     "step":  "conflito-preservou-embarque",
+                     "viagemId":  75,
+                     "status":  409
+                 },
+                 {
+                     "at":  "2026-11-23T13:36:38.223Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/motorista/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:36:38.583Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/{id}/passageiros",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:36:38.993Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/rota/status-atual",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:36:39.402Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}/minha",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:36:39.746Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:36:39.747Z",
+                     "step":  "operacao-propria",
+                     "viagemId":  75,
+                     "estado":  "DESEMBARCADO",
+                     "versao":  2,
+                     "contadores":  {
+                                        "esperados":  1,
+                                        "aguardando":  0,
+                                        "naVan":  0,
+                                        "naoEmbarcaram":  0,
+                                        "desembarcados":  1
+                                    },
+                     "mesmoEstado":  true
+                 },
+                 {
+                     "at":  "2026-11-23T13:37:27.838Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/motorista/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:37:28.247Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/{id}/passageiros",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:37:28.657Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/rota/status-atual",
+                     "status":  200
+                 }
+             ]
+}
