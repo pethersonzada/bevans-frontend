@@ -143,3 +143,5 @@ Fechamento do teste público: a interface passageira exibiu APROVADO para o pedi
 Commit do lote de catálogo: Preservando filtros e validando a jornada das rotas públicas. As 34 issues restantes foram mantidas abertas: avanços de aceite não substituem os critérios ainda pendentes. Dependências de backend #68/#69 reconsultadas e continuam abertas; nenhuma duplicata criada.
 
 Ambiente restaurado: host nativo de debug voltou ao valor original vazio; app reiniciado e Home utilizável no Metro original 8081. Emulador isolado e Metro dedicado 8083 encerrados; redirecionamento adicional 8083 removido. Preferência Sistema e filtros padrão conferidos no Android.
+
+Commits desta continuação: fcb8c24 (quarto lote e contraste), 83aba88 (presença e limpeza), 0c9feeb (filtros e jornada pública). Os 375 testes e o bundle foram executados sobre a árvore de trabalho com as alterações externas preservadas; não equivalem a uma homologação isolada do commit limpo. As 34 issues abertas foram reavaliadas, com atualizações específicas nas afetadas e sem novos fechamentos parciais.
