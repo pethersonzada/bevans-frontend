@@ -145,3 +145,41 @@ Commit do lote de catálogo: Preservando filtros e validando a jornada das rotas
 Ambiente restaurado: host nativo de debug voltou ao valor original vazio; app reiniciado e Home utilizável no Metro original 8081. Emulador isolado e Metro dedicado 8083 encerrados; redirecionamento adicional 8083 removido. Preferência Sistema e filtros padrão conferidos no Android.
 
 Commits desta continuação: fcb8c24 (quarto lote e contraste), 83aba88 (presença e limpeza), 0c9feeb (filtros e jornada pública). Os 375 testes e o bundle foram executados sobre a árvore de trabalho com as alterações externas preservadas; não equivalem a uma homologação isolada do commit limpo. As 34 issues abertas foram reavaliadas, com atualizações específicas nas afetadas e sem novos fechamentos parciais.
+
+## Quinto lote — conferência e regressão nativa de cache
+
+Reconsultadas as 34 issues abertas e seus comentários. Fetch confirmou sete commits
+locais exclusivos e um commit remoto exclusivo, d910667 (somente README). Nenhum
+merge, branch ou push nesta etapa. As cinco alterações externas continuam fora
+dos commits. Backend #68/#69 reconsultadas: abertas; main consultada 018576b.
+
+Verificação isolada de `git archive` do commit 1b7c362: arquitetura, TypeScript,
+374 testes e bundle Android aprovados, sem .env e sem as alterações externas.
+Node_modules instalado compartilhado por junction; não é um npm ci novo.
+A árvore com as cinco alterações externas passou em 375 testes. Novo comando
+`node scripts/validar-commit.cjs HEAD` permite repetir a extração e as verificações.
+
+Turma 10: primeira IDA 73 teve embarque próprio no passageiro independente,
+conclusão manual da parada no motorista, visita MOTORISTA persistida e geometria
+somente com destino pendente. Após force-stop, uma falha de consulta exigiu
+retentativa; a mesma execução retomou o progresso válido. Passageiro restaurou
+EMBARCADO e confirmou DESEMBARCADO pela interface com revisão; GET próprio conferiu.
+GPS atualizado foi observado na tela passageira durante a sessão simultânea.
+Encerramento 73 pelo mapa exigiu retentativa; API confirmou INATIVA nas duas contas,
+mas a releitura nativa chegou a informar resultado incerto.
+
+Segunda IDA do mesmo dia, execução 74: um esperado, três pontos, endereço IDA
+conferido por comparação própria e estado AGUARDANDO. Passageiro e waypoint
+reapareceram no mapa; cache de 73 manteve a visita e geometria de 74 voltou a conter
+ponto individual e destino. 74 encerrada e conferida INATIVA. Evidências objetivas
+em `docs/evidencias/frontend-2026-11-23/quinto-cache.json`; capturas identificadas
+das contas e SQLite do aparelho permanecem somente locais.
+
+Dois emuladores independentes foram usados simultaneamente, com APK existente e
+JavaScript do Metro dedicado 8083. Não houve deslocamento real ou aparelho físico.
+Timeouts voltaram a ocorrer; host com aproximadamente 387 MB livres. Redução do
+isolado de 2048 MB/quatro núcleos para 1024 MB/dois núcleos não isolou nem eliminou
+a causa. As issues #40/#45 permanecem abertas para os critérios ainda pendentes.
+O formulário público perdeu a edição durante falha de polling, e GPS recebeu
+rejeição de intervalo mínimo; correções e retestes pertencem às próximas etapas
+deste lote, ainda não a este registro de evidências.

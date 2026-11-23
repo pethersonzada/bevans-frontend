@@ -93,3 +93,42 @@ iniciada nessa continuação; a turma foi novamente conferida INATIVA.
 O ciclo público separado está registrado em RELATORIO_FRONTEND.md e
 `docs/evidencias/frontend-2026-11-23/rota-publica.json`: turma 11, rota 4, execução
 72. A turma pública é um recurso novo e não publica a turma privada 10.
+
+## Quinto lote — cache efetivamente visitado
+
+Em 23/11, turma 10, AMBOS preparado por HTTP próprio com os endereços distintos
+8/9. A execução 73/IDA foi iniciada pelo Android. Emulador principal motorista
+e isolado passageiro permaneceram autenticados simultaneamente. O passageiro
+usou Embarquei; GET próprio e mapa motorista confirmaram EMBARCADO. GPS simulado
+preciso e recente habilitou Concluir; a ação manual gravou a visita individual.
+O armazenamento do aparelho confirmou MOTORISTA e geometria com só o destino
+pendente. Não foi inserida visita diretamente no armazenamento.
+
+Force-stop do motorista preservou o progresso da mesma execução. A primeira
+consulta falhou; após retentativa, o mapa mostrou o destino e o marcador visitado.
+O passageiro manteve EMBARCADO após reiniciar e confirmou Desembarquei com revisão;
+GET próprio retornou DESEMBARCADO. A tela própria chegou a exibir GPS atualizado.
+O encerramento pelo mapa exigiu retentativa; INATIVA foi confirmado nas duas contas,
+embora uma releitura nativa tenha terminado com resultado incerto.
+
+Na segunda IDA do mesmo dia, execução 74, snapshot com três pontos e um esperado,
+estado próprio AGUARDANDO e endereço IDA correto. Mapa voltou a mostrar o passageiro
+e o waypoint. Cache de 73 manteve a visita; geometria de 74 contém ponto individual
+e destino, sem visita herdada. 74 também foi encerrada e conferida INATIVA.
+
+`quinto-cache.json` registra metadados sem nomes ou coordenadas. Capturas e banco
+local do aparelho permanecem ignorados pelo Git. A leitura do banco selecionou
+somente chaves de roteiro da turma de teste; nenhum token foi publicado.
+
+Reapareceram timeouts com dois emuladores. O host teve cerca de 387 MB livres;
+reduzir o isolado de 2048 MB/quatro núcleos para 1024 MB/dois núcleos não eliminou
+as falhas. Não há diagnóstico definitivo de rede, aceite físico ou deslocamento.
+As issues #40/#45 continuam abertas para os demais critérios.
+
+Para verificar o código efetivamente commitado, `node scripts/validar-commit.cjs
+HEAD` extrai `git archive` em `.expo/validacao-commits`, usa o node_modules instalado
+por junction e roda check e bundle sem copiar `.env` ou alterações locais.
+Resultado e logs ficam na extração. Não cria branch nem altera a árvore de trabalho.
+O commit 1b7c362 foi verificado separadamente: 374 testes, arquitetura, TypeScript
+e bundle Android aprovados; a árvore externa tinha 375 testes. Dependências
+compartilhadas não equivalem a uma instalação nova por npm ci.

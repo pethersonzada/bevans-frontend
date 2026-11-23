@@ -1,0 +1,810 @@
+{
+    "data":  "2026-11-23",
+    "base":  "1b7c3623435b81497ce085d01966c35ef7bf385a",
+    "arvoreNativa":  "cinco alterações externas preservadas; JavaScript pelo Metro 8083; APK existente",
+    "automatizadaLimpa":  {
+                              "bundleAndroid":  true,
+                              "testes":  374,
+                              "metodo":  "git archive; dependências locais; sem .env",
+                              "check":  true
+                          },
+    "turmaId":  10,
+    "primeiraExecucao":  73,
+    "segundaExecucao":  74,
+    "mesmoDiaESentido":  true,
+    "conclusaoManualNoApp":  true,
+    "retomadaMesmaExecucao":  true,
+    "waypointReapareceuNoApp":  true,
+    "doisEmuladoresIndependentes":  true,
+    "embarqueEDesembarquePropriosNaExecucao73":  true,
+    "capturas":  "locais em .expo; não publicadas por conter identificação das contas",
+    "limitacoes":  [
+                       "GPS simulado em local público; sem deslocamento real ou aparelho físico",
+                       "Timeouts intermitentes de API, inclusive na retomada e no encerramento",
+                       "Encerramento 73 exigiu retentativa e INATIVA foi conferida separadamente na API",
+                       "Redução do emulador isolado de 2048 MB/4 núcleos para 1024 MB/2 núcleos não isolou a causa",
+                       "Demais critérios das issues 40 e 45 permanecem pendentes"
+                   ],
+    "cache":  [
+                  {
+                      "tipo":  "visitadas",
+                      "turmaId":  10,
+                      "viagemId":  73,
+                      "sentido":  "IDA",
+                      "confirmacao":  "MOTORISTA",
+                      "chaves":  [
+                                     "1:INDIVIDUAL:"
+                                 ]
+                  },
+                  {
+                      "tipo":  "geometria",
+                      "turmaId":  10,
+                      "viagemId":  73,
+                      "sentido":  "IDA",
+                      "confirmacao":  null,
+                      "chaves":  [
+                                     "2:DESTINO:"
+                                 ]
+                  },
+                  {
+                      "tipo":  "geometria",
+                      "turmaId":  10,
+                      "viagemId":  74,
+                      "sentido":  "IDA",
+                      "confirmacao":  null,
+                      "chaves":  [
+                                     "1:INDIVIDUAL:",
+                                     "2:DESTINO:"
+                                 ]
+                  }
+              ],
+    "http":  [
+                 {
+                     "at":  "2026-11-23T12:43:56.514Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/motorista/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T12:43:57.579Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/{id}/passageiros",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T12:43:57.925Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/rota/status-atual",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T12:43:58.275Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/turmas/usuario/{id}/todas",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T12:43:58.623Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/enderecos/usuario/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T12:43:59.446Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "POST",
+                     "path":  "/rota/confirmar",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T12:43:59.797Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/rota/minha-confirmacao",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T12:43:59.799Z",
+                     "step":  "preparacao-confirmada",
+                     "turmaId":  10,
+                     "status":  "AMBOS",
+                     "enderecosDistintos":  true
+                 },
+                 {
+                     "at":  "2026-11-23T12:53:53.217Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/motorista/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T12:53:54.210Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/{id}/passageiros",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T12:53:54.211Z",
+                     "step":  "vinculo-conferido",
+                     "turmaId":  10,
+                     "total":  1,
+                     "passageiroAutorizado":  true,
+                     "confirmados":  1
+                 },
+                 {
+                     "at":  "2026-11-23T12:53:54.551Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/rota/status-atual",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T12:53:54.894Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/rota/status-atual",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T12:53:55.508Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}/roteiro",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T12:53:55.918Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T12:53:56.327Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}/minha",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T12:53:56.329Z",
+                     "step":  "execucao-conferida",
+                     "turmaId":  10,
+                     "viagemId":  73,
+                     "sentido":  "IDA",
+                     "pontos":  3,
+                     "esperados":  1,
+                     "passageiroIncluido":  true,
+                     "estadoProprio":  "AGUARDANDO"
+                 },
+                 {
+                     "at":  "2026-11-23T12:53:56.736Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/viagens/{id}/localizacao",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T12:53:56.738Z",
+                     "step":  "gps-autorizado",
+                     "viagemId":  73,
+                     "estado":  "SEM_LOCALIZACAO",
+                     "observadoEm":  null
+                 },
+                 {
+                     "at":  "2026-11-23T12:57:09.015Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/motorista/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T12:57:10.050Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/{id}/passageiros",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T12:57:10.051Z",
+                     "step":  "vinculo-conferido",
+                     "turmaId":  10,
+                     "total":  1,
+                     "passageiroAutorizado":  true,
+                     "confirmados":  1
+                 },
+                 {
+                     "at":  "2026-11-23T12:57:10.477Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/rota/status-atual",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T12:57:10.827Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/rota/status-atual",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T12:57:11.194Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}/roteiro",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T12:57:11.523Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T12:57:11.911Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}/minha",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T12:57:11.912Z",
+                     "step":  "execucao-conferida",
+                     "turmaId":  10,
+                     "viagemId":  73,
+                     "sentido":  "IDA",
+                     "pontos":  3,
+                     "esperados":  1,
+                     "passageiroIncluido":  true,
+                     "estadoProprio":  "EMBARCADO"
+                 },
+                 {
+                     "at":  "2026-11-23T12:57:12.321Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/viagens/{id}/localizacao",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T12:57:12.322Z",
+                     "step":  "gps-autorizado",
+                     "viagemId":  73,
+                     "estado":  "DESATUALIZADA",
+                     "observadoEm":  "2026-11-23T12:56:37.014Z"
+                 },
+                 {
+                     "at":  "2026-11-23T13:09:24.086Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/motorista/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:09:25.114Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/{id}/passageiros",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:09:25.115Z",
+                     "step":  "vinculo-conferido",
+                     "turmaId":  10,
+                     "total":  1,
+                     "passageiroAutorizado":  true,
+                     "confirmados":  1
+                 },
+                 {
+                     "at":  "2026-11-23T13:09:25.444Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/rota/status-atual",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:09:25.784Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/rota/status-atual",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:09:26.216Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}/roteiro",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:09:26.635Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:09:27.042Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}/minha",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:09:27.043Z",
+                     "step":  "execucao-conferida",
+                     "turmaId":  10,
+                     "viagemId":  73,
+                     "sentido":  "IDA",
+                     "pontos":  3,
+                     "esperados":  1,
+                     "passageiroIncluido":  true,
+                     "estadoProprio":  "DESEMBARCADO"
+                 },
+                 {
+                     "at":  "2026-11-23T13:09:27.353Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/viagens/{id}/localizacao",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:09:27.354Z",
+                     "step":  "gps-autorizado",
+                     "viagemId":  73,
+                     "estado":  "DESATUALIZADA",
+                     "observadoEm":  "2026-11-23T13:04:51.344Z"
+                 },
+                 {
+                     "at":  "2026-11-23T13:11:08.366Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/motorista/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:11:09.543Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/{id}/passageiros",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:11:09.544Z",
+                     "step":  "vinculo-conferido",
+                     "turmaId":  10,
+                     "total":  1,
+                     "passageiroAutorizado":  true,
+                     "confirmados":  1
+                 },
+                 {
+                     "at":  "2026-11-23T13:11:09.953Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/rota/status-atual",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:11:10.363Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/rota/status-atual",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:11:10.741Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}/roteiro",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:11:11.080Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:11:11.399Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}/minha",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:11:11.403Z",
+                     "step":  "execucao-conferida",
+                     "turmaId":  10,
+                     "viagemId":  73,
+                     "sentido":  "IDA",
+                     "pontos":  3,
+                     "esperados":  1,
+                     "passageiroIncluido":  true,
+                     "estadoProprio":  "DESEMBARCADO"
+                 },
+                 {
+                     "at":  "2026-11-23T13:11:11.796Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/viagens/{id}/localizacao",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:11:11.797Z",
+                     "step":  "gps-autorizado",
+                     "viagemId":  73,
+                     "estado":  "DESATUALIZADA",
+                     "observadoEm":  "2026-11-23T13:10:16.547Z"
+                 },
+                 {
+                     "at":  "2026-11-23T13:11:33.256Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/motorista/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:11:34.324Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/{id}/passageiros",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:11:34.325Z",
+                     "step":  "vinculo-conferido",
+                     "turmaId":  10,
+                     "total":  1,
+                     "passageiroAutorizado":  true,
+                     "confirmados":  1
+                 },
+                 {
+                     "at":  "2026-11-23T13:11:34.631Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/rota/status-atual",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:11:35.042Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/rota/status-atual",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:11:35.351Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}/roteiro",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:11:35.742Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:11:36.143Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}/minha",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:11:36.143Z",
+                     "step":  "execucao-conferida",
+                     "turmaId":  10,
+                     "viagemId":  73,
+                     "sentido":  "IDA",
+                     "pontos":  3,
+                     "esperados":  1,
+                     "passageiroIncluido":  true,
+                     "estadoProprio":  "DESEMBARCADO"
+                 },
+                 {
+                     "at":  "2026-11-23T13:11:36.577Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/viagens/{id}/localizacao",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:11:36.578Z",
+                     "step":  "gps-autorizado",
+                     "viagemId":  73,
+                     "estado":  "DESATUALIZADA",
+                     "observadoEm":  "2026-11-23T13:10:16.547Z"
+                 },
+                 {
+                     "at":  "2026-11-23T13:12:39.747Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/motorista/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:12:40.750Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/{id}/passageiros",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:12:40.751Z",
+                     "step":  "vinculo-conferido",
+                     "turmaId":  10,
+                     "total":  1,
+                     "passageiroAutorizado":  true,
+                     "confirmados":  1
+                 },
+                 {
+                     "at":  "2026-11-23T13:12:41.064Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/rota/status-atual",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:12:41.396Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/rota/status-atual",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:12:41.398Z",
+                     "step":  "viagem-inativa-confirmada",
+                     "turmaId":  10
+                 },
+                 {
+                     "at":  "2026-11-23T13:14:37.297Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/motorista/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:14:38.440Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/{id}/passageiros",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:14:38.441Z",
+                     "step":  "vinculo-conferido",
+                     "turmaId":  10,
+                     "total":  1,
+                     "passageiroAutorizado":  true,
+                     "confirmados":  1
+                 },
+                 {
+                     "at":  "2026-11-23T13:14:38.850Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/rota/status-atual",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:14:39.259Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/rota/status-atual",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:14:39.260Z",
+                     "step":  "viagem-inativa-confirmada",
+                     "turmaId":  10
+                 },
+                 {
+                     "at":  "2026-11-23T13:18:36.870Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/motorista/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:18:37.943Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/{id}/passageiros",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:18:37.944Z",
+                     "step":  "vinculo-conferido",
+                     "turmaId":  10,
+                     "total":  1,
+                     "passageiroAutorizado":  true,
+                     "confirmados":  1
+                 },
+                 {
+                     "at":  "2026-11-23T13:18:38.264Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/rota/status-atual",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:18:38.722Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/rota/status-atual",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:18:39.183Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}/roteiro",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:18:39.516Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:18:39.900Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/operacoes/VIAGEM/{id}/minha",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:18:40.309Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/enderecos/usuario/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:18:40.310Z",
+                     "step":  "execucao-conferida",
+                     "turmaId":  10,
+                     "viagemId":  74,
+                     "sentido":  "IDA",
+                     "pontos":  3,
+                     "esperados":  1,
+                     "passageiroIncluido":  true,
+                     "pontoDoEnderecoCorreto":  true,
+                     "estadoProprio":  "AGUARDANDO"
+                 },
+                 {
+                     "at":  "2026-11-23T13:18:40.719Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/viagens/{id}/localizacao",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:18:40.732Z",
+                     "step":  "gps-autorizado",
+                     "viagemId":  74,
+                     "estado":  "SEM_LOCALIZACAO",
+                     "observadoEm":  null
+                 },
+                 {
+                     "at":  "2026-11-23T13:23:11.104Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/motorista/{id}",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:23:12.097Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/turmas/{id}/passageiros",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:23:12.099Z",
+                     "step":  "vinculo-conferido",
+                     "turmaId":  10,
+                     "total":  1,
+                     "passageiroAutorizado":  true,
+                     "confirmados":  1
+                 },
+                 {
+                     "at":  "2026-11-23T13:23:12.489Z",
+                     "step":  "HTTP",
+                     "role":  "motorista",
+                     "method":  "GET",
+                     "path":  "/rota/status-atual",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:23:12.898Z",
+                     "step":  "HTTP",
+                     "role":  "passageiro",
+                     "method":  "GET",
+                     "path":  "/rota/status-atual",
+                     "status":  200
+                 },
+                 {
+                     "at":  "2026-11-23T13:23:12.899Z",
+                     "step":  "viagem-inativa-confirmada",
+                     "turmaId":  10
+                 }
+             ]
+}

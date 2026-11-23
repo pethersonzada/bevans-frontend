@@ -72,7 +72,12 @@ async function inspect(){
   resources.viagemId=driver.viagemId;save();
   const points=await call('motorista',`/operacoes/VIAGEM/${driver.viagemId}/roteiro`),panel=await call('motorista',`/operacoes/VIAGEM/${driver.viagemId}`),self=await call('passageiro',`/operacoes/VIAGEM/${driver.viagemId}/minha`);
   const included=panel.registros.some(r=>r.alunoId===passenger.id);check(included,'Passageiro não consta no snapshot.');
-  record('execucao-conferida',{turmaId:t.id,viagemId:driver.viagemId,sentido:driver.sentido,pontos:points.length,esperados:panel.contadores.esperados,passageiroIncluido:included,estadoProprio:self.estado});
+  const addresses=await call('passageiro','/enderecos/usuario/'+passenger.id);
+  const expectedAddress=addresses.find(a=>a.id===resources[driver.sentido==='IDA'?'ida':'volta']);
+  const ownPoint=points.find(p=>p.passageiros?.some(a=>a.id===passenger.id));
+  const matches=!!expectedAddress&&!!ownPoint&&Math.abs(ownPoint.latitude-expectedAddress.latitude)<1e-7&&Math.abs(ownPoint.longitude-expectedAddress.longitude)<1e-7;
+  check(matches,'O ponto do snapshot não corresponde ao endereço confirmado para este sentido.');
+  record('execucao-conferida',{turmaId:t.id,viagemId:driver.viagemId,sentido:driver.sentido,pontos:points.length,esperados:panel.contadores.esperados,passageiroIncluido:included,pontoDoEnderecoCorreto:matches,estadoProprio:self.estado});
   const location=await call('passageiro',`/viagens/${driver.viagemId}/localizacao`);
   record('gps-autorizado',{viagemId:driver.viagemId,estado:location?.estado||'SEM_RESPOSTA',observadoEm:location?.observadoEm||null});
  }else record('viagem-inativa-confirmada',{turmaId:t.id});
