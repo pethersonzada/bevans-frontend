@@ -262,3 +262,49 @@ GPS ausente e callbacks antigos. Nove testes operacionais direcionados aprovados
 check da árvore aprovado em 382 testes (inclui alterações externas), antes do
 ajuste posterior de rótulos acessíveis da excursão. Reteste nativo e bundle final
 registrados na etapa seguinte.
+
+### Excursão, compartilhamento e acessibilidade nativa
+
+Excursão exclusiva 8, `VALIDACAO_EXCURSAO_2311`, preparada via serviços HTTP como
+rascunho PARADA_UNICA, com locais públicos e nenhum inscrito. Calendário e relógio
+nativos abriram; a tela informou GMT, fuso original do aparelho, exibindo 12:00
+para o instante enviado como 09:00-03:00. Na interface, capacidade alterada de
+quatro para cinco, revisão e salvamento confirmados por GET/versão 2; ponto e
+ordem mantidos. Publicação com confirmação nativa levou a PUBLICADA/versão 3.
+Não é uma prova de criação completa pelo wizard ou dos três modos em dispositivo.
+
+Convite 7 gerado pelo app, compartilhamento Android aberto duas vezes e fechado
+sem escolher destinatário; GET de metadados continuou com um único convite.
+Android retornou a ação shared; feedback limita-se à disponibilização ao sistema,
+sem afirmar entrega. Convite 7 posteriormente revogado pela interface.
+Convites temporários 8/9 foram emitidos pelos serviços HTTP para abrir a página
+oficial no Chrome, sem inscrição. Convite 9 válido mostrou título/destino público,
+partida e cinco vagas; DELETE 204 e reabertura do MESMO segredo, mantido somente
+em memória, mostraram «Convite inválido, expirado ou indisponível».
+O primeiro reload sem fragmento foi descartado como evidência de revogação.
+Os três convites foram conferidos revogados; excursão sem inscrições/execuções
+cancelada por serviço autorizado ao fim (CANCELADA/versão 4).
+
+Página web válida exibiu falta de `NEXT_PUBLIC_BEVANS_MAPBOX_TOKEN`, impedindo
+conferência visual do encontro naquele deploy; achado registrado em webapp #14,
+sem modificar seu código ou configuração. Backend #68 continua impedindo a lista
+própria Firebase; não houve associação inventada por e-mail.
+
+Tela equivalente a 320 dp com fonte 150%: campo de capacidade permaneceu visível
+com teclado aberto e ação Continuar acessível. TalkBack instalado foi conectado;
+depois de dispensar a solicitação do sistema, foco por teclado percorreu Porta a
+porta → Um ponto de encontro → Vários pontos de encontro → Continuar. Inspeção
+nativa confirmou checkable=true e checked=true somente na opção atual. Corrigidos
+rótulos que antes incluíam glifos e uso de selected em lugar de checked.
+Não houve validação auditiva ou aceite por usuário de leitor de tela. Capturas
+públicas de tema claro/escuro, teclado e convite em `docs/evidencias/frontend-2026-11-23`.
+Fonte, tamanho, tema, TalkBack e sua permissão temporária de notificação foram
+restaurados aos valores originais. Check após o ajuste: arquitetura, TypeScript e
+382 testes aprovados na árvore com modificações externas.
+
+Reteste de 39331e6 na mesma instalação principal: logout motorista → login
+passageiro → controle 76. Somente Meu embarque/AGUARDANDO foi exibido; Embarquei e
+Desembarquei ficaram desabilitados junto de Viagem encerrada. Force-stop e nova
+abertura do controle próprio preservaram sessão e bloqueio. Isso amplia o teste
+de troca de papel, sem completar cache legado, mudança de endereço ou duas contas
+passageiras distintas. Captura sem identificação em `quinto-76-encerrada.png`.

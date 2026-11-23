@@ -1,0 +1,149 @@
+{
+  "data": "2026-11-23",
+  "excursaoId": 8,
+  "criacao": "Serviços HTTP com locais públicos, sem inscrições",
+  "nativo": [
+    "calendário e horário",
+    "capacidade 4 para 5",
+    "salvamento com versão 2",
+    "publicação com confirmação versão 3",
+    "Share Android e reabertura sem novo convite",
+    "revogação do convite 7",
+    "320 dp com fonte 150% e teclado",
+    "rótulos, checked e ordem de foco com TalkBack conectado",
+    "temas claro e escuro"
+  ],
+  "browser": [
+    "convite válido 9",
+    "mesmo convite 9 revogado e reaberto"
+  ],
+  "limites": [
+    "Sem inscrição ou entrega a destinatário",
+    "Sem avaliação auditiva",
+    "Mapa web sem configuração; webapp #14",
+    "Lista própria Firebase depende de backend #68"
+  ],
+  "events": [
+    {
+      "at": "2026-11-23T13:56:49.261Z",
+      "step": "excursao-rascunho-preparado-http",
+      "id": 8,
+      "estado": "RASCUNHO",
+      "versao": 1,
+      "modo": "PARADA_UNICA",
+      "paradas": 1
+    },
+    {
+      "at": "2026-11-23T14:09:49.728Z",
+      "step": "excursao-propria",
+      "id": 8,
+      "estado": "RASCUNHO",
+      "versao": 2,
+      "modo": "PARADA_UNICA",
+      "paradas": 1
+    },
+    {
+      "at": "2026-11-23T14:14:07.598Z",
+      "step": "excursao-propria",
+      "id": 8,
+      "estado": "PUBLICADA",
+      "versao": 3,
+      "modo": "PARADA_UNICA",
+      "paradas": 1
+    },
+    {
+      "at": "2026-11-23T14:16:10.173Z",
+      "step": "convites-proprios-antes-browser",
+      "excursaoId": 8,
+      "convites": [
+        {
+          "id": 7,
+          "revogado": false
+        }
+      ]
+    },
+    {
+      "at": "2026-11-23T14:16:12.638Z",
+      "step": "convite-valido-aberto-android",
+      "excursaoId": 8,
+      "conviteId": 8
+    },
+    {
+      "at": "2026-11-23T14:18:03.775Z",
+      "step": "convite-browser-revogado-http",
+      "excursaoId": 8,
+      "conviteId": 8,
+      "revogado": true
+    },
+    {
+      "at": "2026-11-23T14:19:02.189Z",
+      "step": "convites-proprios-antes-browser",
+      "excursaoId": 8,
+      "convites": [
+        {
+          "id": 8,
+          "revogado": true
+        },
+        {
+          "id": 7,
+          "revogado": false
+        }
+      ]
+    },
+    {
+      "at": "2026-11-23T14:19:03.719Z",
+      "step": "convite-valido-aberto-android",
+      "excursaoId": 8,
+      "conviteId": 9
+    },
+    {
+      "at": "2026-11-23T14:19:25.119Z",
+      "step": "convite-revogado-reaberto-android",
+      "excursaoId": 8,
+      "conviteId": 9,
+      "revogado": true
+    },
+    {
+      "at": "2026-11-23T14:21:29.485Z",
+      "step": "excursao-propria",
+      "id": 8,
+      "estado": "PUBLICADA",
+      "versao": 3,
+      "modo": "PARADA_UNICA",
+      "paradas": 1
+    },
+    {
+      "at": "2026-11-23T14:23:46.096Z",
+      "step": "excursao-conferida-final",
+      "id": 8,
+      "estado": "PUBLICADA",
+      "versao": 3,
+      "capacidade": 5,
+      "modo": "PARADA_UNICA",
+      "paradas": 1,
+      "inscricoes": 0,
+      "execucoes": 0,
+      "convites": [
+        {
+          "id": 9,
+          "revogado": true
+        },
+        {
+          "id": 8,
+          "revogado": true
+        },
+        {
+          "id": 7,
+          "revogado": true
+        }
+      ]
+    },
+    {
+      "at": "2026-11-23T14:23:46.657Z",
+      "step": "excursao-sintetica-cancelada",
+      "id": 8,
+      "estado": "CANCELADA",
+      "versao": 4
+    }
+  ]
+}
