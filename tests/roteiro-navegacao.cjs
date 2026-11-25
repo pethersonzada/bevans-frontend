@@ -149,6 +149,14 @@ test('avanço confirmado troca somente o trecho ativo e índices inválidos não
     }
 });
 
+test('parada coincidente com a origem mantém os trechos futuros visíveis sem destacar uma linha fictícia', () => {
+    const coords = [[-35, -8], [-35.01, -8.01], [-35.02, -8.02]];
+    const trechos = r.separarTrechosRoteiro(coords, null, 0);
+    assert.equal(trechos.atual, null);
+    assert.equal(trechos.percorrido, null);
+    assert.deepEqual(plain(trechos.futuro.features[0].geometry.coordinates), coords);
+});
+
 function apiHarness(handler) {
     const requests = [];
     const api = load('src/config/api.ts', {

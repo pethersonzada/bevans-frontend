@@ -134,7 +134,7 @@ export function separarTrechosRoteiro(
     const vazio = { percorrido: null, atual: null, futuro: null };
     if (!Array.isArray(coordenadas) || coordenadas.length < 2 ||
         !coordenadas.every(c => Array.isArray(c) && c.length === 2 && Number.isFinite(c[0]) && Number.isFinite(c[1])) ||
-        !Number.isInteger(indiceProximaParada) || indiceProximaParada! < 1 || indiceProximaParada! >= coordenadas.length) return vazio;
+        !Number.isInteger(indiceProximaParada) || indiceProximaParada! < 0 || indiceProximaParada! >= coordenadas.length) return vazio;
     const inicio = indiceProjecao === null ? 0 : Math.max(0, Math.min(indiceProximaParada! - 1, indiceProjecao));
     if (indiceProjecao !== null && (!Number.isInteger(indiceProjecao) || indiceProjecao < 0 || indiceProjecao >= coordenadas.length - 1)) return vazio;
     return {
