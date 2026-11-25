@@ -8,7 +8,7 @@ import { getCurrentCoordinates } from '../services/location';
 import { useFocusEffect,useRouter } from 'expo-router';
 import { useHomeRefresh } from '../hooks/useHomeRefresh';
 import { useFocusedPolling } from '../hooks/useFocusedPolling';
-import { fetchMinhaConfirmacao, fetchPassengerRadar } from '../services/passageiroHome';
+import { fetchMinhaConfirmacao, fetchMinhaOperacao, fetchPassengerRadar, mensagemMinhaOperacao, type MinhaOperacao } from '../services/passageiroHome';
 import { salvarPresencaPassageiro } from '../services/presencaPassageiro';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -80,6 +80,9 @@ export default function HomePassageiro() {
     const [statusViagem, setStatusViagem] = useState('CARREGANDO');
     const [statusGps, setStatusGps] = useState('AGUARDANDO');
     const [erroRadar, setErroRadar] = useState('');
+    const [minhaOperacao, setMinhaOperacao] = useState<MinhaOperacao | null>(null);
+    const [erroOperacao, setErroOperacao] = useState('');
+    const viagemAtivaRef = useRef<number | null>(null);
 
     const [turma, setTurma] = useState<any>(null);
     const [enderecos, setEnderecos] = useState<any[]>([]);
@@ -91,6 +94,7 @@ export default function HomePassageiro() {
         setConfirmacao(null); setEnderecos([]); setMinhaLocalizacao(null);
         setPosicaoVan(null); setStatusViagem('CARREGANDO'); setStatusGps('AGUARDANDO');
         setErroRadar(''); setLoading(true);
+        setMinhaOperacao(null); setErroOperacao(''); viagemAtivaRef.current = null;
         return () => { dadosRequestRef.current++; gpsController.current?.abort(); if(gpsExpiryTimer.current)clearTimeout(gpsExpiryTimer.current); };
     }, [user?.id]);
 
@@ -225,12 +229,30 @@ export default function HomePassageiro() {
             setStatusViagem(radar.status);
             setStatusGps(radar.gps);
             setErroRadar('');
+            if (viagemAtivaRef.current !== radar.viagemId) {
+                viagemAtivaRef.current = radar.viagemId;
+                setMinhaOperacao(null);
+                setErroOperacao('');
+            }
+            if (radar.viagemId) {
+                try {
+                    const operacao = await fetchMinhaOperacao(radar.viagemId, signal);
+                    if (!signal.aborted && turmaSelecionadaRef.current === turmaId && viagemAtivaRef.current === radar.viagemId) {
+                        setMinhaOperacao(operacao);
+                        setErroOperacao('');
+                    }
+                } catch (error) {
+                    if (!signal.aborted && viagemAtivaRef.current === radar.viagemId) setErroOperacao(errorMessage(error));
+                }
+            } else {
+                setMinhaOperacao(null);
+            }
             if(gpsExpiryTimer.current)clearTimeout(gpsExpiryTimer.current);
             if(radar.position)gpsExpiryTimer.current=setTimeout(()=>{setPosicaoVan(null);setStatusGps('AGUARDANDO');},Math.max(0,radar.position.expiresAt-Date.now()));
             setPosicaoVan(previous => previous?.latitude === radar.position?.latitude && previous?.longitude === radar.position?.longitude ? previous : radar.position);
 
         } catch (error) {
-            if (!signal.aborted && turmaSelecionadaRef.current === turmaId) {setStatusViagem('INDETERMINADO');setStatusGps('AGUARDANDO');setPosicaoVan(null);setErroRadar(errorMessage(error));}
+            if (!signal.aborted && turmaSelecionadaRef.current === turmaId) {setStatusViagem('INDETERMINADO');setStatusGps('AGUARDANDO');setPosicaoVan(null);setErroRadar(errorMessage(error));setMinhaOperacao(null);viagemAtivaRef.current=null;}
         }
     }, 10000, pollingKey);
 
@@ -325,6 +347,7 @@ export default function HomePassageiro() {
                             setStatusViagem('CARREGANDO');
                             setStatusGps('AGUARDANDO');
                             setErroRadar('');
+                            setMinhaOperacao(null); setErroOperacao(''); viagemAtivaRef.current = null;
                             void carregarDadosSilencioso(item.id);
                         }}
                         onEntrarTurma={() => router.push('/entrar-turma')}
@@ -411,7 +434,7 @@ export default function HomePassageiro() {
                                 <View style={styles.filaBox}>
                                     <Text style={styles.filaLabel}>Sua Posição na Fila</Text>
                                     <Text style={styles.filaValue}>
-                                        A ordem de embarque ainda não está disponível.
+                                        {erroOperacao || mensagemMinhaOperacao(minhaOperacao)}
                                     </Text>
                                 </View>
 

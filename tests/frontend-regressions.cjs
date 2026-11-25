@@ -926,6 +926,47 @@ test('radar refuses contradictory trip states and never requests GPS for a negat
     }
 });
 
+test('private passenger operation exposes only the authorized record and formats every state', async () => {
+    const paths = [];
+    const service = load('src/services/passageiroHome.ts', { '../config/api': {
+        apiFetch: async (path, options) => { paths.push({ path, options }); return Response.json({
+            id: 91, alunoId: 7, nome: 'must not be retained', estado: 'AGUARDANDO', ordem: 3,
+            paradaId: 12, versao: 2, autor: 'private', origem: 'APP', atualizadoEm: new Date().toISOString(),
+        }); },
+        readApiJson: response => response.json(), readApiError: async () => Error('api'),
+    } });
+    const signal = new AbortController().signal;
+    const result = await service.fetchMinhaOperacao(42, signal);
+    assert.deepEqual(JSON.parse(JSON.stringify(result)), { id: 91, estado: 'AGUARDANDO', ordem: 3, paradaId: 12, versao: 2 });
+    assert.equal(paths[0].path, '/operacoes/VIAGEM/42/minha');
+    assert.equal(paths[0].options.signal, signal);
+    assert.equal(paths[0].options.headers['Cache-Control'], 'no-store');
+    assert.equal(service.mensagemMinhaOperacao(result), '2 paradas antes de você.');
+    assert.equal(service.mensagemMinhaOperacao({ ...result, ordem: 1 }), 'Você é o próximo.');
+    assert.match(service.mensagemMinhaOperacao({ ...result, estado: 'EMBARCADO' }), /na van/);
+    assert.match(service.mensagemMinhaOperacao({ ...result, estado: 'NAO_EMBARCOU' }), /Não embarcou/);
+    assert.match(service.mensagemMinhaOperacao({ ...result, estado: 'DESEMBARCADO' }), /Desembarque/);
+});
+
+test('private passenger operation handles no authorization, trip changes and malformed contracts safely', async () => {
+    for (const response of [
+        new Response('', { status: 404 }),
+        Response.json({ id: 1, estado: 'AGUARDANDO', ordem: -1, paradaId: null, versao: 0 }),
+        Response.json({ id: 1, estado: 'UNKNOWN', ordem: 1, paradaId: null, versao: 0 }),
+    ]) {
+        const service = load('src/services/passageiroHome.ts', { '../config/api': {
+            apiFetch: async () => response, readApiJson: value => value.json(), readApiError: async () => Error('negado'),
+        } });
+        if (response.status === 404) assert.equal(await service.fetchMinhaOperacao(72), null);
+        else await assert.rejects(service.fetchMinhaOperacao(72), /não confirmou/);
+    }
+    const denied = load('src/services/passageiroHome.ts', { '../config/api': {
+        apiFetch: async () => new Response('', { status: 403 }), readApiJson: value => value.json(), readApiError: async () => Error('Sem autorização'),
+    } });
+    await assert.rejects(denied.fetchMinhaOperacao(73), /Sem autorização/);
+    await assert.rejects(denied.fetchMinhaOperacao(0), /inválida/);
+});
+
 test('POI provider street approximations cannot be presented as establishments',async()=>{
     const service=addressService(async url=>new Response(url.includes('mapbox')?'{"features":[]}':JSON.stringify({results:[
         {result_type:'street',name:'Rua da Escola',lat:-8,lon:-35},
