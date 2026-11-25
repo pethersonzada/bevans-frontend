@@ -71,7 +71,7 @@ test('reconciliação usa alunoId, ordem e paradaId, e rejeita omissão, duplica
 test('cache separa usuário, turma, sentido e cada execução no mesmo dia', () => {
     const pontos = r.validarRoteiroOperacional(fixture('FIXA', 'IDA'));
     const assinatura = r.assinaturaRoteiro(execucao, pontos), chave = r.chaveCacheRoteiro('visitadas', execucao);
-    for (const mudanca of [{ usuarioId: 'outro' }, { turmaId: 8 }, { viagemId: 43 }, { sentido: 'VOLTA' }]) {
+    for (const mudanca of [{ usuarioId: 'outro' }, { turmaId: 8 }, { viagemId: 43 }, { sentido: 'VOLTA' }, { rotaPublicaId: 12 }]) {
         assert.notEqual(r.assinaturaRoteiro({ ...execucao, ...mudanca }, pontos), assinatura);
         assert.notEqual(r.chaveCacheRoteiro('visitadas', { ...execucao, ...mudanca }), chave);
     }

@@ -689,10 +689,13 @@ export default function Mapa() {
     }
 
     async function lerPainelAtual(execucao: ExecucaoRoteiro, signal?: AbortSignal): Promise<PainelParadas> {
-        const status = await apiRequest<{ status: string; viagemId: number; sentido: string }>(
+        const status = await apiRequest<{ status: string; viagemId: number; sentido: string; modalidade?: string; rotaPublicaId?: number }>(
             `/rota/status-atual?turmaId=${execucao.turmaId}`, { signal }
         );
-        if (status?.status !== 'ATIVA' || status.viagemId !== execucao.viagemId || status.sentido !== execucao.sentido) {
+        if (status?.status !== 'ATIVA' || status.viagemId !== execucao.viagemId || status.sentido !== execucao.sentido ||
+            (execucao.rotaPublicaId !== undefined
+                ? status.modalidade !== 'PUBLICA' || status.rotaPublicaId !== execucao.rotaPublicaId
+                : status.modalidade === 'PUBLICA')) {
             throw new Error('A execução da viagem mudou. Atualize a navegação antes de concluir.');
         }
         const painel = await apiRequest<PainelParadas>(`/operacoes/VIAGEM/${execucao.viagemId}`, { signal });
@@ -1207,6 +1210,7 @@ export default function Mapa() {
             // O contrato do backend exige turmaId. Consulta após localizar as turmas.
             let turmaIdAtiva: number | null = null;
             let viagemIdAtiva: number | null = null;
+            let publicacaoAtiva: number | undefined;
             const idSolicitado = turmaId ? Number(turmaId) : null;
             if (idSolicitado !== null && (!Number.isSafeInteger(idSolicitado) || idSolicitado <= 0)) throw new Error('Turma invalida.');
             const candidatas = idSolicitado !== null ? turmas.filter((item: { id: number }) => Number(item.id) === idSolicitado) : turmas;
@@ -1219,6 +1223,10 @@ export default function Mapa() {
                 if (status?.status === 'ATIVA') {
                     if (!Number.isSafeInteger(status.viagemId) || status.viagemId <= 0) throw new Error('Viagem ativa sem identificador válido.');
                     viagemIdAtiva = status.viagemId;
+                    if (status.modalidade === 'PUBLICA') {
+                        if (!Number.isSafeInteger(status.rotaPublicaId) || status.rotaPublicaId <= 0) throw new Error('Viagem pública sem publicação válida.');
+                        publicacaoAtiva = status.rotaPublicaId;
+                    }
                     if ((modalidade==='PUBLICA'||rotaId) && (status.modalidade!=='PUBLICA'||status.rotaPublicaId!==Number(rotaId))) throw new Error('A viagem ativa não corresponde à modalidade e à publicação selecionadas.');
                     turmaIdAtiva = Number(turma.id);
                     const sentidoServidor = String(status.sentido || '').toLowerCase();
@@ -1237,10 +1245,9 @@ export default function Mapa() {
                 throw new Error('Não há viagem ativa confirmada para esta turma.');
             }
             if (viagemId && (!/^[1-9]\d*$/.test(viagemId) || Number(viagemId)!==viagemIdAtiva)) throw new Error('A viagem selecionada não está mais ativa. Volte à gestão e abra a execução atual.');
-            if (modalidade==='PUBLICA' || rotaId) {
-                if (!rotaId || !/^[1-9]\d*$/.test(rotaId)) throw new Error('A rota pública selecionada é inválida.');
+            if (publicacaoAtiva !== undefined) {
                 const rotas=await apiRequest<{id:number;turmaId:number}[]>('/rotas-publicas/minhas');
-                if(!Array.isArray(rotas)||!rotas.some(r=>r.id===Number(rotaId)&&r.turmaId===Number(turmaAtual.id)))throw new Error('Esta execução não pertence à rota pública selecionada.');
+                if(!Array.isArray(rotas)||!rotas.some(r=>r.id===publicacaoAtiva&&r.turmaId===Number(turmaAtual.id)))throw new Error('Esta execução não pertence à rota pública selecionada.');
             }
             if (!vigente()) return;
 
@@ -1271,6 +1278,7 @@ export default function Mapa() {
             const execucao: ExecucaoRoteiro = {
                 usuarioId: user.id, turmaId: Number(turmaAtual.id), viagemId: viagemIdAtiva,
                 sentido: direcaoUsada.toUpperCase() as 'IDA' | 'VOLTA',
+                rotaPublicaId: publicacaoAtiva,
             };
             const assinatura = assinaturaRoteiro(execucao, rotaCarregada);
             const visitasSalvas = await lerCache(chaveCacheRoteiro('visitadas', execucao));

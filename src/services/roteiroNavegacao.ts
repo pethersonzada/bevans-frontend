@@ -8,7 +8,7 @@ export type PontoOperacional = CoordenadaRoteiro & {
 };
 // A posição no snapshot distingue inclusive pontos coincidentes e IDs de domínios diferentes.
 export type PontoNavegacao = PontoOperacional & { chave: string };
-export type ExecucaoRoteiro = { usuarioId: string; turmaId: number; viagemId: number; sentido: 'IDA' | 'VOLTA' };
+export type ExecucaoRoteiro = { usuarioId: string; turmaId: number; viagemId: number; sentido: 'IDA' | 'VOLTA'; rotaPublicaId?: number };
 export type PainelRoteiro = {
     referenciaId: number; tipo: string; sentido: string;
     contadores: { esperados: number }; registros: { alunoId: number; paradaId: number | null; ordem: number }[];
@@ -54,11 +54,14 @@ export function conferirSnapshotRoteiro(pontos: PontoNavegacao[], operacao: Pain
 }
 
 export function assinaturaRoteiro(execucao: ExecucaoRoteiro, pontos: PontoNavegacao[]): string {
-    return JSON.stringify([execucao.usuarioId, execucao.turmaId, execucao.viagemId, execucao.sentido, pontos]);
+    const identidade = [execucao.usuarioId, execucao.turmaId, execucao.viagemId, execucao.sentido];
+    if (execucao.rotaPublicaId !== undefined) identidade.push('PUBLICA', execucao.rotaPublicaId);
+    return JSON.stringify([...identidade, pontos]);
 }
 
 export function chaveCacheRoteiro(tipo: 'visitadas' | 'geometria', execucao: ExecucaoRoteiro): string {
-    return `@bevans:roteiro:v5:${tipo}:${encodeURIComponent(execucao.usuarioId)}:${execucao.turmaId}:${execucao.viagemId}:${execucao.sentido}`;
+    const modalidade = execucao.rotaPublicaId === undefined ? '' : `:PUBLICA:${execucao.rotaPublicaId}`;
+    return `@bevans:roteiro:v5:${tipo}:${encodeURIComponent(execucao.usuarioId)}:${execucao.turmaId}:${execucao.viagemId}:${execucao.sentido}${modalidade}`;
 }
 
 // Só aceita progresso contíguo do mesmo snapshot. Cache desconhecido nunca elimina pontos.
