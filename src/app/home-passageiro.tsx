@@ -229,6 +229,9 @@ export default function HomePassageiro() {
             setStatusViagem(radar.status);
             setStatusGps(radar.gps);
             setErroRadar('');
+            if(gpsExpiryTimer.current)clearTimeout(gpsExpiryTimer.current);
+            if(radar.position)gpsExpiryTimer.current=setTimeout(()=>{setPosicaoVan(null);setStatusGps('AGUARDANDO');},Math.max(0,radar.position.expiresAt-Date.now()));
+            setPosicaoVan(previous => previous?.latitude === radar.position?.latitude && previous?.longitude === radar.position?.longitude ? previous : radar.position);
             if (viagemAtivaRef.current !== radar.viagemId) {
                 viagemAtivaRef.current = radar.viagemId;
                 setMinhaOperacao(null);
@@ -247,10 +250,6 @@ export default function HomePassageiro() {
             } else {
                 setMinhaOperacao(null);
             }
-            if(gpsExpiryTimer.current)clearTimeout(gpsExpiryTimer.current);
-            if(radar.position)gpsExpiryTimer.current=setTimeout(()=>{setPosicaoVan(null);setStatusGps('AGUARDANDO');},Math.max(0,radar.position.expiresAt-Date.now()));
-            setPosicaoVan(previous => previous?.latitude === radar.position?.latitude && previous?.longitude === radar.position?.longitude ? previous : radar.position);
-
         } catch (error) {
             if (!signal.aborted && turmaSelecionadaRef.current === turmaId) {setStatusViagem('INDETERMINADO');setStatusGps('AGUARDANDO');setPosicaoVan(null);setErroRadar(errorMessage(error));setMinhaOperacao(null);viagemAtivaRef.current=null;}
         }
@@ -432,7 +431,7 @@ export default function HomePassageiro() {
                                 </View>
 
                                 <View style={styles.filaBox}>
-                                    <Text style={styles.filaLabel}>Sua Posição na Fila</Text>
+                                    <Text style={styles.filaLabel}>Seu embarque</Text>
                                     <Text style={styles.filaValue}>
                                         {erroOperacao || mensagemMinhaOperacao(minhaOperacao)}
                                     </Text>

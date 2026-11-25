@@ -39,12 +39,12 @@ export async function fetchMinhaOperacao(viagemId: number, signal?: AbortSignal)
 }
 
 export function mensagemMinhaOperacao(operacao: MinhaOperacao | null): string {
-    if (!operacao) return 'Seu embarque ainda não foi incluído nesta viagem.';
+    if (!operacao) return 'Não foi possível confirmar seu embarque nesta viagem.';
     if (operacao.estado === 'EMBARCADO') return 'Embarque confirmado · você está na van.';
     if (operacao.estado === 'NAO_EMBARCOU') return 'Não embarcou nesta viagem.';
     if (operacao.estado === 'DESEMBARCADO') return 'Desembarque confirmado.';
-    if (operacao.ordem === 1) return 'Você é o próximo.';
-    if (operacao.ordem > 1) return `${operacao.ordem - 1} ${operacao.ordem === 2 ? 'parada' : 'paradas'} antes de você.`;
+    // O índice do roteiro é fixo e não indica quais paradas já foram concluídas.
+    if (operacao.ordem > 0) return `Aguardando embarque · parada ${operacao.ordem} no roteiro.`;
     return 'Aguardando embarque.';
 }
 

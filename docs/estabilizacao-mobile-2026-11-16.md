@@ -41,3 +41,6 @@ Issues #38/#40: correções de cache e reconciliação implementadas; aceite And
 - [ ] Exercitar falha Mapbox e mais de 25 waypoints: bloqueio explícito, sem eliminar embarques para contornar o limite.
 
 Sem deploy, publicação de APK ou alteração de produção. Merge bloqueado até compatibilidade do backend e aceite integrado.
+## Fila operacional do passageiro
+
+O campo `ordem` de `GET /operacoes/VIAGEM/{viagemId}/minha` representa o índice fixo no roteiro. Para exibir a fila ao vivo, a API precisa entregar, na resposta individual autorizada, a identidade da execução e a quantidade de paradas operacionais anteriores ainda pendentes, calculada após cada conclusão ou reversão. A contagem deve considerar paradas compartilhadas uma única vez e excluir a origem cadastral. Quando o progresso não puder ser confirmado, a contagem deve ser nula. Nenhum dado de terceiros é necessário no aplicativo.

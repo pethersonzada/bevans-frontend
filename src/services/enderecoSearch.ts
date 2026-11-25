@@ -96,6 +96,9 @@ export async function pesquisarEnderecos(termo: string, signal?: AbortSignal, pr
   if (ruas.status === 'rejected' && (!process.env.EXPO_PUBLIC_GEOAPIFY_API_KEY || lugares.status === 'rejected')) {
     throw ruas.reason instanceof Error ? ruas.reason : new Error('Falha na busca de endereços.');
   }
+  if (lugares.status === 'rejected' && encontrados.length === 0) {
+    throw new Error('Não foi possível consultar estabelecimentos. Tente novamente ou marque o local no mapa.');
+  }
   const ids = new Set<string>();
   return [...estabelecimentos, ...encontrados].filter(item => {
     const chave = `${item.latitude.toFixed(5)}:${item.longitude.toFixed(5)}`;
@@ -135,7 +138,9 @@ async function pesquisarEstabelecimentos(termo: string, signal?: AbortSignal, pr
   const key = process.env.EXPO_PUBLIC_GEOAPIFY_API_KEY;
   if (!key) return [];
   const params = [
-    `text=${encodeURIComponent(termo.trim().replace(/^ETE\b\s*/i, 'Escola Técnica Estadual '))}`,
+    `text=${encodeURIComponent(termo.trim()
+      .replace(/^ETE\b\s*/i, 'Escola Técnica Estadual ')
+      .replace(/\buniassau\b/gi, 'Uninassau'))}`,
     'type=amenity', 'lang=pt', 'limit=6', 'format=json',
     'filter=countrycode:br',
     ...(coordenadasBusca(proximidade) ? [`bias=proximity:${coordenadasBusca(proximidade)}`] : []),

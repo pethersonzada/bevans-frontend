@@ -594,6 +594,18 @@ test('address search distinguishes genuine zero results from malformed responses
     await assert.rejects(malformed.pesquisarEnderecos('Rua Central'), /inválidos/);
 });
 
+test('a Geoapify outage is not reported as zero results and preserves matching streets', async () => {
+    for (const features of [[], [{ properties: { name: 'Rua Central' }, geometry: { coordinates: [-35, -8] } }]]) {
+        const service = addressService(async url => url.includes('geoapify')
+            ? new Response('', { status: 503 })
+            : Response.json({ features }), {
+            EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN: 'test', EXPO_PUBLIC_GEOAPIFY_API_KEY: 'test',
+        });
+        if (features.length) assert.equal((await service.pesquisarEnderecos('Rua Central'))[0].nome, 'Rua Central');
+        else await assert.rejects(service.pesquisarEnderecos('Uninassau'), /consultar estabelecimentos/);
+    }
+});
+
 test('address search can use a configured optional provider when the primary fails', async () => {
     const service = addressService(async url => url.includes('mapbox') ? new Response('{}', { status: 503 })
         : new Response('{"results":[{"place_id":"1","name":"Campus","lat":-8,"lon":-35}]}'),
@@ -941,8 +953,8 @@ test('private passenger operation exposes only the authorized record and formats
     assert.equal(paths[0].path, '/operacoes/VIAGEM/42/minha');
     assert.equal(paths[0].options.signal, signal);
     assert.equal(paths[0].options.headers['Cache-Control'], 'no-store');
-    assert.equal(service.mensagemMinhaOperacao(result), '2 paradas antes de você.');
-    assert.equal(service.mensagemMinhaOperacao({ ...result, ordem: 1 }), 'Você é o próximo.');
+    assert.equal(service.mensagemMinhaOperacao(result), 'Aguardando embarque · parada 3 no roteiro.');
+    assert.equal(service.mensagemMinhaOperacao({ ...result, ordem: 1 }), 'Aguardando embarque · parada 1 no roteiro.');
     assert.match(service.mensagemMinhaOperacao({ ...result, estado: 'EMBARCADO' }), /na van/);
     assert.match(service.mensagemMinhaOperacao({ ...result, estado: 'NAO_EMBARCOU' }), /Não embarcou/);
     assert.match(service.mensagemMinhaOperacao({ ...result, estado: 'DESEMBARCADO' }), /Desembarque/);
