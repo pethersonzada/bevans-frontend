@@ -256,7 +256,10 @@ export default function HomePassageiro() {
         } catch (error) {
             if (!signal.aborted && turmaSelecionadaRef.current === turmaId) {setStatusViagem('INDETERMINADO');setStatusGps('AGUARDANDO');setPosicaoVan(null);setErroRadar(errorMessage(error));setMinhaOperacao(null);viagemAtivaRef.current=null;}
         }
-    }, 10000, pollingKey);
+    }, 10000, pollingKey, true, () => {
+        setMinhaOperacao(null);
+        setErroOperacao('Sem conexão. A posição na fila está indisponível.');
+    });
 
     useFocusedPolling(async signal => {
         const turmaId = turmaSelecionadaRef.current;

@@ -518,7 +518,11 @@ test('focused polling stops on background and blur and resumes once on foregroun
             networkChange = fn; return () => { networkRemoved = true; };
         } } },
     });
-    useFocusedPolling(async s => { signal = s; calls++; }, 10000, 'user:turma');
+    let offlineEvents = 0;
+    useFocusedPolling(async s => { signal = s; calls++; }, 10000, 'user:turma', true, () => {
+        assert.equal(signal.aborted, true);
+        offlineEvents++;
+    });
     const blur = focus();
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(calls, 1);
@@ -529,6 +533,8 @@ test('focused polling stops on background and blur and resumes once on foregroun
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(calls, 2);
     networkChange({ isConnected: false });
+    networkChange({ isConnected: false });
+    assert.equal(offlineEvents, 1);
     assert.equal(fake.timers.size, 0); assert.equal(signal.aborted, true);
     networkChange({ isConnected: true, isInternetReachable: true });
     networkChange({ isConnected: true, isInternetReachable: true });
