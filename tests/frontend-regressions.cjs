@@ -979,6 +979,43 @@ test('private passenger operation handles no authorization, trip changes and mal
     await assert.rejects(denied.fetchMinhaOperacao(0), /inválida/);
 });
 
+test('passenger queue uses the current authorized trip, supports legacy 404 and never falls back on denial', async () => {
+    const paths = [];
+    const signal = new AbortController().signal;
+    let payload = { viagemId: 42, estado: 'AGUARDANDO', ordem: 4, paradasAntes: 2, proximo: false };
+    let status = 200;
+    const service = load('src/services/passageiroHome.ts', { '../config/api': {
+        apiFetch: async (path, options) => {
+            paths.push(path);
+            assert.equal(options.signal, signal);
+            assert.equal(options.headers['Cache-Control'], 'no-store');
+            if (path.endsWith('/minha')) return Response.json({ id: 1, ordem: 4, versao: 0, paradaId: null, estado: 'AGUARDANDO' });
+            if (status === 0) throw Error('offline');
+            return Response.json(payload, { status });
+        },
+        readApiJson: response => response.json(),
+        readApiError: async response => Error(String(response.status)),
+    } });
+    const mensagem = async () => service.mensagemMinhaOperacao(await service.fetchMinhaPosicao(42, signal));
+    assert.equal(await mensagem(), 'Faltam 2 paradas antes da sua.');
+    payload = { ...payload, paradasAntes: 1 };
+    assert.equal(await mensagem(), 'Falta 1 parada antes da sua.');
+    payload = { ...payload, paradasAntes: 0, proximo: true };
+    assert.equal(await mensagem(), 'Você é o próximo.');
+    payload = { ...payload, estado: 'EMBARCADO', paradasAntes: null, proximo: false };
+    assert.match(await mensagem(), /Embarque confirmado/);
+    payload = { ...payload, viagemId: 43 };
+    await assert.rejects(mensagem(), /não confirmou/);
+    for (status of [401, 403, 0]) {
+        const antes = paths.length;
+        await assert.rejects(mensagem(), /401|403|offline/);
+        assert.equal(paths.length, antes + 1);
+    }
+    status = 404;
+    assert.match(await mensagem(), /posição na fila indisponível/);
+    assert.deepEqual(paths.slice(-2), ['/operacoes/VIAGEM/42/minha/posicao', '/operacoes/VIAGEM/42/minha']);
+});
+
 test('POI provider street approximations cannot be presented as establishments',async()=>{
     const service=addressService(async url=>new Response(url.includes('mapbox')?'{"features":[]}':JSON.stringify({results:[
         {result_type:'street',name:'Rua da Escola',lat:-8,lon:-35},

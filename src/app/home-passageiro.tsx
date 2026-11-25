@@ -8,7 +8,7 @@ import { getCurrentCoordinates } from '../services/location';
 import { useFocusEffect,useRouter } from 'expo-router';
 import { useHomeRefresh } from '../hooks/useHomeRefresh';
 import { useFocusedPolling } from '../hooks/useFocusedPolling';
-import { fetchMinhaConfirmacao, fetchMinhaOperacao, fetchPassengerRadar, mensagemMinhaOperacao, type MinhaOperacao } from '../services/passageiroHome';
+import { fetchMinhaConfirmacao, fetchMinhaPosicao, fetchPassengerRadar, mensagemMinhaOperacao, type PosicaoPassageiro } from '../services/passageiroHome';
 import { salvarPresencaPassageiro } from '../services/presencaPassageiro';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -80,7 +80,7 @@ export default function HomePassageiro() {
     const [statusViagem, setStatusViagem] = useState('CARREGANDO');
     const [statusGps, setStatusGps] = useState('AGUARDANDO');
     const [erroRadar, setErroRadar] = useState('');
-    const [minhaOperacao, setMinhaOperacao] = useState<MinhaOperacao | null>(null);
+    const [minhaOperacao, setMinhaOperacao] = useState<PosicaoPassageiro | null>(null);
     const [erroOperacao, setErroOperacao] = useState('');
     const viagemAtivaRef = useRef<number | null>(null);
 
@@ -239,13 +239,16 @@ export default function HomePassageiro() {
             }
             if (radar.viagemId) {
                 try {
-                    const operacao = await fetchMinhaOperacao(radar.viagemId, signal);
+                    const operacao = await fetchMinhaPosicao(radar.viagemId, signal);
                     if (!signal.aborted && turmaSelecionadaRef.current === turmaId && viagemAtivaRef.current === radar.viagemId) {
                         setMinhaOperacao(operacao);
                         setErroOperacao('');
                     }
                 } catch (error) {
-                    if (!signal.aborted && viagemAtivaRef.current === radar.viagemId) setErroOperacao(errorMessage(error));
+                    if (!signal.aborted && turmaSelecionadaRef.current === turmaId && viagemAtivaRef.current === radar.viagemId) {
+                        setMinhaOperacao(null);
+                        setErroOperacao(errorMessage(error));
+                    }
                 }
             } else {
                 setMinhaOperacao(null);

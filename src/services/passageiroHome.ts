@@ -38,11 +38,45 @@ export async function fetchMinhaOperacao(viagemId: number, signal?: AbortSignal)
     };
 }
 
-export function mensagemMinhaOperacao(operacao: MinhaOperacao | null): string {
+export type PosicaoPassageiro = {
+    estado: EstadoOperacionalPassageiro;
+    ordem: number;
+    paradasAntes: number | null;
+    proximo: boolean;
+};
+
+export async function fetchMinhaPosicao(viagemId: number, signal: AbortSignal): Promise<PosicaoPassageiro | null> {
+    if (!Number.isSafeInteger(viagemId) || viagemId <= 0) throw new Error('Viagem inválida.');
+    const response = await apiFetch(`/operacoes/VIAGEM/${viagemId}/minha/posicao`, {
+        signal,
+        headers: { 'Cache-Control': 'no-store' },
+    });
+    if (response.status === 404) {
+        const registro = await fetchMinhaOperacao(viagemId, signal);
+        return registro && { estado: registro.estado, ordem: registro.ordem, paradasAntes: null, proximo: false };
+    }
+    if (!response.ok) throw await readApiError(response);
+    const data = await readApiJson<(PosicaoPassageiro & { viagemId: number })>(response);
+    if (!data || data.viagemId !== viagemId || !estadosOperacionais.has(data.estado)
+        || !Number.isSafeInteger(data.ordem) || data.ordem < 0
+        || (data.paradasAntes !== null && (!Number.isSafeInteger(data.paradasAntes) || data.paradasAntes < 0))
+        || data.proximo !== (data.estado === 'AGUARDANDO' && data.paradasAntes === 0)
+        || (data.estado !== 'AGUARDANDO' && data.paradasAntes !== null)) {
+        throw new Error('O servidor não confirmou sua posição de embarque.');
+    }
+    const { estado, ordem, paradasAntes, proximo } = data;
+    return { estado, ordem, paradasAntes, proximo };
+}
+
+export function mensagemMinhaOperacao(operacao: (Pick<MinhaOperacao, 'estado' | 'ordem'> & Partial<PosicaoPassageiro>) | null): string {
     if (!operacao) return 'Não foi possível confirmar seu embarque nesta viagem.';
     if (operacao.estado === 'EMBARCADO') return 'Embarque confirmado · você está na van.';
     if (operacao.estado === 'NAO_EMBARCOU') return 'Não embarcou nesta viagem.';
     if (operacao.estado === 'DESEMBARCADO') return 'Desembarque confirmado.';
+    if (operacao.proximo) return 'Você é o próximo.';
+    if (operacao.paradasAntes === 1) return 'Falta 1 parada antes da sua.';
+    if (operacao.paradasAntes && operacao.paradasAntes > 1) return `Faltam ${operacao.paradasAntes} paradas antes da sua.`;
+    if (operacao.paradasAntes === null) return 'Aguardando embarque · posição na fila indisponível.';
     // O índice do roteiro é fixo e não indica quais paradas já foram concluídas.
     if (operacao.ordem > 0) return `Aguardando embarque · parada ${operacao.ordem} no roteiro.`;
     return 'Aguardando embarque.';
