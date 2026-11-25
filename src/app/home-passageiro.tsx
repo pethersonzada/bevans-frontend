@@ -72,17 +72,29 @@ export default function HomePassageiro() {
     const [minhaLocalizacao, setMinhaLocalizacao] = useState<Coordenadas | null>(null);
     const [posicaoVan, setPosicaoVan] = useState<Coordenadas | null>(null);
     const gpsExpiryTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
-    useFocusEffect(useCallback(()=>{
-        const clear=()=>{if(gpsExpiryTimer.current)clearTimeout(gpsExpiryTimer.current);setPosicaoVan(null);setStatusGps('AGUARDANDO');};
-        const subscription=AppState.addEventListener('change',state=>{if(state!=='active')clear();});
-        return()=>{subscription.remove();clear();};
-    },[]));
     const [statusViagem, setStatusViagem] = useState('CARREGANDO');
     const [statusGps, setStatusGps] = useState('AGUARDANDO');
     const [erroRadar, setErroRadar] = useState('');
     const [minhaOperacao, setMinhaOperacao] = useState<PosicaoPassageiro | null>(null);
     const [erroOperacao, setErroOperacao] = useState('');
     const viagemAtivaRef = useRef<number | null>(null);
+    useFocusEffect(useCallback(() => {
+        const clear = () => {
+            if (gpsExpiryTimer.current) clearTimeout(gpsExpiryTimer.current);
+            gpsExpiryTimer.current = null;
+            setPosicaoVan(null);
+            setStatusGps('AGUARDANDO');
+            setMinhaOperacao(null);
+            setErroOperacao('Aguardando atualização do embarque.');
+        };
+        const subscription = AppState.addEventListener('change', state => {
+            if (state !== 'active') clear();
+        });
+        return () => {
+            subscription.remove();
+            clear();
+        };
+    }, []));
 
     const [turma, setTurma] = useState<any>(null);
     const [enderecos, setEnderecos] = useState<any[]>([]);
@@ -348,6 +360,8 @@ export default function HomePassageiro() {
                             setTurmaSelecionadaId(item.id);
                             setTurma(item);
                             setConfirmacao(null);
+                            if (gpsExpiryTimer.current) clearTimeout(gpsExpiryTimer.current);
+                            gpsExpiryTimer.current = null;
                             setPosicaoVan(null);
                             setStatusViagem('CARREGANDO');
                             setStatusGps('AGUARDANDO');
