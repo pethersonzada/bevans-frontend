@@ -118,7 +118,14 @@ export default function Login() {
             >
                 <View style={styles.headerArea}>
                     <View style={styles.logoContainer}>
-                        <Image source={require('../../../assets/images/logo-app-sem-fundo-sem-titulo.png')} style={styles.logoImage}/>
+                        <Image
+                            accessible
+                            accessibilityLabel="BeVans"
+                            source={darkMode
+                                ? require('../../../assets/images/vetor-com-nome-tema-escuro.png')
+                                : require('../../../assets/images/logo-app-sem-fundo-sem-titulo-claro.png')}
+                            style={styles.logoImage}
+                        />
                     </View>
 
                     <Text style={styles.title}>Bem-vindo de volta!</Text>
@@ -184,8 +191,9 @@ const styles = themedStyles(() => StyleSheet.create({
         elevation: 5,
     },
     logoImage: {
-        width: 140,
-        height: 140,
+        width: '100%',
+        maxWidth: 240,
+        aspectRatio: 534 / 228,
         resizeMode: 'contain',
     },
     title: {
