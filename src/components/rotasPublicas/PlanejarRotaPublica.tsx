@@ -107,7 +107,12 @@ export function PlanejarRotaPublica({initial,turmaId,motoristaId,onExit,abrirGes
             }}/>{confirmarPublicacao&&<ActionButton title="Cancelar publicação" disabled={busy} onPress={()=>setConfirmarPublicacao(false)}/>}
         </BlocoViagem>
         <BlocoViagem title="Trajeto salvo">{(['IDA','VOLTA'] as const).map(sentido=><ActionButton key={sentido} title={`${d.modo==='FLEXIVEL'?'Otimizar prévia':'Ver prévia'} de ${sentido==='IDA'?'ida':'volta'}`} disabled={busy||dirty||offline||aguardandoConfirmacao} onPress={()=>void execute(async()=>{const p=await planejarRotaPublica(salva.id,sentido,d.modo==='FLEXIVEL');if(mounted.current)setPrevia(p);})}/>)}
-            {previa&&<><Text style={trip.caption}>Prévia do servidor. Não altera as paradas salvas.</Text><MapaItinerario pontos={previa.map((p,i)=>({...p,chave:`previa-${i}`,papel:i===0?'origem':i===previa.length-1?'destino':'parada',ordem:i}))} selecionado={null} onSelect={()=>{}}/></>}
+            {previa && (previa.length < 2
+                ? <Notice>O servidor não retornou pontos suficientes para mostrar a prévia deste sentido.</Notice>
+                : <>
+                    <Text style={trip.caption}>Esquema da sequência de pontos. As linhas são ilustrativas e não seguem as ruas.</Text>
+                    <MapaItinerario pontos={previa.map((p,i)=>({...p,chave:`previa-${i}`,papel:i===0?'origem':i===previa.length-1?'destino':'parada',ordem:i}))} selecionado={null} onSelect={()=>{}}/>
+                </>)}
         </BlocoViagem>
         <BlocoViagem title="Operação e passageiros"><PedidosRota rotaId={salva.id}/>
             {aguardandoConfirmacao&&<Notice>Confirme o salvamento da rota antes de iniciar uma viagem.</Notice>}

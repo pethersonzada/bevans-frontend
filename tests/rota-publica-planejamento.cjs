@@ -16,6 +16,16 @@ test('public route preserves specific server conflicts instead of replacing them
 });
 function service(options={}){const h=harness(options),p=h.load(PLAN),s=h.load(SERVICE);return {...h,p,s};}
 function review(h){for(let i=0;i<4;i++)press(h,'Continuar');h.tree();}
+test('a prévia salva distingue esquema de pontos de uma resposta incompleta', async () => {
+ for (const points of [[], [{ nome: 'Origem', latitude: -8, longitude: -35 }, { nome: 'Destino', latitude: -8.1, longitude: -35.1 }]]) {
+  const h = harness({ initial: fixture(), publicas: { planejarRotaPublica: async () => points } });
+  h.props.abrirGestao = true;
+  press(h, 'Ver prévia de ida');
+  await tick();
+  assert.match(JSON.stringify(h.tree()), points.length ? /linhas são ilustrativas/ : /pontos suficientes/);
+  h.unmount();
+ }
+});
 test('starting an unscheduled public direction is disabled with a concrete explanation',()=>{
  const h=harness({initial:fixture()});review(h);press(h,'Abrir gestão da versão salva');
  const operacao=nodes(h.tree()).find(n=>n.props?.rota?.id===9&&'bloqueada'in n.props);
