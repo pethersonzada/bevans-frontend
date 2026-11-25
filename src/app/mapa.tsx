@@ -31,7 +31,7 @@ import { atualizarChegada, chegadaAtual, conferirPainelParadas, impedimentoConcl
 import { validCoordinates } from '../services/location';
 import { ensureNavigationLocation, NavigationLocationError } from '../services/navigationLocation';
 import { mensagemErroOperacao, rotulosEstado } from '../services/operacoes';
-import { assinaturaRoteiro, chaveCacheRoteiro, geometriaCompativel, LIMITE_WAYPOINTS_MAPBOX, pontosParaDirecoes, validarRespostaDirecoes, type ExecucaoRoteiro, type PontoNavegacao } from '../services/roteiroNavegacao';
+import { assinaturaRoteiro, chaveCacheRoteiro, geometriaCompativel, LIMITE_WAYPOINTS_MAPBOX, pontosParaDirecoes, separarTrechosRoteiro, validarRespostaDirecoes, type ExecucaoRoteiro, type PontoNavegacao } from '../services/roteiroNavegacao';
 import { consultarRoteiroOperacional } from '../services/roteiroOperacional';
 import { createPositionSender } from '../services/telemetria';
 import { encerrarViagemConferida } from '../services/viagens';
@@ -1455,49 +1455,11 @@ export default function Mapa() {
         [rota, paradasRestantes]
     );
 
-    let geometriaPercorrida: any = null;
-    let geometriaRestante: any = geometriaRota;
-
-    if (
-        localizacao &&
-        coordenadasRota.length > 1 &&
-        ultimoIndiceProjecaoRef.current !== null
-    ) {
-        const idx = ultimoIndiceProjecaoRef.current;
-
-        if (idx > 0) {
-            geometriaPercorrida = {
-                type: 'FeatureCollection',
-                features: [
-                    {
-                        type: 'Feature',
-                        properties: {},
-                        geometry: {
-                            type: 'LineString',
-                            coordinates: coordenadasRota.slice(
-                                0,
-                                idx + 1
-                            ),
-                        },
-                    },
-                ],
-            };
-        }
-
-        geometriaRestante = {
-            type: 'FeatureCollection',
-            features: [
-                {
-                    type: 'Feature',
-                    properties: {},
-                    geometry: {
-                        type: 'LineString',
-                        coordinates: coordenadasRota.slice(idx),
-                    },
-                },
-            ],
-        };
-    }
+    const trechosRoteiro = separarTrechosRoteiro(
+        coordenadasRota,
+        localizacao ? ultimoIndiceProjecaoRef.current : null,
+        paradasRef.current[0]?.indiceRota ?? null
+    );
 
     if (loading) {
         return (
@@ -1844,10 +1806,10 @@ export default function Mapa() {
                     ]}
                 />
 
-                {geometriaPercorrida && (
+                {trechosRoteiro.percorrido && (
                     <MapboxGL.ShapeSource
                         id="rotaPercorridaSource"
-                        shape={geometriaPercorrida}
+                        shape={trechosRoteiro.percorrido}
                     >
                         <MapboxGL.LineLayer
                             id="rotaPercorridaLine"
@@ -1862,27 +1824,37 @@ export default function Mapa() {
                     </MapboxGL.ShapeSource>
                 )}
 
-                {geometriaRestante && (
+                {trechosRoteiro.futuro && (
                     <MapboxGL.ShapeSource
-                        id="rotaRestanteSource"
-                        shape={geometriaRestante}
+                        id="rotaFuturaSource"
+                        shape={trechosRoteiro.futuro}
                     >
                         <MapboxGL.LineLayer
-                            id="rotaCasing"
+                            id="rotaFuturaLine"
                             style={{
-                                lineColor: '#0088CC',
-                                lineWidth: 10,
+                                lineColor: '#94A3B8',
+                                lineWidth: 5,
                                 lineCap: 'round',
                                 lineJoin: 'round',
-                                lineOpacity: 0.4,
+                                lineOpacity: 0.75,
                             }}
                         />
+                    </MapboxGL.ShapeSource>
+                )}
 
+                {trechosRoteiro.atual && (
+                    <MapboxGL.ShapeSource id="rotaAtualSource" shape={trechosRoteiro.atual}>
                         <MapboxGL.LineLayer
-                            id="rotaLine"
+                            id="rotaAtualCasing"
                             style={{
-                                lineColor: '#00D2FF',
-                                lineWidth: 6,
+                                lineColor: '#075985', lineWidth: 10,
+                                lineCap: 'round', lineJoin: 'round', lineOpacity: 0.45,
+                            }}
+                        />
+                        <MapboxGL.LineLayer
+                            id="rotaAtualLine"
+                            style={{
+                                lineColor: '#00D2FF', lineWidth: 6,
                                 lineCap: 'round',
                                 lineJoin: 'round',
                             }}

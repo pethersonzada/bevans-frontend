@@ -128,6 +128,27 @@ test('fallback exige mesma sequência pendente, coordenadas, geometria e assinat
     }
 });
 
+test('separa trecho percorrido, atual e futuro pelos índices viários da próxima parada', () => {
+    const coords = Array.from({ length: 8 }, (_, i) => [-35 - i / 100, -8 - i / 100]);
+    const trechos = r.separarTrechosRoteiro(coords, 2, 5);
+    assert.deepEqual(plain(trechos.percorrido.features[0].geometry.coordinates), coords.slice(0, 3));
+    assert.deepEqual(plain(trechos.atual.features[0].geometry.coordinates), coords.slice(2, 6));
+    assert.deepEqual(plain(trechos.futuro.features[0].geometry.coordinates), coords.slice(5));
+    assert.deepEqual(plain(r.separarTrechosRoteiro(coords, null, 3).atual.features[0].geometry.coordinates), coords.slice(0, 4));
+});
+
+test('avanço confirmado troca somente o trecho ativo e índices inválidos não inventam geometria', () => {
+    const coords = Array.from({ length: 9 }, (_, i) => [-35 - i / 100, -8 - i / 100]);
+    const antes = r.separarTrechosRoteiro(coords, 2, 4);
+    const depois = r.separarTrechosRoteiro(coords, 4, 7);
+    assert.deepEqual(plain(antes.atual.features[0].geometry.coordinates), coords.slice(2, 5));
+    assert.deepEqual(plain(depois.atual.features[0].geometry.coordinates), coords.slice(4, 8));
+    assert.deepEqual(plain(depois.futuro.features[0].geometry.coordinates), coords.slice(7));
+    for (const args of [[coords, 1, null], [coords, 1, 99], [coords, 99, 4], [coords.slice(0, 1), 0, 0]]) {
+        assert.deepEqual(plain(r.separarTrechosRoteiro(...args)), { percorrido: null, atual: null, futuro: null });
+    }
+});
+
 function apiHarness(handler) {
     const requests = [];
     const api = load('src/config/api.ts', {
