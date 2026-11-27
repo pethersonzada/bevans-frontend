@@ -71,3 +71,7 @@ Os testes montam a tela com módulos nativos e HTTP simulados, e exercitam tamb�
 - [ ] Corrigir um passageiro para aguardando em outra sessão e verificar reabertura e recálculo. Registrar a limitação transacional do contrato descrita acima.
 
 Sem merge, deploy, publicação de APK ou alteração do backend. A exportação Android não substitui compilação e instalação em aparelho real.
+
+## Correção de progressão privada (#54)
+
+O painel oficial passa a reconciliar o prefixo das paradas privadas cujo estado já foi resolvido. IDA: EMBARCADO, NAO_EMBARCOU e DESEMBARCADO resolvem a coleta. VOLTA: apenas DESEMBARCADO ou NAO_EMBARCOU resolvem a entrega; o embarque no campus não conclui endereços. Paradas sem passageiros e DESTINO continuam exigindo conclusão explícita. A geometria é recalculada apenas com os pontos pendentes, usando a ordem oficial. Na retomada, estados confirmados reconstroem esse prefixo mesmo sem cache; correções reabrem os pontos. O marcador de cache OPERACIONAL distingue o progresso misto privado. Modalidade pública, excursão, regras de chegada e encerramento continuam inalteradas. Não se confirma embarque/desembarque pelo GPS e não se encerra automaticamente.

@@ -713,19 +713,22 @@ export default function Mapa() {
             if (signal.aborted || !montadoRef.current || execucao !== execucaoRef.current ||
                 leitura !== leituraOperacaoRef.current || confirmandoParadaRef.current) return;
             setPainelOperacional(painel);
+            const sentidoPrivado = execucao.privadaConfirmada ? execucao.sentido : undefined;
+            const confirmacao = sentidoPrivado ? 'OPERACIONAL' : 'MOTORISTA';
             const validas = restaurarConclusoes({
-                confirmacao: 'MOTORISTA', assinatura: assinaturaRef.current,
+                confirmacao, assinatura: assinaturaRef.current,
                 chaves: Array.from(visitadosRef.current)
-            }, assinaturaRef.current, rotaRef.current, painel);
+            }, assinaturaRef.current, rotaRef.current, painel, sentidoPrivado);
             if (validas.size !== visitadosRef.current.size) {
+                const avancou = validas.size > visitadosRef.current.size;
                 confirmandoParadaRef.current = true; setConfirmandoParada(true); reconciliando = true;
                 await AsyncStorage.setItem(chaveCacheRoteiro('visitadas', execucao), JSON.stringify({
-                    confirmacao: 'MOTORISTA', assinatura: assinaturaRef.current, chaves: Array.from(validas),
+                    confirmacao, assinatura: assinaturaRef.current, chaves: Array.from(validas),
                 }));
                 if (signal.aborted || !montadoRef.current || execucao !== execucaoRef.current || leitura !== leituraOperacaoRef.current) return;
                 visitadosRef.current = validas;
                 chegadaRef.current = null; setChegada(null);
-                setFeedbackParada('Registro operacional alterado. A parada voltou a ficar pendente.');
+                setFeedbackParada(avancou ? 'Confirmações recebidas. Avançando para o próximo ponto.' : 'Registro operacional alterado. A parada voltou a ficar pendente.');
                 paradasRef.current = [];
                 setGeometriaRota(null);
                 coordenadasRotaRef.current = []; setCoordenadasRota([]);
@@ -765,12 +768,14 @@ export default function Mapa() {
             if (!montadoRef.current || !focadaRef.current || leitura !== leituraOperacaoRef.current ||
                 execucao !== execucaoRef.current || paradasRef.current[0]?.chave !== chave) return;
             setPainelOperacional(painel);
-            const impedimento = impedimentoConclusao(ponto, painel);
+            const sentidoPrivado = execucao.privadaConfirmada ? execucao.sentido : undefined;
+            const confirmacao = sentidoPrivado ? 'OPERACIONAL' : 'MOTORISTA';
+            const impedimento = impedimentoConclusao(ponto, painel, sentidoPrivado);
             if (impedimento) throw new Error(impedimento);
             const prefixo = restaurarConclusoes({
-                confirmacao: 'MOTORISTA', assinatura: assinaturaRef.current,
+                confirmacao, assinatura: assinaturaRef.current,
                 chaves: Array.from(visitadosRef.current)
-            }, assinaturaRef.current, rotaRef.current, painel);
+            }, assinaturaRef.current, rotaRef.current, painel, sentidoPrivado, false);
             if (prefixo.size !== visitadosRef.current.size) throw new Error('Uma parada anterior voltou a ficar pendente. Atualize o controle da viagem.');
             if (!onlineRef.current || !chegadaAtual(chegadaRef.current, chave, Date.now())) {
                 throw new Error('A conexão ou a chegada mudou durante a consulta. Confira antes de concluir.');
@@ -778,7 +783,7 @@ export default function Mapa() {
             const chaves = [...visitadosRef.current, chave];
             // Persistência bem-sucedida é necessária: cache de GPS v4 nunca é aceito como conclusão.
             await AsyncStorage.setItem(chaveCacheRoteiro('visitadas', execucao), JSON.stringify({
-                confirmacao: 'MOTORISTA', assinatura: assinaturaRef.current, chaves,
+                confirmacao, assinatura: assinaturaRef.current, chaves,
             }));
             if (!montadoRef.current || execucao !== execucaoRef.current || paradasRef.current[0]?.chave !== chave) return;
             visitadosRef.current = new Set(chaves);
@@ -1211,6 +1216,7 @@ export default function Mapa() {
             let turmaIdAtiva: number | null = null;
             let viagemIdAtiva: number | null = null;
             let publicacaoAtiva: number | undefined;
+            let privadaConfirmada = false;
             const idSolicitado = turmaId ? Number(turmaId) : null;
             if (idSolicitado !== null && (!Number.isSafeInteger(idSolicitado) || idSolicitado <= 0)) throw new Error('Turma invalida.');
             const candidatas = idSolicitado !== null ? turmas.filter((item: { id: number }) => Number(item.id) === idSolicitado) : turmas;
@@ -1223,6 +1229,7 @@ export default function Mapa() {
                 if (status?.status === 'ATIVA') {
                     if (!Number.isSafeInteger(status.viagemId) || status.viagemId <= 0) throw new Error('Viagem ativa sem identificador válido.');
                     viagemIdAtiva = status.viagemId;
+                    privadaConfirmada = status.modalidade === 'PRIVADA';
                     if (status.modalidade === 'PUBLICA') {
                         if (!Number.isSafeInteger(status.rotaPublicaId) || status.rotaPublicaId <= 0) throw new Error('Viagem pública sem publicação válida.');
                         publicacaoAtiva = status.rotaPublicaId;
@@ -1278,7 +1285,7 @@ export default function Mapa() {
             const execucao: ExecucaoRoteiro = {
                 usuarioId: user.id, turmaId: Number(turmaAtual.id), viagemId: viagemIdAtiva,
                 sentido: direcaoUsada.toUpperCase() as 'IDA' | 'VOLTA',
-                rotaPublicaId: publicacaoAtiva,
+                rotaPublicaId: publicacaoAtiva, privadaConfirmada,
             };
             const assinatura = assinaturaRoteiro(execucao, rotaCarregada);
             const visitasSalvas = await lerCache(chaveCacheRoteiro('visitadas', execucao));
@@ -1286,7 +1293,8 @@ export default function Mapa() {
             execucaoRef.current = execucao;
             assinaturaRef.current = assinatura;
             if (!painelCarregado) throw new Error('Estado operacional indisponível.');
-            visitadosRef.current = restaurarConclusoes(visitasSalvas, assinatura, rotaCarregada, painelCarregado);
+            visitadosRef.current = restaurarConclusoes(visitasSalvas, assinatura, rotaCarregada, painelCarregado,
+                execucao.privadaConfirmada ? execucao.sentido : undefined);
         } catch (e) {
             if (!vigente()) return;
 
@@ -1338,11 +1346,14 @@ export default function Mapa() {
         const execucao = execucaoRef.current;
         const assinatura = assinaturaRef.current;
         if (!execucao || !pendentes.length) return;
+        const vigente = () => montadoRef.current && execucao === execucaoRef.current &&
+            assinatura === assinaturaRef.current && JSON.stringify(pendentes.map(p => p.chave)) === JSON.stringify(
+                rotaRef.current.filter(p => p.tipo !== 'ORIGEM' && !visitadosRef.current.has(p.chave)).map(p => p.chave));
         try {
             const pontosOrdenados = pontosParaDirecoes(posicaoAtual, pendentes);
             const { routeGeoJSON, coordenadas, manobras: manobrasCalculadas, indicesWaypoints } =
                 await buscarRotaMapbox(pontosOrdenados);
-            if (!montadoRef.current || execucao !== execucaoRef.current) return;
+            if (!vigente()) return;
             const geoJsonValido = { type: 'FeatureCollection', features: [routeGeoJSON] };
             // A chegada usa o ponto original do snapshot, nunca o snap da rua do Mapbox.
             const paradas = pendentes.map((p, i) => ({
@@ -1356,7 +1367,7 @@ export default function Mapa() {
             } as GeometriaSalva);
         } catch (error) {
             const cache = await lerCache<GeometriaSalva>(chaveCacheRoteiro('geometria', execucao));
-            if (!montadoRef.current || execucao !== execucaoRef.current) return;
+            if (!vigente()) return;
             if (cache && geometriaCompativel(cache, assinatura, pendentes)) {
                 aplicarGeometria(cache.geoJson, cache.coordenadas, cache.manobras, cache.paradas);
                 setErroNavegacao('Navegação offline com geometria salva para este snapshot.');
@@ -1497,7 +1508,8 @@ export default function Mapa() {
     const posicaoExibida =
         posicaoSuave || localizacao;
     const proximoPonto = rota.find(p => p.chave === paradasRef.current[0]?.chave);
-    const impedimento = proximoPonto ? impedimentoConclusao(proximoPonto, painelOperacional) : null;
+    const impedimento = proximoPonto ? impedimentoConclusao(proximoPonto, painelOperacional,
+        execucaoRef.current?.privadaConfirmada ? execucaoRef.current.sentido : undefined) : null;
     const podeConcluir = !!proximoPonto && chegadaAtual(chegada, proximoPonto.chave, Date.now()) && !impedimento && online;
 
     return (

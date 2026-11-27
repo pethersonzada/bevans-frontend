@@ -229,3 +229,44 @@ test('VOLTA conclui cada ponto explicitamente na sequência oficial, incluindo c
     }
     assert.deepEqual(JSON.parse(h.storage.get(cacheKey)).chaves, r.validarRoteiroOperacional(dados).slice(1).map(p => p.chave)); h.unmount();
 });
+
+test('IDA privada: confirmar todos os embarques navega ao destino sem segundo clique nem encerramento', async () => {
+    const dados = fixture('PORTA_A_PORTA', 'IDA'), options = { dados, statusCampos: { modalidade: 'PRIVADA' } };
+    const h = await start(options);
+    await h.confirmar(11, 'EMBARCADO'); await h.refresh();
+    assert.deepEqual(h.direcoes.at(-1).slice(1), [[dados[2].longitude, dados[2].latitude]]);
+    assert.match(texto(h), /Destino final: IDA destino/);
+    assert.equal(h.requests.some(url => /finalizar|encerrar/.test(url)), false);
+    h.unmount();
+    const retomada = await start({ ...options, estados: { 11: 'EMBARCADO' } });
+    assert.deepEqual(retomada.direcoes[0].slice(1), [[dados[2].longitude, dados[2].latitude]]);
+    assert.match(texto(retomada), /Destino final: IDA destino/);
+    retomada.setEstado(11, 'AGUARDANDO'); await retomada.refresh();
+    assert.deepEqual(retomada.direcoes.at(-1).slice(1), dados.slice(1).map(p => [p.longitude, p.latitude]));
+    assert.match(texto(retomada), /Próxima parada: Endereço do sentido/); retomada.unmount();
+});
+
+test('VOLTA privada: embarque não conclui entrega; desembarque libera destino oficial', async () => {
+    const dados = fixture('PORTA_A_PORTA', 'VOLTA');
+    const h = await start({ dados, sentido: 'VOLTA', statusCampos: { modalidade: 'PRIVADA' } });
+    await h.confirmar(11, 'EMBARCADO'); await h.refresh();
+    assert.match(texto(h), /Próxima parada: Endereço do sentido/);
+    assert.equal(chegar(h, dados[1]).props.disabled, true);
+    await h.confirmar(11, 'DESEMBARCADO'); await h.refresh();
+    assert.deepEqual(h.direcoes.at(-1).slice(1), [[dados[2].longitude, dados[2].latitude]]);
+    assert.match(texto(h), /Destino final: VOLTA destino/);
+    assert.equal(h.requests.some(url => /finalizar|encerrar/.test(url)), false);
+    h.unmount();
+});
+
+test('IDA privada mantém paradas vazias e exige todos os passageiros de uma coleta compartilhada', async () => {
+    const dados = fixture('PRIVADA_PARADAS', 'IDA');
+    const h = await start({ dados, statusCampos: { modalidade: 'PRIVADA' }, estados: { 11: 'EMBARCADO' } });
+    assert.match(texto(h), /Próxima parada: Sem reservas/);
+    await h.concluir(dados[1]); await h.refresh();
+    assert.match(texto(h), /Próxima parada: Embarque compartilhado/);
+    await h.confirmar(33, 'NAO_EMBARCOU'); await h.refresh();
+    assert.match(texto(h), /Destino final: IDA destino/);
+    assert.deepEqual(h.direcoes.at(-1).slice(1), [[dados[3].longitude, dados[3].latitude]]);
+    h.unmount();
+});

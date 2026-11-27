@@ -31,10 +31,14 @@ export function conferirPainelParadas(pontos: PontoNavegacao[], painel: PainelPa
     }
 }
 
-export function impedimentoConclusao(ponto: PontoNavegacao, painel: PainelParadas | null): string | null {
+export function impedimentoConclusao(ponto: PontoNavegacao, painel: PainelParadas | null, sentidoPrivado?: 'IDA' | 'VOLTA'): string | null {
     if (!painel) return 'Atualize o estado operacional antes de concluir.';
     for (const p of ponto.passageiros) {
         const registro = painel.registros.find(r => r.alunoId === p.id);
+        if (sentidoPrivado === 'VOLTA' && ponto.tipo !== 'DESTINO' &&
+            (!registro || !['NAO_EMBARCOU', 'DESEMBARCADO'].includes(registro.estado))) {
+            return 'Confirme os desembarques ou as ausências deste ponto antes de avançar.';
+        }
         if (!registro || !['EMBARCADO', 'NAO_EMBARCOU', 'DESEMBARCADO'].includes(registro.estado)) {
             return 'Há passageiros aguardando. Registre o que ocorreu no controle de embarque.';
         }
@@ -45,20 +49,26 @@ export function impedimentoConclusao(ponto: PontoNavegacao, painel: PainelParada
     return null;
 }
 
-export function restaurarConclusoes(dados: unknown, assinatura: string, pontos: PontoNavegacao[], painel: PainelParadas): Set<string> {
-    if ((dados as { confirmacao?: string } | null)?.confirmacao !== 'MOTORISTA') return new Set();
+export function restaurarConclusoes(dados: unknown, assinatura: string, pontos: PontoNavegacao[], painel: PainelParadas,
+    sentidoPrivado?: 'IDA' | 'VOLTA', inferir = true): Set<string> {
+    const confirmacao = (dados as { confirmacao?: string } | null)?.confirmacao;
+    const cacheValido = confirmacao === 'MOTORISTA' || (sentidoPrivado !== undefined && confirmacao === 'OPERACIONAL');
+    if (!cacheValido && !sentidoPrivado) return new Set();
     // Origem não participa das visitas. Aceita cache v5 anterior somente se
     // contiver confirmações manuais contíguas e mesma assinatura do snapshot.
     const operacionais = pontos[0]?.tipo === 'ORIGEM' ? pontos.slice(1) : pontos;
     const antigas = (dados as { chaves?: unknown[] } | null)?.chaves;
     const legado = pontos[0]?.tipo === 'ORIGEM' && Array.isArray(antigas) && antigas[0] === pontos[0].chave;
-    const chaves = legado
+    const chaves = !cacheValido ? new Set<string>() : legado
         ? new Set([...restaurarVisitadas(dados, assinatura, pontos)].filter(chave => chave !== pontos[0].chave))
         : restaurarVisitadas(dados, assinatura, operacionais);
     // Correção concorrente para AGUARDANDO reabre o ponto e todo o sufixo, sem saltar a ordem.
     const validas = new Set<string>();
     for (const ponto of operacionais) {
-        if (!chaves.has(ponto.chave) || impedimentoConclusao(ponto, painel)) break;
+        // Em viagens privadas, uma coleta/entrega com pessoas já resolvidas no
+        // servidor não exige um segundo clique. Nunca inferir pontos vazios ou destino.
+        const oficialResolvida = inferir && !!sentidoPrivado && ponto.tipo !== 'DESTINO' && ponto.passageiros.length > 0;
+        if ((!chaves.has(ponto.chave) && !oficialResolvida) || impedimentoConclusao(ponto, painel, sentidoPrivado)) break;
         validas.add(ponto.chave);
     }
     return validas;

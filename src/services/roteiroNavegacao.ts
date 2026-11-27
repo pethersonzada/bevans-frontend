@@ -8,7 +8,7 @@ export type PontoOperacional = CoordenadaRoteiro & {
 };
 // A posição no snapshot distingue inclusive pontos coincidentes e IDs de domínios diferentes.
 export type PontoNavegacao = PontoOperacional & { chave: string };
-export type ExecucaoRoteiro = { usuarioId: string; turmaId: number; viagemId: number; sentido: 'IDA' | 'VOLTA'; rotaPublicaId?: number };
+export type ExecucaoRoteiro = { usuarioId: string; turmaId: number; viagemId: number; sentido: 'IDA' | 'VOLTA'; rotaPublicaId?: number; privadaConfirmada?: boolean };
 export type PainelRoteiro = {
     referenciaId: number; tipo: string; sentido: string;
     contadores: { esperados: number }; registros: { alunoId: number; paradaId: number | null; ordem: number }[];
