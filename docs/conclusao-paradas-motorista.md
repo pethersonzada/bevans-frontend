@@ -79,3 +79,5 @@ O painel oficial passa a reconciliar o prefixo das paradas privadas cujo estado 
 ## Operação direta no mapa privado (#55)
 
 A IDA privada oferece confirmação individual de embarque no cartão do ponto atual, com configurações para ausências/correções. A VOLTA oferece confirmação individual de desembarque no ponto; o controle continua disponível para embarques no campus e exceções. A IDA deixa de exigir desembarques individuais ao chegar ao destino: Encerrar viagem, com chegada GPS confirmada e confirmação explícita, chama a operação atômica do backend `/operacoes/VIAGEM/{id}/concluir-ida`. Não chama o endpoint genérico antes da chegada. O backend valida a própria amostra GPS e encerra com auditoria. Modalidades públicas e excursões conservam o fluxo anterior.
+
+Na VOLTA, os passageiros ainda AGUARDANDO aparecem também na seção Embarques na faculdade, com confirmação direta e engrenagem ao lado. As entregas continuam vinculadas ao ponto atual.

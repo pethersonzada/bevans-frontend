@@ -750,13 +750,21 @@ export default function Mapa() {
     }
     useFocusedPolling(atualizarOperacao, 10000, !loading && viagemAtiva && user?.id ? `${user.id}:${viagemIdRef.current}` : false);
 
-    // O botão do mapa confirma somente o registro da parada atual, usando a versão oficial.
-    async function confirmarPessoaNoMapa(chave: string, alunoId: number) {
+    function abrirConfiguracoesPassageiros() {
+        if (!execucaoRef.current || confirmandoParadaRef.current || encerrandoRef.current) return;
+        chegadaRef.current = null; setChegada(null);
+        router.push({ pathname: '/controle-viagem', params: { tipo: 'VIAGEM', id: String(execucaoRef.current.viagemId) } });
+    }
+
+    // Embarque no campus da VOLTA pode ser confirmado antes de iniciar as entregas.
+    async function confirmarPessoaNoMapa(chave: string, alunoId: number, embarqueCampus = false) {
         const execucao = execucaoRef.current;
         if (!execucao?.privadaConfirmada || confirmandoParadaRef.current || encerrandoRef.current ||
-            !onlineRef.current || paradasRef.current[0]?.chave !== chave) return;
+            !onlineRef.current || paradasRef.current[0]?.chave !== chave ||
+            (embarqueCampus && execucao.sentido !== 'VOLTA')) return;
         const ponto = rotaRef.current.find(p => p.chave === chave);
-        if (!ponto?.passageiros.some(p => p.id === alunoId)) return;
+        if (!embarqueCampus && !ponto?.passageiros.some(p => p.id === alunoId)) return;
+        if (embarqueCampus && !rotaRef.current.some(p => p.passageiros.some(a => a.id === alunoId))) return;
         confirmandoParadaRef.current = true; setConfirmandoParada(true); setFeedbackParada('');
         const leitura = ++leituraOperacaoRef.current;
         try {
@@ -764,10 +772,11 @@ export default function Mapa() {
             if (!montadoRef.current || !focadaRef.current || execucao !== execucaoRef.current ||
                 leitura !== leituraOperacaoRef.current || paradasRef.current[0]?.chave !== chave || !onlineRef.current) return;
             const registro = painel.registros.find(r => r.alunoId === alunoId);
-            const anterior = execucao.sentido === 'IDA' ? 'AGUARDANDO' : 'EMBARCADO';
+            const embarque = execucao.sentido === 'IDA' || embarqueCampus;
+            const anterior = embarque ? 'AGUARDANDO' : 'EMBARCADO';
             if (registro?.estado === anterior) {
                 await alterarEstadoOperacional('VIAGEM', String(execucao.viagemId), registro, true,
-                    execucao.sentido === 'IDA' ? 'EMBARCADO' : 'DESEMBARCADO');
+                    embarque ? 'EMBARCADO' : 'DESEMBARCADO');
             }
         } catch (error) {
             if (montadoRef.current) setErroRede(mensagemErroOperacao(error));
@@ -1667,6 +1676,27 @@ export default function Mapa() {
                                             : 'Aguardando chegada com GPS preciso'}
                                 </Text>
 
+                                {privada && !idaPrivada && painelOperacional?.registros.some(r => r.estado === 'AGUARDANDO') && (
+                                    <View style={{ gap: 6 }}>
+                                        <Text style={styles.proximaParadaTexto}>Embarques na faculdade</Text>
+                                        {painelOperacional.registros.filter(r => r.estado === 'AGUARDANDO').map(r => (
+                                            <View key={r.id} style={{ gap: 6 }}>
+                                                <Text style={styles.proximaParadaTexto}>{r.nome}</Text>
+                                                <View style={{ flexDirection: 'row', gap: 8 }}>
+                                                    <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Confirmar embarque: ${r.nome}`}
+                                                        disabled={!online || confirmandoParada} style={[styles.acaoParada, { flex: 1 }]}
+                                                        onPress={() => void confirmarPessoaNoMapa(proximoPonto.chave, r.alunoId, true)}>
+                                                        <Text style={styles.proximaParadaTexto}>Confirmar embarque</Text>
+                                                    </TouchableOpacity>
+                                                    <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Configurações: ${r.nome}`}
+                                                        disabled={confirmandoParada} style={styles.acaoParada} onPress={abrirConfiguracoesPassageiros}>
+                                                        <Ionicons name="settings-outline" size={22} color="#00D2FF" />
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </View>
+                                        ))}
+                                    </View>
+                                )}
                                 {proximoPonto.passageiros.map(p => {
                                     const registro = painelOperacional?.registros.find(r => r.alunoId === p.id);
                                     const acaoDisponivel = privada && registro?.estado === (idaPrivada ? 'AGUARDANDO' : 'EMBARCADO');
@@ -1675,13 +1705,19 @@ export default function Mapa() {
                                         <Text style={styles.proximaParadaTexto}>
                                             {p.nome}: {registro ? rotulosEstado[registro.estado] : 'Estado indisponível'}
                                         </Text>
-                                        {acaoDisponivel && <TouchableOpacity
-                                            accessibilityRole="button"
-                                            accessibilityLabel={`${acao}: ${p.nome}`}
-                                            disabled={!online || confirmandoParada}
-                                            style={[styles.acaoParada, (!online || confirmandoParada) && { opacity: 0.45 }]}
-                                            onPress={() => void confirmarPessoaNoMapa(proximoPonto.chave, p.id)}
-                                        ><Text style={styles.proximaParadaTexto}>{acao}</Text></TouchableOpacity>}
+                                        {privada && <View style={{ flexDirection: 'row', gap: 8 }}>
+                                            {acaoDisponivel && <TouchableOpacity
+                                                accessibilityRole="button"
+                                                accessibilityLabel={`${acao}: ${p.nome}`}
+                                                disabled={!online || confirmandoParada}
+                                                style={[styles.acaoParada, { flex: 1 }, (!online || confirmandoParada) && { opacity: 0.45 }]}
+                                                onPress={() => void confirmarPessoaNoMapa(proximoPonto.chave, p.id)}
+                                            ><Text style={styles.proximaParadaTexto}>{acao}</Text></TouchableOpacity>}
+                                            <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Configurações: ${p.nome}`}
+                                                disabled={confirmandoParada} style={styles.acaoParada} onPress={abrirConfiguracoesPassageiros}>
+                                                <Ionicons name="settings-outline" size={22} color="#00D2FF" />
+                                            </TouchableOpacity>
+                                        </View>}
                                     </View>;
                                 })}
                                 {destinoIda && !impedimento && <Text style={styles.proximaParadaTexto}>
@@ -1700,7 +1736,7 @@ export default function Mapa() {
                                         gap: 8,
                                     }}
                                 >
-                                    {(proximoPonto.passageiros.length > 0 ||
+                                    {((!privada && proximoPonto.passageiros.length > 0) ||
                                         proximoPonto.tipo === 'DESTINO') && (
                                             <TouchableOpacity
                                                 accessibilityRole="button"
@@ -1710,25 +1746,7 @@ export default function Mapa() {
                                                     styles.acaoParada,
                                                     { flex: 1 },
                                                 ]}
-                                                onPress={() => {
-                                                    if (
-                                                        !execucaoRef.current ||
-                                                        confirmandoParadaRef.current
-                                                    ) return;
-
-                                                    chegadaRef.current = null;
-                                                    setChegada(null);
-
-                                                    router.push({
-                                                        pathname: '/controle-viagem',
-                                                        params: {
-                                                            tipo: 'VIAGEM',
-                                                            id: String(
-                                                                execucaoRef.current.viagemId
-                                                            ),
-                                                        },
-                                                    });
-                                                }}
+                                                onPress={abrirConfiguracoesPassageiros}
                                             >
                                                 {privada && <Ionicons name="settings-outline" size={20} color="#00D2FF" />}
                                                 <Text style={styles.proximaParadaTexto}>

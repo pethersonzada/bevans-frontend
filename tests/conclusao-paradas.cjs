@@ -304,3 +304,14 @@ test('mapa privado VOLTA confirma desembarque individual sem encerrar a viagem',
     assert.match(texto(h), /Destino final: VOLTA destino/);
     assert.equal(h.requests.some(url => url.endsWith('/concluir-ida')), false);h.unmount();
 });
+
+test('VOLTA privada permite confirmar embarque na faculdade diretamente no mapa', async () => {
+    const dados = fixture('PORTA_A_PORTA', 'VOLTA');
+    const h = await start({ dados, sentido: 'VOLTA', statusCampos: { modalidade: 'PRIVADA' } });
+    const button = nodes(h.render()).find(n => n.props.accessibilityLabel === 'Confirmar embarque: Pessoa 11');
+    assert.ok(button); await button.props.onPress(); await flush();
+    assert.equal(h.official.registros[0].estado, 'EMBARCADO');
+    assert.ok(nodes(h.render()).some(n => n.props.accessibilityLabel === 'Confirmar desembarque: Pessoa 11'));
+    assert.equal(h.paths.length, 0);
+    assert.equal(h.requests.some(url => url.endsWith('/concluir-ida')), false);h.unmount();
+});
