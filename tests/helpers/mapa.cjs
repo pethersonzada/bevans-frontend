@@ -32,6 +32,11 @@ function harness({ dados = fixture('FIXA', 'IDA'), sentido = 'IDA', viagemId = 4
         if (url.endsWith('/rota/status-atual?turmaId=7')) return Response.json({ status: 'ATIVA', sentido, viagemId: statusViagemId, ...statusCampos });
         if (url.endsWith(`/operacoes/VIAGEM/${viagemId}/roteiro`)) return Response.json(roteiroStatus === 200 ? dados : { erro: 'Snapshot indisponível' }, { status: roteiroStatus });
         if (url.endsWith(`/operacoes/VIAGEM/${viagemId}`)) return panelHandler ? panelHandler(official) : Response.json(painelStatus === 200 ? official : { erro: 'Confirmação indisponível' }, { status: painelStatus });
+        if (url.endsWith(`/operacoes/VIAGEM/${viagemId}/concluir-ida`)) {
+            if (official.registros.some(r => r.estado === 'AGUARDANDO')) return Response.json({ erro: 'Aguardando' }, { status: 409 });
+            for (const r of official.registros) if (r.estado === 'EMBARCADO') { r.estado = 'DESEMBARCADO'; r.versao++; }
+            return new Response(null, { status: 204 });
+        }
         const registroId = url.match(/\/passageiros\/(\d+)\/estado$/)?.[1];
         if (registroId) {
             if (confirmacaoStatus !== 200) return Response.json({ erro: 'Falha na confirmação' }, { status: confirmacaoStatus });
@@ -53,7 +58,7 @@ function harness({ dados = fixture('FIXA', 'IDA'), sentido = 'IDA', viagemId = 4
         'react-native': { View: 'View', ScrollView: 'Scroll', Text: 'Text', ActivityIndicator: 'Spinner', TouchableOpacity: 'Button', StatusBar: 'StatusBar', Linking: {}, StyleSheet: { create: x => x } },
         '@expo/vector-icons': { Ionicons: 'Icon' },
         '@react-native-async-storage/async-storage': { __esModule: true, default: {
-            getItem: async k => storage.get(k) ?? null, setItem: async (k, v) => { if (storageFailure && k.includes('visitadas')) throw Error('Falha ao salvar conclusão'); storage.set(k, v); }, removeItem: async k => { storage.delete(k); },
+            getItem: async k => storage.get(k) ?? null, setItem: async (k, v) => { if (storageFailure && k.includes('visitadas')) throw Error('Falha ao salvar conclusão'); storage.set(k, v); }, removeItem: async k => { storage.delete(k); }, multiRemove: async keys => { keys.forEach(k => storage.delete(k)); },
         } },
         '@react-native-community/netinfo': { __esModule: true, default: { addEventListener: fn => { network = fn; return () => {}; } } },
         '@rnmapbox/maps': { __esModule: true, default: { setAccessToken() {}, StyleURL: { Dark: 'dark' }, MapView: 'Map', Camera: 'Camera', ShapeSource: 'Shape', CircleLayer: 'Circle', SymbolLayer: 'Symbol', PointAnnotation: 'Annotation', LineLayer: 'Line' } },

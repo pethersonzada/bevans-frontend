@@ -75,3 +75,7 @@ Sem merge, deploy, publicação de APK ou alteração do backend. A exportação
 ## Correção de progressão privada (#54)
 
 O painel oficial passa a reconciliar o prefixo das paradas privadas cujo estado já foi resolvido. IDA: EMBARCADO, NAO_EMBARCOU e DESEMBARCADO resolvem a coleta. VOLTA: apenas DESEMBARCADO ou NAO_EMBARCOU resolvem a entrega; o embarque no campus não conclui endereços. Paradas sem passageiros e DESTINO continuam exigindo conclusão explícita. A geometria é recalculada apenas com os pontos pendentes, usando a ordem oficial. Na retomada, estados confirmados reconstroem esse prefixo mesmo sem cache; correções reabrem os pontos. O marcador de cache OPERACIONAL distingue o progresso misto privado. Modalidade pública, excursão, regras de chegada e encerramento continuam inalteradas. Não se confirma embarque/desembarque pelo GPS e não se encerra automaticamente.
+
+## Operação direta no mapa privado (#55)
+
+A IDA privada oferece confirmação individual de embarque no cartão do ponto atual, com configurações para ausências/correções. A VOLTA oferece confirmação individual de desembarque no ponto; o controle continua disponível para embarques no campus e exceções. A IDA deixa de exigir desembarques individuais ao chegar ao destino: Encerrar viagem, com chegada GPS confirmada e confirmação explícita, chama a operação atômica do backend `/operacoes/VIAGEM/{id}/concluir-ida`. Não chama o endpoint genérico antes da chegada. O backend valida a própria amostra GPS e encerra com auditoria. Modalidades públicas e excursões conservam o fluxo anterior.

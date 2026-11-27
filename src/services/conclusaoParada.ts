@@ -1,8 +1,8 @@
 import { conferirSnapshotRoteiro, restaurarVisitadas, type PontoNavegacao, type PainelRoteiro } from './roteiroNavegacao';
-import type { EstadoOperacional } from './operacoes';
+import type { RegistroOperacional } from './operacoes';
 
 export type PainelParadas = Omit<PainelRoteiro, 'registros'> & {
-    registros: (PainelRoteiro['registros'][number] & { id: number; estado: EstadoOperacional; versao: number })[];
+    registros: (PainelRoteiro['registros'][number] & RegistroOperacional)[];
 };
 export type SituacaoPonto = 'DISTANTE' | 'PROXIMO' | 'CHEGOU';
 export type ChegadaPonto = { chave: string; situacao: SituacaoPonto; leituras: number; observadoEm: number };

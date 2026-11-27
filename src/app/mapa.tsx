@@ -30,7 +30,7 @@ import { withDeadline } from '../services/asyncOperation';
 import { atualizarChegada, chegadaAtual, conferirPainelParadas, impedimentoConclusao, restaurarConclusoes, type ChegadaPonto, type PainelParadas } from '../services/conclusaoParada';
 import { validCoordinates } from '../services/location';
 import { ensureNavigationLocation, NavigationLocationError } from '../services/navigationLocation';
-import { mensagemErroOperacao, rotulosEstado } from '../services/operacoes';
+import { alterarEstadoOperacional, mensagemErroOperacao, rotulosEstado } from '../services/operacoes';
 import { assinaturaRoteiro, chaveCacheRoteiro, geometriaCompativel, LIMITE_WAYPOINTS_MAPBOX, pontosParaDirecoes, separarTrechosRoteiro, validarRespostaDirecoes, type ExecucaoRoteiro, type PontoNavegacao } from '../services/roteiroNavegacao';
 import { consultarRoteiroOperacional } from '../services/roteiroOperacional';
 import { createPositionSender } from '../services/telemetria';
@@ -750,6 +750,35 @@ export default function Mapa() {
     }
     useFocusedPolling(atualizarOperacao, 10000, !loading && viagemAtiva && user?.id ? `${user.id}:${viagemIdRef.current}` : false);
 
+    // O botão do mapa confirma somente o registro da parada atual, usando a versão oficial.
+    async function confirmarPessoaNoMapa(chave: string, alunoId: number) {
+        const execucao = execucaoRef.current;
+        if (!execucao?.privadaConfirmada || confirmandoParadaRef.current || encerrandoRef.current ||
+            !onlineRef.current || paradasRef.current[0]?.chave !== chave) return;
+        const ponto = rotaRef.current.find(p => p.chave === chave);
+        if (!ponto?.passageiros.some(p => p.id === alunoId)) return;
+        confirmandoParadaRef.current = true; setConfirmandoParada(true); setFeedbackParada('');
+        const leitura = ++leituraOperacaoRef.current;
+        try {
+            const painel = await lerPainelAtual(execucao);
+            if (!montadoRef.current || !focadaRef.current || execucao !== execucaoRef.current ||
+                leitura !== leituraOperacaoRef.current || paradasRef.current[0]?.chave !== chave || !onlineRef.current) return;
+            const registro = painel.registros.find(r => r.alunoId === alunoId);
+            const anterior = execucao.sentido === 'IDA' ? 'AGUARDANDO' : 'EMBARCADO';
+            if (registro?.estado === anterior) {
+                await alterarEstadoOperacional('VIAGEM', String(execucao.viagemId), registro, true,
+                    execucao.sentido === 'IDA' ? 'EMBARCADO' : 'DESEMBARCADO');
+            }
+        } catch (error) {
+            if (montadoRef.current) setErroRede(mensagemErroOperacao(error));
+        } finally {
+            confirmandoParadaRef.current = false;
+            if (montadoRef.current) setConfirmandoParada(false);
+        }
+        if (montadoRef.current && focadaRef.current && execucao === execucaoRef.current)
+            await atualizarOperacao(new AbortController().signal);
+    }
+
     async function registrarParadaVisitada(chave: string) {
         if (confirmandoParadaRef.current) return;
         const execucao = execucaoRef.current;
@@ -1385,9 +1414,19 @@ export default function Mapa() {
             );
         }
 
+        const execucao = execucaoRef.current;
+        const idaPrivada = execucao?.privadaConfirmada && execucao.sentido === 'IDA';
+        const destino = rotaRef.current.at(-1);
+        const destinoConcluido = !!destino && visitadosRef.current.has(destino.chave);
+        const chegouDestino = () => !!destino && paradasRef.current.length === 1 &&
+            paradasRef.current[0]?.chave === destino.chave && chegadaAtual(chegadaRef.current, destino.chave, Date.now());
+        if (idaPrivada && !destinoConcluido && !chegouDestino()) {
+            return Alert.alert('Chegue ao destino', 'Conclua as coletas e aguarde a confirmação de chegada à faculdade antes de encerrar.');
+        }
+
         Alert.alert(
             'Encerrar Viagem',
-            'Você tem certeza de que deseja encerrar a rota atual?',
+            idaPrivada ? 'Confirma que chegou à faculdade e todos os passageiros embarcados desembarcaram? A viagem será encerrada.' : 'Você tem certeza de que deseja encerrar a rota atual?',
             [
                 {
                     text: 'Cancelar',
@@ -1406,11 +1445,17 @@ export default function Mapa() {
                                 return;
                             }
 
-                            if (encerrandoRef.current) return;
+                            if (encerrandoRef.current || confirmandoParadaRef.current || !execucao ||
+                                execucao !== execucaoRef.current || !focadaRef.current) return;
                             encerrandoRef.current = true;
-                            publisherRef.current?.cancel();
                             try {
-                                await encerrarViagemConferida(turmaIdParam, viagemIdRef.current!);
+                                if (idaPrivada && !destinoConcluido) {
+                                    if (!chegouDestino()) throw new Error('A chegada não está mais confirmada. Aguarde o GPS.');
+                                    await apiRequest<void>(`/operacoes/VIAGEM/${execucao.viagemId}/concluir-ida`, { method: 'POST' });
+                                } else {
+                                    await encerrarViagemConferida(turmaIdParam, execucao.viagemId);
+                                }
+                                publisherRef.current?.cancel();
                                 viagemAtivaRef.current = false;
                                 setViagemAtiva(false);
                                 await AsyncStorage.multiRemove(['@vanbora:viagem_ativa', '@vanbora:viagem_ativa_' + motoristaIdParam]);
@@ -1508,8 +1553,16 @@ export default function Mapa() {
     const posicaoExibida =
         posicaoSuave || localizacao;
     const proximoPonto = rota.find(p => p.chave === paradasRef.current[0]?.chave);
-    const impedimento = proximoPonto ? impedimentoConclusao(proximoPonto, painelOperacional,
-        execucaoRef.current?.privadaConfirmada ? execucaoRef.current.sentido : undefined) : null;
+    const privada = execucaoRef.current?.privadaConfirmada === true;
+    const idaPrivada = privada && execucaoRef.current?.sentido === 'IDA';
+    const destinoIda = idaPrivada && proximoPonto?.tipo === 'DESTINO';
+    const impedimento = destinoIda
+        ? (!painelOperacional ? 'Atualize o estado operacional.' :
+            painelOperacional.registros.some(r => r.estado === 'AGUARDANDO')
+                ? 'Resolva passageiros aguardando antes de encerrar.'
+                : null)
+        : proximoPonto ? impedimentoConclusao(proximoPonto, painelOperacional,
+            privada ? execucaoRef.current?.sentido : undefined) : null;
     const podeConcluir = !!proximoPonto && chegadaAtual(chegada, proximoPonto.chave, Date.now()) && !impedimento && online;
 
     return (
@@ -1614,20 +1667,26 @@ export default function Mapa() {
                                             : 'Aguardando chegada com GPS preciso'}
                                 </Text>
 
-                                {proximoPonto.passageiros.map(p => (
-                                    <Text
-                                        key={p.id}
-                                        style={styles.proximaParadaTexto}
-                                    >
-                                        {p.nome}: {painelOperacional
-                                            ? rotulosEstado[
-                                            painelOperacional.registros.find(
-                                                r => r.alunoId === p.id
-                                            )!.estado
-                                            ]
-                                            : 'Estado indisponível'}
-                                    </Text>
-                                ))}
+                                {proximoPonto.passageiros.map(p => {
+                                    const registro = painelOperacional?.registros.find(r => r.alunoId === p.id);
+                                    const acaoDisponivel = privada && registro?.estado === (idaPrivada ? 'AGUARDANDO' : 'EMBARCADO');
+                                    const acao = idaPrivada ? 'Confirmar embarque' : 'Confirmar desembarque';
+                                    return <View key={p.id} style={{ gap: 6 }}>
+                                        <Text style={styles.proximaParadaTexto}>
+                                            {p.nome}: {registro ? rotulosEstado[registro.estado] : 'Estado indisponível'}
+                                        </Text>
+                                        {acaoDisponivel && <TouchableOpacity
+                                            accessibilityRole="button"
+                                            accessibilityLabel={`${acao}: ${p.nome}`}
+                                            disabled={!online || confirmandoParada}
+                                            style={[styles.acaoParada, (!online || confirmandoParada) && { opacity: 0.45 }]}
+                                            onPress={() => void confirmarPessoaNoMapa(proximoPonto.chave, p.id)}
+                                        ><Text style={styles.proximaParadaTexto}>{acao}</Text></TouchableOpacity>}
+                                    </View>;
+                                })}
+                                {destinoIda && !impedimento && <Text style={styles.proximaParadaTexto}>
+                                    Ao chegar à faculdade, use Encerrar viagem para confirmar todos os desembarques de uma vez.
+                                </Text>}
 
                                 {!!impedimento && (
                                     <Text style={styles.proximaParadaTexto}>
@@ -1645,7 +1704,7 @@ export default function Mapa() {
                                         proximoPonto.tipo === 'DESTINO') && (
                                             <TouchableOpacity
                                                 accessibilityRole="button"
-                                                accessibilityLabel="Controle de embarque"
+                                                accessibilityLabel={privada ? "Configurações de passageiros" : "Controle de embarque"}
                                                 disabled={confirmandoParada}
                                                 style={[
                                                     styles.acaoParada,
@@ -1671,13 +1730,14 @@ export default function Mapa() {
                                                     });
                                                 }}
                                             >
+                                                {privada && <Ionicons name="settings-outline" size={20} color="#00D2FF" />}
                                                 <Text style={styles.proximaParadaTexto}>
-                                                    Embarques
+                                                    {privada ? 'Configurações' : 'Embarques'}
                                                 </Text>
                                             </TouchableOpacity>
                                         )}
 
-                                    <TouchableOpacity
+                                    {!destinoIda && (!privada || !proximoPonto.passageiros.length || proximoPonto.tipo === 'DESTINO') && <TouchableOpacity
                                         accessibilityRole="button"
                                         accessibilityLabel="Concluir parada"
                                         accessibilityState={{
@@ -1706,7 +1766,7 @@ export default function Mapa() {
                                                 ? 'Conferindo…'
                                                 : 'Concluir'}
                                         </Text>
-                                    </TouchableOpacity>
+                                    </TouchableOpacity>}
                                 </View>
                             </>
                         )}

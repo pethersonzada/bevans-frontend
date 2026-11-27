@@ -251,7 +251,7 @@ test('VOLTA privada: embarque não conclui entrega; desembarque libera destino o
     const h = await start({ dados, sentido: 'VOLTA', statusCampos: { modalidade: 'PRIVADA' } });
     await h.confirmar(11, 'EMBARCADO'); await h.refresh();
     assert.match(texto(h), /Próxima parada: Endereço do sentido/);
-    assert.equal(chegar(h, dados[1]).props.disabled, true);
+    assert.equal(nodes(h.render()).some(n => n.props.accessibilityLabel === 'Concluir parada'), false);
     await h.confirmar(11, 'DESEMBARCADO'); await h.refresh();
     assert.deepEqual(h.direcoes.at(-1).slice(1), [[dados[2].longitude, dados[2].latitude]]);
     assert.match(texto(h), /Destino final: VOLTA destino/);
@@ -269,4 +269,38 @@ test('IDA privada mantém paradas vazias e exige todos os passageiros de uma col
     assert.match(texto(h), /Destino final: IDA destino/);
     assert.deepEqual(h.direcoes.at(-1).slice(1), [[dados[3].longitude, dados[3].latitude]]);
     h.unmount();
+});
+
+test('mapa privado confirma embarque diretamente e finaliza IDA em uma única ação na chegada', async () => {
+    const dados = fixture('PORTA_A_PORTA', 'IDA');
+    const h = await start({ dados, statusCampos: { modalidade: 'PRIVADA' } });
+    const button = nodes(h.render()).find(n => n.props.accessibilityLabel === 'Confirmar embarque: Pessoa 11');
+    assert.ok(button); assert.equal(h.paths.length, 0);
+    await button.props.onPress(); await flush();
+    assert.equal(h.official.registros[0].estado, 'EMBARCADO');
+    assert.match(texto(h), /Destino final: IDA destino/);
+    assert.equal(nodes(h.render()).some(n => n.props.accessibilityLabel === 'Concluir parada'), false);
+    assert.equal(nodes(h.render()).some(n => n.props.accessibilityLabel === 'Configurações de passageiros'), true);
+    const encerrar = () => nodes(h.render()).find(n => n.type === 'Controls').props.onEncerrarViagem();
+    await encerrar();
+    assert.equal(h.alerts.at(-1)[0], 'Chegue ao destino');
+    assert.equal(h.requests.some(url => url.endsWith('/concluir-ida')), false);
+    h.tick(dados[2]); h.tick(dados[2]); h.render();
+    await encerrar();
+    assert.equal(h.alerts.at(-1)[0], 'Encerrar Viagem');
+    await h.alerts.at(-1)[2].find(b => b.style === 'destructive').onPress();
+    await flush();
+    assert.equal(h.requests.filter(url => url.endsWith('/concluir-ida')).length, 1);
+    assert.equal(h.official.registros[0].estado, 'DESEMBARCADO');
+    h.unmount();
+});
+
+test('mapa privado VOLTA confirma desembarque individual sem encerrar a viagem', async () => {
+    const dados = fixture('PORTA_A_PORTA', 'VOLTA');
+    const h = await start({ dados, sentido: 'VOLTA', estados: { 11: 'EMBARCADO' }, statusCampos: { modalidade: 'PRIVADA' } });
+    const button = nodes(h.render()).find(n => n.props.accessibilityLabel === 'Confirmar desembarque: Pessoa 11');
+    assert.ok(button); await button.props.onPress(); await flush();
+    assert.equal(h.official.registros[0].estado, 'DESEMBARCADO');
+    assert.match(texto(h), /Destino final: VOLTA destino/);
+    assert.equal(h.requests.some(url => url.endsWith('/concluir-ida')), false);h.unmount();
 });
