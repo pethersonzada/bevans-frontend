@@ -1,4 +1,3 @@
-
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
@@ -32,7 +31,7 @@ import { atualizarChegada, chegadaAtual, conferirPainelParadas, impedimentoConcl
 import { validCoordinates } from '../services/location';
 import { ensureNavigationLocation, NavigationLocationError } from '../services/navigationLocation';
 import { alterarEstadoOperacional, mensagemErroOperacao, rotulosEstado } from '../services/operacoes';
-import { assinaturaRoteiro, chaveCacheRoteiro, geometriaCompativel, LIMITE_WAYPOINTS_MAPBOX, pontosParaDirecoes, separarTrechosRoteiro, validarRespostaDirecoes, type ExecucaoRoteiro, type PontoNavegacao } from '../services/roteiroNavegacao';
+import { assinaturaRoteiro, chaveCacheRoteiro, geometriaCompativel, LIMITE_WAYPOINTS_MAPBOX, pontosParaDirecoes, validarRespostaDirecoes, type ExecucaoRoteiro, type PontoNavegacao } from '../services/roteiroNavegacao';
 import { consultarRoteiroOperacional } from '../services/roteiroOperacional';
 import { createPositionSender } from '../services/telemetria';
 import { encerrarViagemConferida } from '../services/viagens';
@@ -44,6 +43,14 @@ import { PainelManobra } from '../components/mapa/PainelManobra';
 
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
 MapboxGL.setAccessToken(MAPBOX_TOKEN);
+
+const IMAGENS_NAVEGACAO = {
+    bevansVan: require('../../assets/images/van-navegacao.png'),
+};
+const FILTRO_ROTA_ATUAL = ['==', ['get', 'tipo'], 'rota-atual'] as const;
+const FILTRO_VAN = ['==', ['get', 'tipo'], 'van'] as const;
+const INTERVALO_QUADRO_MS = 33;
+const TOLERANCIA_RECUO_METROS = 25;
 
 type LatLng = {
     latitude: number;
@@ -66,6 +73,77 @@ type Projecao = {
     indice: number;
     t: number;
 };
+
+type Coordenada = [number, number];
+type MedidasRota = { coordenadas: Coordenada[]; acumuladas: number[] };
+type ProgressoVisual = { medidas: MedidasRota; metros: number; indice: number; t: number };
+type QuadroNavegacao = { posicao: LatLng; heading: number; progresso: ProgressoVisual | null };
+
+// A linha e a van compartilham o mesmo quadro, sem depender do índice inteiro do GPS.
+function medirRota(coordenadas: Coordenada[]): MedidasRota {
+    const acumuladas = [0];
+    for (let i = 1; i < coordenadas.length; i++) {
+        acumuladas.push(acumuladas[i - 1] + distanciaMetros(
+            { longitude: coordenadas[i - 1][0], latitude: coordenadas[i - 1][1] },
+            { longitude: coordenadas[i][0], latitude: coordenadas[i][1] }
+        ));
+    }
+    return { coordenadas, acumuladas };
+}
+
+function metrosProjetados(medidas: MedidasRota, projecao: Projecao): number {
+    const i = projecao.indice;
+    return medidas.acumuladas[i] + (medidas.acumuladas[i + 1] - medidas.acumuladas[i]) * projecao.t;
+}
+
+function quadroNaRota(medidas: MedidasRota, metros: number, headingAnterior: number): QuadroNavegacao {
+    const { coordenadas, acumuladas } = medidas;
+    const fim = coordenadas.length - 1;
+    const m = Math.max(0, Math.min(acumuladas[fim], metros));
+    let a = 0, b = fim;
+    while (a + 1 < b) {
+        const meio = (a + b) >> 1;
+        if (acumuladas[meio] <= m) a = meio;
+        else b = meio;
+    }
+    const comprimento = acumuladas[a + 1] - acumuladas[a];
+    const t = comprimento > 0 ? (m - acumuladas[a]) / comprimento : 0;
+    const inicio = coordenadas[a], final = coordenadas[a + 1];
+    const posicao = {
+        longitude: inicio[0] + (final[0] - inicio[0]) * t,
+        latitude: inicio[1] + (final[1] - inicio[1]) * t,
+    };
+    const heading = comprimento > 0 ? projetarNoSegmento(posicao,
+        { longitude: inicio[0], latitude: inicio[1] },
+        { longitude: final[0], latitude: final[1] }).bearing : headingAnterior;
+    return { posicao, heading, progresso: { medidas, metros: m, indice: a, t } };
+}
+
+function linhaNavegacao(coordenadas: Coordenada[], tipo: string) {
+    return {
+        type: 'FeatureCollection' as const,
+        features: coordenadas.length >= 2 ? [{
+            type: 'Feature' as const, properties: { tipo },
+            geometry: { type: 'LineString' as const, coordinates: coordenadas },
+        }] : [],
+    };
+}
+
+function coordenadasRestantesDoTrecho(coordenadas: Coordenada[], progresso: ProgressoVisual | null, limite: number | null): Coordenada[] {
+    if (coordenadas.length < 2 || limite === null || limite <= 0 || limite >= coordenadas.length) return [];
+    if (!progresso || progresso.medidas.coordenadas !== coordenadas) return coordenadas.slice(0, limite + 1);
+    if (progresso.metros >= progresso.medidas.acumuladas[limite]) return [];
+    const { indice, t } = progresso;
+    if (indice >= limite) return [];
+    const a = coordenadas[indice], b = coordenadas[indice + 1];
+    const corte: Coordenada = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+    return [corte, ...coordenadas.slice(indice + 1, limite + 1)];
+}
+
+function interpolarHeading(origem: number, alvo: number, t: number): number {
+    const delta = ((alvo - origem + 180) % 360 + 360) % 360 - 180;
+    return (origem + delta * t + 360) % 360;
+}
 
 type ParadaNavegacao = {
     chave: string;
@@ -306,8 +384,8 @@ export default function Mapa() {
     );
 
     const [localizacao, setLocalizacao] = useState<LatLng | null>(null);
-    const [posicaoSuave, setPosicaoSuave] = useState<LatLng | null>(null);
-    const [headingAtual, setHeadingAtual] = useState(0);
+    const [quadroVisual, setQuadroVisual] = useState<QuadroNavegacao | null>(null);
+    const posicaoSuave = quadroVisual?.posicao ?? null;
 
     const [rota, setRota] = useState<PontoNavegacao[]>([]);
 
@@ -364,6 +442,9 @@ export default function Mapa() {
 
     const headingRef = useRef(0);
     const posicaoApresentadaRef = useRef<LatLng | null>(null);
+    const quadroVisualRef = useRef<QuadroNavegacao | null>(null);
+    const medidasRotaRef = useRef<MedidasRota | null>(null);
+    const alvoProgressoRef = useRef<number | null>(null);
 
     const animFrameRef = useRef<number | null>(null);
 
@@ -616,49 +697,63 @@ export default function Mapa() {
         return publisherRef.current?.send(ponto) ?? false;
     }
 
-    function animarParaNovaPosicao(novaPos: LatLng) {
-        const origem =
-            posicaoApresentadaRef.current || novaPos;
+    function publicarQuadro(quadro: QuadroNavegacao) {
+        quadroVisualRef.current = quadro;
+        posicaoApresentadaRef.current = quadro.posicao;
+        headingRef.current = quadro.heading;
+        setQuadroVisual(quadro);
+    }
 
+    function cancelarAnimacaoVisual() {
+        if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current);
+        animFrameRef.current = null;
+    }
+
+    function animarParaNovaPosicao(novaPos: LatLng, projecao: Projecao | null, headingGPS: number | null) {
+        cancelarAnimacaoVisual();
+        const anterior = quadroVisualRef.current;
+        const origem = anterior?.posicao ?? novaPos;
+        const headingOrigem = anterior?.heading ?? headingRef.current;
+        const medidas = medidasRotaRef.current;
+        const naRota = !!projecao && !!medidas && medidas.coordenadas.length > 1;
+        const progressoAnterior = anterior?.progresso;
+        const mesmoTrajeto = naRota && progressoAnterior?.medidas === medidas;
+        const metrosAlvo = naRota ? metrosProjetados(medidas!, projecao!) : null;
+        const metrosOrigem = mesmoTrajeto ? progressoAnterior!.metros : metrosAlvo;
+        // Jitter de GPS não faz a linha crescer novamente. Um recuo real é tratado como desvio.
+        const alvo = metrosAlvo !== null && metrosOrigem !== null
+            ? Math.max(metrosOrigem, metrosAlvo, alvoProgressoRef.current ?? metrosAlvo)
+            : null;
+        if (alvo !== null) alvoProgressoRef.current = alvo;
         const inicio = Date.now();
-
-        if (animFrameRef.current) {
-            cancelAnimationFrame(animFrameRef.current);
-        }
+        let ultimoQuadro = -Infinity;
 
         const passo = () => {
-            if (!montadoRef.current) return;
-
-            const progresso = Math.min(
-                1,
-                (Date.now() - inicio) / DURACAO_ANIMACAO_MS
-            );
-
-            const t = progresso * progresso * (3 - 2 * progresso);
-
-            const lat =
-                origem.latitude +
-                (novaPos.latitude - origem.latitude) * t;
-
-            const lng =
-                origem.longitude +
-                (novaPos.longitude - origem.longitude) * t;
-
-            const atual = {
-                latitude: lat,
-                longitude: lng,
-            };
-
-            posicaoApresentadaRef.current = atual;
-
-            setPosicaoSuave(atual);
-
-            if (t < 1) {
-                animFrameRef.current =
-                    requestAnimationFrame(passo);
+            if (!montadoRef.current || medidasRotaRef.current !== medidas) return;
+            const agora = Date.now();
+            const fracao = Math.min(1, Math.max(0, (agora - inicio) / DURACAO_ANIMACAO_MS));
+            if (fracao === 1 || agora - ultimoQuadro >= INTERVALO_QUADRO_MS) {
+                ultimoQuadro = agora;
+                // A interpolação percorre a polilinha viária por distância acumulada.
+                // Não corta a esquina em linha reta entre dois pontos GPS.
+                const t = fracao * fracao * (3 - 2 * fracao);
+                if (naRota && alvo !== null && metrosOrigem !== null) {
+                    const quadro = quadroNaRota(medidas!, metrosOrigem + (alvo - metrosOrigem) * t, headingOrigem);
+                    publicarQuadro(quadro);
+                } else {
+                    // Fora da via, preserve o último recorte confirmado; não invente uma linha
+                    // ligando a van à rua. O recálculo oficial continua responsável pelo desvio.
+                    publicarQuadro({
+                        posicao: { latitude: origem.latitude + (novaPos.latitude - origem.latitude) * t,
+                            longitude: origem.longitude + (novaPos.longitude - origem.longitude) * t },
+                        heading: interpolarHeading(headingOrigem, headingGPS ?? headingOrigem, t),
+                        progresso: progressoAnterior ?? null,
+                    });
+                }
             }
+            if (fracao < 1) animFrameRef.current = requestAnimationFrame(passo);
+            else animFrameRef.current = null;
         };
-
         passo();
     }
 
@@ -679,6 +774,22 @@ export default function Mapa() {
         setGeometriaRota(geoJson);
         setCoordenadasRota(coordenadas);
         coordenadasRotaRef.current = coordenadas;
+        cancelarAnimacaoVisual();
+        const medidas = medirRota(coordenadas);
+        medidasRotaRef.current = medidas;
+        alvoProgressoRef.current = null;
+        const posicao = posicaoApresentadaRef.current;
+        if (posicao && coordenadas.length > 1) {
+            // A geometria nova começa na posição solicitada; só procure no começo
+            // para não saltar para uma rua sobreposta mais adiante no percurso.
+            const limite = Math.min(20, Math.max(0, (paradas[0]?.indiceRota ?? 1) - 1));
+            const proj = encontrarProjecaoNaRota(coordenadas, posicao, null, 0, limite);
+            if (proj && proj.distancia <= RAIO_DESVIO_ROTA_METROS) {
+                const metros = metrosProjetados(medidas, proj);
+                alvoProgressoRef.current = metros;
+                publicarQuadro(quadroNaRota(medidas, metros, headingRef.current));
+            } else publicarQuadro({ posicao, heading: headingRef.current, progresso: null });
+        }
         setManobras(manobrasCalculadas);
         manobrasRef.current = manobrasCalculadas;
         setManobraAtual(manobrasCalculadas[0] || null);
@@ -745,6 +856,9 @@ export default function Mapa() {
                     indiceParadaVisualRef.current = paradasRef.current[0]?.indiceRota ?? indiceParadaVisualRef.current;
                     paradasRef.current = [];
                     coordenadasRotaRef.current = [];
+                    cancelarAnimacaoVisual();
+                    medidasRotaRef.current = null;
+                    alvoProgressoRef.current = null;
                     manobrasRef.current = [];
                     setManobraAtual(null);
                     setDistanciaRestante(null); setEtaMinutos(null);
@@ -756,6 +870,8 @@ export default function Mapa() {
                     if (posicao) await carregarGeometriaRota(pendentes, posicao);
                 } else {
                     indiceParadaVisualRef.current = null;
+                    medidasRotaRef.current = null;
+                    alvoProgressoRef.current = null;
                     setGeometriaRota(null); setCoordenadasRota([]);
                     setDistanciaRestante(0); setEtaMinutos(0);
                 }
@@ -960,6 +1076,12 @@ export default function Mapa() {
             setGeometriaRota(null);
             setCoordenadasRota([]);
             coordenadasRotaRef.current = [];
+            cancelarAnimacaoVisual();
+            medidasRotaRef.current = null;
+            alvoProgressoRef.current = null;
+            quadroVisualRef.current = null;
+            posicaoApresentadaRef.current = null;
+            setQuadroVisual(null);
             paradasRef.current = [];
             indiceParadaVisualRef.current = null;
             setProximaParada(null);
@@ -991,10 +1113,7 @@ export default function Mapa() {
 
                     setLocalizacao(posicaoInicial);
 
-                    posicaoApresentadaRef.current =
-                        posicaoInicial;
-
-                    setPosicaoSuave(posicaoInicial);
+                    publicarQuadro({ posicao: posicaoInicial, heading: headingRef.current, progresso: null });
                 }
             } catch {
                 const ultima = await withDeadline(() => Location.getLastKnownPositionAsync({ maxAge: 60000 }), { timeoutMs: 5000 }).catch(() => null);
@@ -1004,8 +1123,7 @@ export default function Mapa() {
                         longitude: ultima.coords.longitude,
                     };
                     setLocalizacao(posicaoInicial);
-                    posicaoApresentadaRef.current = posicaoInicial;
-                    setPosicaoSuave(posicaoInicial);
+                    publicarQuadro({ posicao: posicaoInicial, heading: headingRef.current, progresso: null });
                 }
             }
 
@@ -1090,7 +1208,10 @@ export default function Mapa() {
                                 indiceMinimoRef.current, limite
                             );
 
-                            if (projecao && projecao.distancia <= RAIO_DESVIO_ROTA_METROS) {
+                            const medidas = medidasRotaRef.current;
+                            const recuouDeVerdade = !!projecao && !!medidas && alvoProgressoRef.current !== null &&
+                                metrosProjetados(medidas, projecao) < alvoProgressoRef.current - TOLERANCIA_RECUO_METROS;
+                            if (projecao && projecao.distancia <= RAIO_DESVIO_ROTA_METROS && !recuouDeVerdade) {
                                 ultimoIndiceProjecaoRef.current = projecao.indice;
                                 posicaoFinal = projecao.ponto;
                                 primeiroTickForaRotaRef.current = null;
@@ -1104,6 +1225,7 @@ export default function Mapa() {
                                     (restante / 1000 / velocidadeParaCalculo) * 60
                                 )));
                             } else {
+                                projecao = null;
                                 if (primeiroTickForaRotaRef.current === null) {
                                     primeiroTickForaRotaRef.current = Date.now();
                                 }
@@ -1120,7 +1242,9 @@ export default function Mapa() {
                             }
                         }
 
-                        animarParaNovaPosicao(posicaoFinal);
+                        const headingGPS = typeof loc.coords.heading === 'number' && loc.coords.heading >= 0 && velocidadeKmh > 3
+                            ? loc.coords.heading : null;
+                        animarParaNovaPosicao(posicaoFinal, projecao, headingGPS);
 
                         cameraRef.current?.setCamera({
                             centerCoordinate: [
@@ -1131,41 +1255,6 @@ export default function Mapa() {
                             pitch: 65,
                             animationDuration: 1800,
                         });
-
-                        let headingAlvo: number | null = null;
-
-                        if (
-                            loc.coords.heading !== null &&
-                            loc.coords.heading >= 0 &&
-                            velocidadeKmh > 3
-                        ) {
-                            headingAlvo = loc.coords.heading;
-                        } else if (
-                            projecao &&
-                            projecao.distancia <=
-                            RAIO_DESVIO_ROTA_METROS
-                        ) {
-                            headingAlvo = projecao.bearing;
-                        }
-
-                        if (headingAlvo !== null) {
-                            let diff =
-                                headingAlvo - headingRef.current;
-
-                            diff =
-                                ((diff + 180) % 360 + 360) % 360 -
-                                180;
-
-                            const novoHeading =
-                                (headingRef.current +
-                                    diff * 0.3 +
-                                    360) %
-                                360;
-
-                            headingRef.current = novoHeading;
-
-                            setHeadingAtual(novoHeading);
-                        }
 
                         const manobrasAtuais =
                             manobrasRef.current;
@@ -1554,11 +1643,23 @@ export default function Mapa() {
         [rota, paradasRestantes]
     );
 
-    const trechosRoteiro = separarTrechosRoteiro(
-        coordenadasRota,
-        localizacao ? ultimoIndiceProjecaoRef.current : null,
-        paradasRef.current[0]?.indiceRota ?? indiceParadaVisualRef.current
-    );
+    const centroInicialCamera = useMemo<Coordenada | undefined>(() => garagem
+        ? [garagem.longitude, garagem.latitude] : undefined, [garagem]);
+    const limiteVisual = paradasRef.current[0]?.indiceRota ?? indiceParadaVisualRef.current;
+    const rotaFuturaGeoJSON = useMemo(() => linhaNavegacao(
+        limiteVisual === null ? [] : coordenadasRota.slice(limiteVisual), 'rota-futura'
+    ), [coordenadasRota, limiteVisual]);
+
+    const navegacaoGeoJSON = useMemo(() => {
+        const progresso = quadroVisual?.progresso ?? null;
+        const linha = linhaNavegacao(coordenadasRestantesDoTrecho(coordenadasRota, progresso, limiteVisual), 'rota-atual');
+        const posicao = quadroVisual?.posicao ?? localizacao;
+        const van = posicao ? [{
+            type: 'Feature' as const, properties: { tipo: 'van', heading: quadroVisual?.heading ?? 0 },
+            geometry: { type: 'Point' as const, coordinates: [posicao.longitude, posicao.latitude] },
+        }] : [];
+        return { type: 'FeatureCollection' as const, features: [...linha.features, ...van] };
+    }, [coordenadasRota, limiteVisual, quadroVisual, localizacao]);
 
     if (loading) {
         return (
@@ -1585,8 +1686,6 @@ export default function Mapa() {
         );
     }
 
-    const posicaoExibida =
-        posicaoSuave || localizacao;
     const proximoPonto = rota.find(p => p.chave === paradasRef.current[0]?.chave);
     const privada = execucaoRef.current?.privadaConfirmada === true;
     const idaPrivada = privada && execucaoRef.current?.sentido === 'IDA';
@@ -1924,108 +2023,16 @@ export default function Mapa() {
                     ref={cameraRef}
                     zoomLevel={18}
                     pitch={65}
-                    centerCoordinate={[
-                        garagem.longitude,
-                        garagem.latitude,
-                    ]}
+                    centerCoordinate={centroInicialCamera}
                 />
 
-                {trechosRoteiro.percorrido && (
-                    <MapboxGL.ShapeSource
-                        id="rotaPercorridaSource"
-                        shape={trechosRoteiro.percorrido}
-                    >
-                        <MapboxGL.LineLayer
-                            id="rotaPercorridaLine"
-                            style={{
-                                lineColor: '#334155',
-                                lineWidth: 6,
-                                lineCap: 'round',
-                                lineJoin: 'round',
-                                lineOpacity: 0.8,
-                            }}
-                        />
-                    </MapboxGL.ShapeSource>
-                )}
-
-                {trechosRoteiro.futuro && (
-                    <MapboxGL.ShapeSource
-                        id="rotaFuturaSource"
-                        shape={trechosRoteiro.futuro}
-                    >
-                        <MapboxGL.LineLayer
-                            id="rotaFuturaLine"
-                            style={{
-                                lineColor: '#94A3B8',
-                                lineWidth: 5,
-                                lineCap: 'round',
-                                lineJoin: 'round',
-                                lineOpacity: 0.75,
-                            }}
-                        />
-                    </MapboxGL.ShapeSource>
-                )}
-
-                {trechosRoteiro.atual && (
-                    <MapboxGL.ShapeSource id="rotaAtualSource" shape={trechosRoteiro.atual}>
-                        <MapboxGL.LineLayer
-                            id="rotaAtualCasing"
-                            style={{
-                                lineColor: '#075985', lineWidth: 10,
-                                lineCap: 'round', lineJoin: 'round', lineOpacity: 0.45,
-                            }}
-                        />
-                        <MapboxGL.LineLayer
-                            id="rotaAtualLine"
-                            style={{
-                                lineColor: '#00D2FF', lineWidth: 6,
-                                lineCap: 'round',
-                                lineJoin: 'round',
-                            }}
-                        />
-                    </MapboxGL.ShapeSource>
-                )}
-
-                {posicaoExibida && (
-                    <MapboxGL.PointAnnotation
-                        id="van-marker"
-                        coordinate={[
-                            posicaoExibida.longitude,
-                            posicaoExibida.latitude,
-                        ]}
-                        anchor={{
-                            x: 0.5,
-                            y: 0.5,
-                        }}
-                    >
-                        <View
-                            style={{
-                                transform: [
-                                    {
-                                        rotate: `${headingAtual}deg`,
-                                    },
-                                ],
-                                justifyContent: 'center',
-                                alignItems: 'center',
-                            }}
-                        >
-                            <View style={styles.markerVanCircle}>
-                                <Ionicons
-                                    name="navigate"
-                                    size={18}
-                                    color="#FFC107"
-                                    style={{
-                                        transform: [
-                                            {
-                                                rotate: '-45deg',
-                                            },
-                                        ],
-                                    }}
-                                />
-                            </View>
-                        </View>
-                    </MapboxGL.PointAnnotation>
-                )}
+                <MapboxGL.Images images={IMAGENS_NAVEGACAO} />
+                <MapboxGL.ShapeSource id="rotaFuturaSource" shape={rotaFuturaGeoJSON}>
+                    <MapboxGL.LineLayer id="rotaFuturaLine" style={{
+                        lineColor: '#94A3B8', lineWidth: 5, lineCap: 'round',
+                        lineJoin: 'round', lineOpacity: 0.75,
+                    }} />
+                </MapboxGL.ShapeSource>
 
                 <MapboxGL.PointAnnotation
                     id="garagem"
@@ -2085,6 +2092,24 @@ export default function Mapa() {
                             textIgnorePlacement: true,
                         }}
                     />
+                </MapboxGL.ShapeSource>
+                {/* A posição da van e o corte da linha chegam ao Mapbox no mesmo GeoJSON. */}
+                <MapboxGL.ShapeSource id="navegacaoVisualSource" shape={navegacaoGeoJSON}>
+                    <MapboxGL.LineLayer id="rotaAtualCasing" belowLayerID="pontosOperacionaisCirculo"
+                        filter={FILTRO_ROTA_ATUAL as any} style={{
+                            lineColor: '#075985', lineWidth: 10, lineCap: 'round',
+                            lineJoin: 'round', lineOpacity: 0.45,
+                        }} />
+                    <MapboxGL.LineLayer id="rotaAtualLine" belowLayerID="pontosOperacionaisCirculo"
+                        filter={FILTRO_ROTA_ATUAL as any} style={{
+                            lineColor: '#00D2FF', lineWidth: 6, lineCap: 'round', lineJoin: 'round',
+                        }} />
+                    <MapboxGL.SymbolLayer id="vanNavegacaoLayer" filter={FILTRO_VAN as any} style={{
+                        iconImage: 'bevansVan', iconSize: 0.62, iconAnchor: 'center',
+                        iconRotate: ['get', 'heading'], iconRotationAlignment: 'map',
+                        iconPitchAlignment: 'viewport', iconAllowOverlap: true,
+                        iconIgnorePlacement: true, iconPadding: 0,
+                    }} />
                 </MapboxGL.ShapeSource>
             </MapboxGL.MapView>
 
@@ -2164,18 +2189,6 @@ const styles = themedStyles(() => StyleSheet.create({
     bannerText: {
         fontSize: theme.typography.size.small,
         fontWeight: '700',
-    },
-
-    markerVanCircle: {
-        backgroundColor: '#0F172A',
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        borderWidth: 3,
-        borderColor: '#FFC107',
-        justifyContent: 'center',
-        alignItems: 'center',
-        elevation: 8,
     },
 
     markerPontoBox: {
