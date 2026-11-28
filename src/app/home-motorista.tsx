@@ -558,7 +558,17 @@ export default function HomeMotorista() {
                         } catch (e) {
                             if (vigente()) {
                                 await checarAmnesia(turma.id);
-                                Alert.alert('Cancelamento não confirmado', errorMessage(e));
+                                const mensagem = errorMessage(e);
+                                if (/passageiros na van|confirme desembarques/i.test(mensagem)) {
+                                    Alert.alert('Ainda há passageiros na van',
+                                        'Registre os desembarques reais dos passageiros embarcados. Depois volte aqui para cancelar a viagem.',
+                                        [
+                                            { text: 'Voltar', style: 'cancel' },
+                                            { text: 'Ver desembarques', onPress: () => {
+                                                if (vigente()) router.push({ pathname: '/controle-viagem', params: { tipo: 'VIAGEM', id: String(viagemId), finalidade: 'cancelar' } });
+                                            } },
+                                        ]);
+                                } else Alert.alert('Cancelamento não confirmado', mensagem);
                             }
                         } finally {
                             inicioExecutando.current = false;

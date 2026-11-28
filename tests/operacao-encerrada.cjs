@@ -52,3 +52,29 @@ test('encerramento fecha confirmação de desembarque e impede confirmar uma aç
  assert.ok(!nodes(tree).some(n=>n.props?.children==='Confirmar alteração'));
  await new Promise(setImmediate);assert.equal(writes,0);h.unmount();
 });
+
+test('controle do motorista destaca embarcados e explica bloqueio de cancelamento sem misturar pendências',async()=>{
+ const registros=[{id:1,nome:'Rafaela',estado:'AGUARDANDO',versao:0,ordem:1},{id:2,nome:'Miguel',estado:'EMBARCADO',versao:1,ordem:2},{id:3,nome:'Vitória',estado:'DESEMBARCADO',versao:2,ordem:3}];
+ let writes=0;
+ const operacao={referenciaId:76,tipo:'VIAGEM',modalidade:'PRIVADA',sentido:'IDA',registros,contadores:{esperados:3,aguardando:1,naVan:1,naoEmbarcaram:0,desembarcados:1}};
+ const h=harness('src/app/controle-viagem.tsx',{
+  resources:key=>({data:String(key).startsWith('operacao:')?operacao:null,error:'',reload(){}}),
+  extras:{'../components/RastreamentoViagem':{RastreamentoViagem:'GPS'},'../services/operacoes':{consultarOperacao:async()=>operacao,alterarEstadoOperacional:async(_tipo,_id,r,_motorista,estado)=>{writes++;r.estado=estado;operacao.contadores.naVan=0;operacao.contadores.desembarcados=2;return r;},rotulosEstado:{AGUARDANDO:'Aguardando',EMBARCADO:'Embarcado',DESEMBARCADO:'Desembarcado'},mensagemErroOperacao:e=>e.message}},
+ });
+ const props={tipo:'VIAGEM',id:'76',motorista:true,finalidade:'cancelar'};
+ let tree=h.render('Painel',props);
+ assert.match(JSON.stringify(tree),/cancelamento fica bloqueado/);
+ assert.ok(find(tree,'Confirmar desembarque'));
+ assert.equal(find(tree,'Confirmar embarque'),undefined);
+ assert.equal(find(tree,'Voltar para cancelar a viagem'),undefined);
+ assert.equal(nodes(tree).some(n=>n.type==='Input'),false);
+ find(tree,'Confirmar desembarque').props.onPress();
+ tree=h.render('Painel',props);
+ assert.match(JSON.stringify(tree),/O passageiro já saiu da van/);
+ find(tree,'Sim, confirmar').props.onPress();await new Promise(setImmediate);
+ tree=h.render('Painel',props);
+ assert.equal(writes,1);
+ assert.ok(find(tree,'Voltar para cancelar a viagem'));
+ assert.equal(find(tree,'Confirmar desembarque'),undefined);
+ h.unmount();
+});
