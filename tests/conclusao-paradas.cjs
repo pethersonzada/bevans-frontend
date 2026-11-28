@@ -365,26 +365,51 @@ for (const sentido of ['IDA', 'VOLTA']) test(`${sentido} privada: título com no
     h.unmount();
 });
 
-test('zoom ou arrasto manual mantém a câmera livre até tocar em localização', async () => {
+test('zoom manual retorna sozinho e pelo botão com uma transição longa sem interrupção pelo GPS', async () => {
     const dados = fixture('PORTA_A_PORTA', 'IDA');
     const h = await start({ dados });
     const map = () => nodes(h.render()).find(n => n.type === 'Map');
+    const gesto = active => map().props.onCameraChanged({gestures:{isGestureActive:active},properties:{zoom:12}});
     h.tick({latitude: -8.5, longitude: -35.5}); h.frame(1900);
     const antes = h.cameras.length;
     const marcadorAntes = nodes(h.render()).find(n => n.props.id === 'navegacaoVisualSource').props.shape.features.find(f => f.properties.tipo === 'van').geometry.coordinates;
-    map().props.onCameraChanged({gestures:{isGestureActive:true},properties:{zoom:14}});
+    gesto(true);
     h.tick({latitude: -8.4, longitude: -35.4}); h.frame(1900);
-    map().props.onCameraChanged({gestures:{isGestureActive:false},properties:{zoom:14}});
+    h.advance(5000);
+    assert.equal(h.cameras.length, antes, 'Não interrompe gesto em andamento');
+    gesto(false);
+    map().props.onMapIdle({gestures:{isGestureActive:false}});
+    h.advance(1100);
+    assert.equal(h.cameras.length, antes);
+    h.advance(100);
+    assert.equal(h.cameras.length, antes + 1, 'Retorna automaticamente após soltar o mapa');
+    const retorno = h.cameras.at(-1);
+    assert.equal(retorno.zoomLevel, 18);
+    assert.equal(retorno.animationMode, 'easeTo');
+    assert.equal(retorno.animationDuration, 2400);
+    h.tick({latitude: -8.3, longitude: -35.3}, {advance:300}); h.frame(1000);
     map().props.onDidFinishLoadingMap();
-    h.tick({latitude: -8.3, longitude: -35.3}); h.frame(1900);
-    assert.equal(h.cameras.length, antes, 'Nem GPS nem carregamento podem desfazer o zoom manual');
+    assert.equal(h.cameras.length, antes+1, 'GPS e carregamento não interrompem a transição');
     const marcadorDepois = nodes(h.render()).find(n => n.props.id === 'navegacaoVisualSource').props.shape.features.find(f => f.properties.tipo === 'van').geometry.coordinates;
     assert.notDeepEqual(Array.from(marcadorAntes), Array.from(marcadorDepois), 'O marcador continua se movimentando');
+    gesto(true); gesto(false);
     nodes(h.render()).find(n => n.type === 'Controls').props.onCentralizar();
-    assert.equal(h.cameras.length, antes+1);
-    assert.equal(h.cameras.at(-1).zoomLevel, 18);
-    assert.equal(h.cameras.at(-1).animationDuration,650);
-    h.tick({latitude: -8.25, longitude: -35.25}); h.frame(1900);
-    assert.ok(h.cameras.length > antes+1, 'Acompanhamento retomado');
+    assert.equal(h.cameras.length, antes+2);
+    assert.equal(h.cameras.at(-1).animationDuration,2400);
+    h.advance(1200);
+    assert.equal(h.cameras.length, antes+2, 'O botão cancela o retorno automático agendado');
+    h.tick({latitude: -8.25, longitude: -35.25}, {advance:100}); h.frame(500);
+    assert.equal(h.cameras.length, antes+2, 'Atualizações rápidas não cortam a animação manual');
+    h.frame(1400);
+    assert.ok(h.cameras.length > antes+2, 'Acompanhamento retomado após a transição');
+    h.unmount();
+});
+
+test('novo gesto ou saída da tela cancela retorno automático pendente', async () => {
+    const h = await start({dados:fixture('PORTA_A_PORTA','IDA')});
+    const gesto = active => nodes(h.render()).find(n=>n.type==='Map').props.onCameraChanged({gestures:{isGestureActive:active}});
+    gesto(true); gesto(false); gesto(true); const antes=h.cameras.length;
+    h.advance(2000); assert.equal(h.cameras.length,antes);
+    gesto(false); h.blur(); h.advance(2000); assert.equal(h.cameras.length,antes);
     h.unmount();
 });

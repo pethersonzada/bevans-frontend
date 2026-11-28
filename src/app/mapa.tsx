@@ -50,6 +50,8 @@ const FILTRO_ROTA_ATUAL = ['==', ['get', 'tipo'], 'rota-atual'] as const;
 const FILTRO_VAN = ['==', ['get', 'tipo'], 'van'] as const;
 const INTERVALO_QUADRO_MS = 32;
 const INTERVALO_CAMERA_MS = 100;
+const ESPERA_RETORNO_CAMERA_MS = 1200;
+const DURACAO_RETORNO_CAMERA_MS = 2400;
 const TOLERANCIA_RECUO_METROS = 25;
 
 type LatLng = {
@@ -454,6 +456,7 @@ export default function Mapa() {
     const headingRef = useRef(0);
     const ultimaCameraRef = useRef(-Infinity);
     const acompanhamentoCameraRef = useRef(true);
+    const retornoCameraTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const retomadaCameraAteRef = useRef(-Infinity);
     const ultimoQuadroCameraRef = useRef<QuadroNavegacao | null>(null);
     const posicaoApresentadaRef = useRef<LatLng | null>(null);
@@ -500,8 +503,10 @@ export default function Mapa() {
 
     useFocusEffect(useCallback(() => {
         focadaRef.current = true;
+        if (!acompanhamentoCameraRef.current && quadroVisualRef.current) centralizarNaVan();
         return () => {
             focadaRef.current = false;
+            cancelarRetornoCamera();
             ++leituraOperacaoRef.current;
             chegadaRef.current = null;
             setChegada(null);
@@ -730,14 +735,34 @@ export default function Mapa() {
             zoomLevel: 18,
             pitch: 65,
             animationMode: recentralizar ? 'easeTo' : 'linearTo',
-            animationDuration: recentralizar ? 650 : INTERVALO_CAMERA_MS + 20,
+            animationDuration: recentralizar ? DURACAO_RETORNO_CAMERA_MS : INTERVALO_CAMERA_MS + 20,
         });
     }
 
+    function cancelarRetornoCamera() {
+        if (retornoCameraTimerRef.current !== null) {
+            clearTimeout(retornoCameraTimerRef.current);
+            retornoCameraTimerRef.current = null;
+        }
+    }
+
     function centralizarNaVan() {
+        cancelarRetornoCamera();
+        if (!montadoRef.current || !focadaRef.current) return;
         acompanhamentoCameraRef.current = true;
-        retomadaCameraAteRef.current = Date.now() + 650;
+        // A transição nativa deve terminar antes de qualquer comando curto de
+        // acompanhamento, inclusive os disparados pelo último quadro do GPS.
+        retomadaCameraAteRef.current = Date.now() + DURACAO_RETORNO_CAMERA_MS + INTERVALO_CAMERA_MS;
         if (quadroVisualRef.current) seguirCamera(quadroVisualRef.current, true, true);
+    }
+
+    function agendarRetornoCamera() {
+        if (acompanhamentoCameraRef.current || retornoCameraTimerRef.current !== null ||
+            !montadoRef.current || !focadaRef.current) return;
+        retornoCameraTimerRef.current = setTimeout(() => {
+            retornoCameraTimerRef.current = null;
+            centralizarNaVan();
+        }, ESPERA_RETORNO_CAMERA_MS);
     }
 
     function publicarQuadro(quadro: QuadroNavegacao, forcarCamera = false) {
@@ -1128,6 +1153,7 @@ export default function Mapa() {
             alvoProgressoRef.current = null;
             quadroVisualRef.current = null;
             ultimaCameraRef.current = -Infinity;
+            cancelarRetornoCamera();
             acompanhamentoCameraRef.current = true;
             retomadaCameraAteRef.current = -Infinity;
             ultimoQuadroCameraRef.current = null;
@@ -1339,6 +1365,7 @@ export default function Mapa() {
         return () => {
             ativo = false;
             montadoRef.current = false;
+            cancelarRetornoCamera();
             publisherRef.current?.cancel();
 
             if (locationSubscription) {
@@ -1860,9 +1887,16 @@ export default function Mapa() {
                 attributionEnabled={false}
                 compassEnabled={false}
                 onCameraChanged={estado => {
-                    // Só gestos do usuário suspendem o acompanhamento. A animação
-                    // programática não deve desativar a navegação automaticamente.
-                    if (estado.gestures.isGestureActive) acompanhamentoCameraRef.current = false;
+                    if (estado.gestures.isGestureActive) {
+                        cancelarRetornoCamera();
+                        acompanhamentoCameraRef.current = false;
+                        retomadaCameraAteRef.current = -Infinity;
+                    } else {
+                        agendarRetornoCamera();
+                    }
+                }}
+                onMapIdle={estado => {
+                    if (!estado.gestures.isGestureActive) agendarRetornoCamera();
                 }}
                 onDidFinishLoadingMap={() => {
                     if (quadroVisualRef.current) seguirCamera(quadroVisualRef.current, true);

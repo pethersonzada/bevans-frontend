@@ -10,6 +10,8 @@ function harness({ dados = fixture('FIXA', 'IDA'), sentido = 'IDA', viagemId = 4
     const camera = { setCamera: options => cameras.push(options) };
     let cursor = 0, effects = [], location, now = 100000, network, poll, focusTask, focusCleanup;
     let painelStatus = 200, confirmacaoStatus = 200, statusViagemId = viagemId;
+    const timers = new Map(); let nextTimer = 0;
+    const avancarRelogio = ms => { now += ms; for (const [id, timer] of [...timers]) { if (timers.has(id) && timer.at <= now) { timers.delete(id); timer.fn(); } } };
     const official = painel(dados, viagemId, sentido), paths = [];
     for (const registro of official.registros) registro.estado = estados[registro.alunoId] || 'AGUARDANDO';
     const react = {
@@ -86,7 +88,7 @@ function harness({ dados = fixture('FIXA', 'IDA'), sentido = 'IDA', viagemId = 4
         '../components/mapa/ControlesViagem': { ControlesViagem: 'Controls' },
         '../components/mapa/PainelManobra': { PainelManobra: 'Maneuver' },
     }, { process: { env: { EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN: 'mapbox-teste' } }, fetch: request,
-        Date: class extends Date { static now() { return now; } }, setInterval: () => 1, clearInterval() {}, requestAnimationFrame: fn => { raf = fn; return 1; }, cancelAnimationFrame: () => { raf = null; } });
+        Date: class extends Date { static now() { return now; } }, setTimeout: (fn, ms) => { const id = ++nextTimer; timers.set(id, { fn, at: now + ms }); return id; }, clearTimeout: id => timers.delete(id), setInterval: () => 1, clearInterval() {}, requestAnimationFrame: fn => { raf = fn; return 1; }, cancelAnimationFrame: () => { raf = null; } });
     const render = () => { cursor = 0; effects = []; const tree = module.default(); const node = nodes(tree).find(n => n.type === 'Camera'); if (node?.props.ref) node.props.ref.current = camera; effects.forEach(fn => fn()); return tree; };
     const tick = (p, { accuracy = 5, speed = 0, advance = 2000, timestamp } = {}) => { now += advance; location({ coords: { ...p, accuracy, speed }, timestamp: timestamp ?? now }); };
     return { storage, requests, direcoes, alerts, paths, official, render, tick, cameras,
@@ -96,7 +98,7 @@ function harness({ dados = fixture('FIXA', 'IDA'), sentido = 'IDA', viagemId = 4
         setPainelError: status => { painelStatus = status; }, setConfirmationError: status => { confirmacaoStatus = status; },
         confirmar: (alunoId, estado) => operacoes.alterarEstadoOperacional('VIAGEM', String(viagemId), official.registros.find(r => r.alunoId === alunoId), true, estado),
         setViagemId: id => { statusViagemId = id; }, setOnline: value => network({ isConnected: value, isInternetReachable: value }),
-        advance: ms => { now += ms; }, blur: () => focusCleanup?.(), focus: () => { focusCleanup = focusTask(); },
+        advance: avancarRelogio, blur: () => focusCleanup?.(), focus: () => { focusCleanup = focusTask(); },
         concluir: async p => { tick(p); tick(p); const botao = nodes(render()).find(n => n.props.accessibilityLabel === 'Concluir parada'); assert.equal(botao.props.disabled, false); await botao.props.onPress(); await flush(); return render(); },
         unmount: () => { focusCleanup?.(); cleanups.forEach(fn => fn?.()); },
     };
