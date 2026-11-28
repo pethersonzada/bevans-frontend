@@ -336,9 +336,9 @@ test('câmera segue a orientação e a posição animada nas curvas, com recentr
         assert.deepEqual(Array.from(camera.centerCoordinate), Array.from(quadro.geometry.coordinates));
         return camera.heading;
     };
-    h.tick({latitude: -8.6, longitude: -35.4}); h.frame(1600);
+    h.tick({latitude: -8.6, longitude: -35.4}); h.frame(1900);
     const antes = conferir();
-    h.tick({latitude: -8.4, longitude: -35.2}); h.frame(1600);
+    h.tick({latitude: -8.4, longitude: -35.2}); h.frame(1900);
     const depois = conferir();
     const comandos = h.cameras.length;
     nodes(h.render()).find(n => n.type === 'Controls').props.onCentralizar();

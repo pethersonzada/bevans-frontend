@@ -71,3 +71,17 @@ test('GPS projetado usa a fração real do segmento e heading cruza norte pelo c
     quase(metrosProjetados(m,{...p,indice:0}),m.acumuladas[1]/2,1e-6);
     quase(interpolarHeading(350,10,.5),0);
 });
+
+test('orientação gira gradualmente na esquina, sem deslocar a seta da linha', () => {
+    const m = medirRota(coords), esquina = m.acumuladas[1];
+    const quadros = [-16,-8,-4,0,4,8,16].map(d => quadroNaRota(m, esquina+d,90));
+    assert.ok(quadros[0].heading > 85);
+    assert.ok(quadros[3].heading > 35 && quadros[3].heading < 55);
+    assert.ok(quadros.at(-1).heading < 5);
+    for(let i=1;i<quadros.length;i++) {
+        const anterior=quadros[i-1].heading, atual=quadros[i].heading;
+        const delta=((atual-anterior+540)%360)-180;
+        assert.ok(delta <= 0.1 && delta > -45, `Rotação descontínua: ${anterior} -> ${atual}`);
+    }
+    for (const q of quadros) pontoIgual(coordenadasRestantesDoTrecho(coords,q.progresso,2)[0],q.posicao);
+});

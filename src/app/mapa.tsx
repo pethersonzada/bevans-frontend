@@ -48,7 +48,8 @@ const IMAGENS_NAVEGACAO = {
 };
 const FILTRO_ROTA_ATUAL = ['==', ['get', 'tipo'], 'rota-atual'] as const;
 const FILTRO_VAN = ['==', ['get', 'tipo'], 'van'] as const;
-const INTERVALO_QUADRO_MS = 33;
+const INTERVALO_QUADRO_MS = 32;
+const INTERVALO_CAMERA_MS = 100;
 const TOLERANCIA_RECUO_METROS = 25;
 
 type LatLng = {
@@ -98,24 +99,37 @@ function metrosProjetados(medidas: MedidasRota, projecao: Projecao): number {
 function quadroNaRota(medidas: MedidasRota, metros: number, headingAnterior: number): QuadroNavegacao {
     const { coordenadas, acumuladas } = medidas;
     const fim = coordenadas.length - 1;
-    const m = Math.max(0, Math.min(acumuladas[fim], metros));
-    let a = 0, b = fim;
-    while (a + 1 < b) {
-        const meio = (a + b) >> 1;
-        if (acumuladas[meio] <= m) a = meio;
-        else b = meio;
+    // Busca binária também para as amostras ao redor da posição. A linha e a
+    // coordenada permanecem sobre a via; apenas a orientação antecipa a curva.
+    function amostra(distancia: number) {
+        const m = Math.max(0, Math.min(acumuladas[fim], distancia));
+        let a = 0, b = fim;
+        while (a + 1 < b) {
+            const meio = (a + b) >> 1;
+            if (acumuladas[meio] <= m) a = meio;
+            else b = meio;
+        }
+        const comprimento = acumuladas[a + 1] - acumuladas[a];
+        const t = comprimento > 0 ? (m - acumuladas[a]) / comprimento : 0;
+        const inicio = coordenadas[a], final = coordenadas[a + 1];
+        return {
+            posicao: {
+                longitude: inicio[0] + (final[0] - inicio[0]) * t,
+                latitude: inicio[1] + (final[1] - inicio[1]) * t,
+            },
+            progresso: { medidas, metros: m, indice: a, t },
+        };
     }
-    const comprimento = acumuladas[a + 1] - acumuladas[a];
-    const t = comprimento > 0 ? (m - acumuladas[a]) / comprimento : 0;
-    const inicio = coordenadas[a], final = coordenadas[a + 1];
-    const posicao = {
-        longitude: inicio[0] + (final[0] - inicio[0]) * t,
-        latitude: inicio[1] + (final[1] - inicio[1]) * t,
-    };
-    const heading = comprimento > 0 ? projetarNoSegmento(posicao,
-        { longitude: inicio[0], latitude: inicio[1] },
-        { longitude: final[0], latitude: final[1] }).bearing : headingAnterior;
-    return { posicao, heading, progresso: { medidas, metros: m, indice: a, t } };
+    const quadro = amostra(metros);
+    const m = quadro.progresso.metros;
+    const antes = amostra(m - 12).posicao;
+    const depois = amostra(m + 12).posicao;
+    // Uma janela curta distribui a rotação pelos metros anteriores e seguintes
+    // à esquina. Evita saltos de 90 graus entre segmentos e mantém o rumo parado.
+    const heading = distanciaMetros(antes, depois) > 0.5
+        ? projetarNoSegmento(quadro.posicao, antes, depois).bearing
+        : headingAnterior;
+    return { ...quadro, heading };
 }
 
 function linhaNavegacao(coordenadas: Coordenada[], tipo: string) {
@@ -161,7 +175,7 @@ type GeometriaSalva = {
 };
 
 const RAIO_DESVIO_ROTA_METROS = 80;
-const DURACAO_ANIMACAO_MS = 1600;
+const DURACAO_ANIMACAO_MS = 1900;
 const JANELA_BUSCA_PROJECAO = 40;
 const LIMIAR_TEMPO_FORA_ROTA_MS = 6000;
 const COOLDOWN_RECALCULO_MS = 20000;
@@ -439,6 +453,7 @@ export default function Mapa() {
 
     const headingRef = useRef(0);
     const ultimaCameraRef = useRef(-Infinity);
+    const ultimoQuadroCameraRef = useRef<QuadroNavegacao | null>(null);
     const posicaoApresentadaRef = useRef<LatLng | null>(null);
     const quadroVisualRef = useRef<QuadroNavegacao | null>(null);
     const medidasRotaRef = useRef<MedidasRota | null>(null);
@@ -700,23 +715,31 @@ export default function Mapa() {
     function seguirCamera(quadro: QuadroNavegacao, forcar = false) {
         if (!montadoRef.current || !focadaRef.current || !cameraRef.current) return;
         const agora = Date.now();
-        if (!forcar && agora - ultimaCameraRef.current < 100) return;
+        if (!forcar && agora - ultimaCameraRef.current < INTERVALO_CAMERA_MS) return;
+        const anterior = ultimoQuadroCameraRef.current;
+        if (!forcar && anterior && distanciaMetros(anterior.posicao, quadro.posicao) < 0.15 &&
+            Math.abs(((quadro.heading - anterior.heading + 540) % 360) - 180) < 0.4) return;
         ultimaCameraRef.current = agora;
+        ultimoQuadroCameraRef.current = quadro;
         cameraRef.current.setCamera({
             centerCoordinate: [quadro.posicao.longitude, quadro.posicao.latitude],
             heading: quadro.heading,
             zoomLevel: 18,
             pitch: 65,
-            animationMode: 'easeTo',
-            animationDuration: 120,
+            animationMode: 'linearTo',
+            animationDuration: INTERVALO_CAMERA_MS + 20,
         });
     }
 
     function publicarQuadro(quadro: QuadroNavegacao, forcarCamera = false) {
+        const anterior = quadroVisualRef.current;
         quadroVisualRef.current = quadro;
         posicaoApresentadaRef.current = quadro.posicao;
         headingRef.current = quadro.heading;
-        setQuadroVisual(quadro);
+        if (!anterior || anterior.posicao.latitude !== quadro.posicao.latitude ||
+            anterior.posicao.longitude !== quadro.posicao.longitude || anterior.heading !== quadro.heading ||
+            anterior.progresso?.medidas !== quadro.progresso?.medidas ||
+            anterior.progresso?.metros !== quadro.progresso?.metros) setQuadroVisual(quadro);
         seguirCamera(quadro, forcarCamera);
     }
 
@@ -752,7 +775,9 @@ export default function Mapa() {
                 ultimoQuadro = agora;
                 // A interpolação percorre a polilinha viária por distância acumulada.
                 // Não corta a esquina em linha reta entre dois pontos GPS.
-                const t = fracao * fracao * (3 - 2 * fracao);
+                // GPS chega aproximadamente a cada 2 s; velocidade visual contínua
+                // evita frear e acelerar artificialmente em cada amostra.
+                const t = fracao;
                 if (naRota && alvo !== null && metrosOrigem !== null) {
                     const quadro = quadroNaRota(medidas!, metrosOrigem + (alvo - metrosOrigem) * t, headingOrigem);
                     publicarQuadro(quadro, fracao === 1);
@@ -1094,6 +1119,7 @@ export default function Mapa() {
             alvoProgressoRef.current = null;
             quadroVisualRef.current = null;
             ultimaCameraRef.current = -Infinity;
+            ultimoQuadroCameraRef.current = null;
             posicaoApresentadaRef.current = null;
             setQuadroVisual(null);
             paradasRef.current = [];
@@ -1631,6 +1657,7 @@ export default function Mapa() {
 
     const centroInicialCamera = useMemo<Coordenada | undefined>(() => garagem
         ? [garagem.longitude, garagem.latitude] : undefined, [garagem]);
+    const configuracaoInicialCamera = useMemo(() => ({ zoomLevel: 18, pitch: 65, centerCoordinate: centroInicialCamera }), [centroInicialCamera]);
     const limiteVisual = paradasRef.current[0]?.indiceRota ?? indiceParadaVisualRef.current;
     const rotaFuturaGeoJSON = useMemo(() => linhaNavegacao(
         limiteVisual === null ? [] : coordenadasRota.slice(limiteVisual), 'rota-futura'
@@ -1822,7 +1849,7 @@ export default function Mapa() {
             >
                 <MapboxGL.Camera
                     ref={cameraRef}
-                    defaultSettings={{ zoomLevel: 18, pitch: 65, centerCoordinate: centroInicialCamera }}
+                    defaultSettings={configuracaoInicialCamera}
                 />
 
                 <MapboxGL.Images images={IMAGENS_NAVEGACAO} />
