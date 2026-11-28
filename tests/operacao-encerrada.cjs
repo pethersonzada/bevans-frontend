@@ -64,6 +64,7 @@ test('controle do motorista destaca embarcados e explica bloqueio de cancelament
  const props={tipo:'VIAGEM',id:'76',motorista:true,finalidade:'cancelar'};
  let tree=h.render('Painel',props);
  assert.match(JSON.stringify(tree),/cancelamento fica bloqueado/);
+ assert.equal(nodes(tree).find(n=>n.type==='GPS').props.somenteEstado,true);
  assert.ok(find(tree,'Confirmar desembarque'));
  assert.equal(find(tree,'Confirmar embarque'),undefined);
  assert.equal(find(tree,'Voltar para cancelar a viagem'),undefined);
@@ -76,5 +77,20 @@ test('controle do motorista destaca embarcados e explica bloqueio de cancelament
  assert.equal(writes,1);
  assert.ok(find(tree,'Voltar para cancelar a viagem'));
  assert.equal(find(tree,'Confirmar desembarque'),undefined);
+ h.unmount();
+});
+
+test('controle do motorista observa encerramento sem exibir GPS ou publicar localização',async()=>{
+ let consulta,ended=0,publicacao;
+ const h=harness('src/components/RastreamentoViagem.tsx',{
+  resources:(key,fn)=>{if(key)consulta=fn;return {data:{estado:'ATUALIZADA'},error:''};},
+  extras:{'expo-router/react-navigation':{useIsFocused:()=>true},'../hooks/useFocusedPolling':{useFocusedPolling(_fn,_interval,key){publicacao=key;}},'../services/rastreamento':{consultarGps:async()=>({estado:'FINALIZADA'}),posicaoRecente:()=>assert.fail('Não deve renderizar mapa'),publicarGps:()=>assert.fail('Não deve publicar GPS')}},
+ });
+ const props={tipo:'VIAGEM',id:'76',motorista:true,somenteEstado:true,onFinalizada:()=>ended++};
+ assert.equal(h.render('RastreamentoViagem',props),null);
+ assert.equal(publicacao,false);
+ await consulta(new AbortController().signal);
+ assert.equal(ended,1);
+ assert.equal(h.render('RastreamentoViagem',props),null);
  h.unmount();
 });

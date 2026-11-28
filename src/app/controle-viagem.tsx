@@ -144,7 +144,7 @@ export function Painel({ tipo, id, motorista, excursaoId, finalidade }: { tipo: 
                 </View>
                 <View style={styles.driverSummary}>
                     {([['Na van', quantidadeNaVan], ['Pendentes', aguardando.length], ['Desembarcados', operacao.contadores.desembarcados]] as const).map(([label,total]) => (
-                        <View key={label} style={styles.driverStat}><Text style={styles.driverStatValue}>{total}</Text><Text style={styles.driverSecondary}>{label}</Text></View>
+                        <View key={label} style={styles.driverStat} accessible accessibilityLabel={`${label}: ${total}`}><Text style={styles.driverStatValue}>{total}</Text><Text style={styles.driverSecondary}>{label}</Text></View>
                     ))}
                 </View>
                 {!!naVan.length && <>
@@ -165,7 +165,7 @@ export function Painel({ tipo, id, motorista, excursaoId, finalidade }: { tipo: 
                 </>}
                 {!registros.length && <AsyncState status="empty" title="Nenhum passageiro nesta operação" />}
             </>}
-            <RastreamentoViagem key={`${tipo}:${id}`} tipo={tipo} id={id} motorista={motorista} onFinalizada={aoFinalizar} />
+            <RastreamentoViagem key={`${tipo}:${id}`} tipo={tipo} id={id} motorista={motorista} somenteEstado onFinalizada={aoFinalizar} />
         </ScrollView></SafeAreaView>;
     }
     return <SafeAreaView style={styles.screen}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">

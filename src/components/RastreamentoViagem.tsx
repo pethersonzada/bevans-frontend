@@ -9,12 +9,12 @@ import { useFocusedPolling } from '../hooks/useFocusedPolling';
 import { consultarGps,posicaoRecente,publicarGps } from '../services/rastreamento';
 import { errorMessage } from '../config/api';
 import MapaPreviaPublica from './MapaPreviaPublica';
-export function RastreamentoViagem({tipo,id,motorista,onFinalizada}:{tipo:string;id:string;motorista:boolean;onFinalizada?:()=>void}) {
+export function RastreamentoViagem({tipo,id,motorista,onFinalizada,somenteEstado=false}:{tipo:string;id:string;motorista:boolean;onFinalizada?:()=>void;somenteEstado?:boolean}) {
     useThemeRevision();
     const focused=useIsFocused();const [compartilhar,setCompartilhar]=useState(false),[erro,setErro]=useState(''),[agora,setAgora]=useState(Date.now());
     const [finalizada,setFinalizada]=useState(false);
     const {data,error}=useRemoteResource(finalizada?false:`gps:${tipo}:${id}`,async signal=>{const p=await consultarGps(tipo,id,signal);if(!signal.aborted&&p.estado==='FINALIZADA'){setFinalizada(true);setCompartilhar(false);onFinalizada?.();}return p;},10000);
-    useEffect(()=>{if(!focused)return;const timer=setInterval(()=>setAgora(Date.now()),1000);return()=>clearInterval(timer);},[focused]);
+    useEffect(()=>{if(!focused||somenteEstado)return;const timer=setInterval(()=>setAgora(Date.now()),1000);return()=>clearInterval(timer);},[focused,somenteEstado]);
     useFocusedPolling(async signal=>{
         try {const permission=await Location.getForegroundPermissionsAsync();if(signal.aborted)return;if(permission.status!=='granted')throw new Error('Permissão de localização revogada.');
             if(!await Location.hasServicesEnabledAsync())throw new Error('GPS desligado.');
@@ -22,7 +22,10 @@ export function RastreamentoViagem({tipo,id,motorista,onFinalizada}:{tipo:string
             if(loc.coords.accuracy==null)throw new Error('Precisão do GPS indisponível.');
             await publicarGps(tipo,id,{latitude:loc.coords.latitude,longitude:loc.coords.longitude,precisao:loc.coords.accuracy,observadoEm:new Date(loc.timestamp).toISOString(),amostraId:`gps-${loc.timestamp}-${Math.random().toString(36).slice(2)}`},signal);if(!signal.aborted)setErro('');
         }catch(e){if(!signal.aborted){setErro(errorMessage(e));setCompartilhar(false);}}
-    },10000,motorista&&compartilhar&&data&&!error&&!finalizada?`${tipo}:${id}`:false);
+    },10000,!somenteEstado&&motorista&&compartilhar&&data&&!error&&!finalizada?`${tipo}:${id}`:false);
+    // O controle do motorista observa somente o encerramento oficial.
+    // O mapa de navegação continua responsável pelo envio da localização.
+    if(somenteEstado)return null;
     const p=focused&&!error?posicaoRecente(data,agora):null;
     return <View style={{gap:8}}><Text style={{ color: theme.colors.text }}>{finalizada?'Viagem encerrada':p?'Localização atualizada':'Localização indisponível ou desatualizada'}</Text>
         {data?.observadoEm&&<Text style={{ color: theme.colors.text }}>Última atualização: {new Date(data.observadoEm).toLocaleString('pt-BR')}</Text>}
