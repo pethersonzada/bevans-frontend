@@ -13,7 +13,7 @@ export function mensagemErroOperacao(error:unknown,contexto:'consulta'|'confirma
     return e?.message||'Não foi possível consultar a operação.';
 }
 export type RegistroOperacional={id:number;nome:string;estado:EstadoOperacional;versao:number;autor:string;atualizadoEm:string;ordem:number};
-export type Operacao={referenciaId:number;tipo:TipoOperacao;sentido:string;contadores:{esperados:number;aguardando:number;naVan:number;naoEmbarcaram:number;desembarcados:number};registros:RegistroOperacional[]};
+export type Operacao={referenciaId:number;tipo:TipoOperacao;sentido:string;modalidade?:'PRIVADA'|'PUBLICA'|null;contadores:{esperados:number;aguardando:number;naVan:number;naoEmbarcaram:number;desembarcados:number};registros:RegistroOperacional[]};
 export function prefixoOperacao(tipo:string,id:string|number) {
     if(tipo!=='VIAGEM'&&tipo!=='EXCURSAO')throw new Error('Modalidade inválida.');return `/operacoes/${tipo}/${recursoId(id)}`;
 }

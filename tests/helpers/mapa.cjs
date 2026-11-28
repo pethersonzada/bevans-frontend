@@ -5,7 +5,9 @@ const nodes = tree => !tree || typeof tree !== 'object' ? [] : [tree, ...[tree.p
 const flush = async () => { for (let i = 0; i < 8; i++) await new Promise(setImmediate); };
 
 function harness({ dados = fixture('FIXA', 'IDA'), sentido = 'IDA', viagemId = 42, storage = new Map(), roteiroStatus = 200, mapboxStatus = 200, incomplete = false, mapboxHandler, estados = {}, panelHandler, storageFailure = false, params = {}, statusCampos = {} } = {}) {
-    const slots = [], dependencies = [], cleanups = [], requests = [], direcoes = [], alerts = [];
+    const slots = [], dependencies = [], cleanups = [], requests = [], direcoes = [], alerts = [], cameras = [];
+    let raf = null;
+    const camera = { setCamera: options => cameras.push(options) };
     let cursor = 0, effects = [], location, now = 100000, network, poll, focusTask, focusCleanup;
     let painelStatus = 200, confirmacaoStatus = 200, statusViagemId = viagemId;
     const official = painel(dados, viagemId, sentido), paths = [];
@@ -42,6 +44,7 @@ function harness({ dados = fixture('FIXA', 'IDA'), sentido = 'IDA', viagemId = 4
             if (confirmacaoStatus !== 200) return Response.json({ erro: 'Falha na confirmação' }, { status: confirmacaoStatus });
             const body = JSON.parse(options.body), registro = official.registros.find(r => r.id === Number(registroId));
             if (body.versao !== registro.versao) return Response.json({ erro: 'Versão alterada' }, { status: 409 });
+            if (body.estado === 'DESEMBARCADO' && registro.estado === 'AGUARDANDO' && !(sentido === 'VOLTA' && statusCampos.modalidade === 'PRIVADA')) return Response.json({ erro: 'Desembarque exige embarque anterior' }, { status: 409 });
             registro.estado = body.estado; registro.versao++; return Response.json(registro);
         }
         throw Error('Consulta indevida: ' + url);
@@ -83,10 +86,11 @@ function harness({ dados = fixture('FIXA', 'IDA'), sentido = 'IDA', viagemId = 4
         '../components/mapa/ControlesViagem': { ControlesViagem: 'Controls' },
         '../components/mapa/PainelManobra': { PainelManobra: 'Maneuver' },
     }, { process: { env: { EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN: 'mapbox-teste' } }, fetch: request,
-        Date: class extends Date { static now() { return now; } }, setInterval: () => 1, clearInterval() {}, requestAnimationFrame: () => 1, cancelAnimationFrame() {} });
-    const render = () => { cursor = 0; effects = []; const tree = module.default(); effects.forEach(fn => fn()); return tree; };
+        Date: class extends Date { static now() { return now; } }, setInterval: () => 1, clearInterval() {}, requestAnimationFrame: fn => { raf = fn; return 1; }, cancelAnimationFrame: () => { raf = null; } });
+    const render = () => { cursor = 0; effects = []; const tree = module.default(); const node = nodes(tree).find(n => n.type === 'Camera'); if (node?.props.ref) node.props.ref.current = camera; effects.forEach(fn => fn()); return tree; };
     const tick = (p, { accuracy = 5, speed = 0, advance = 2000, timestamp } = {}) => { now += advance; location({ coords: { ...p, accuracy, speed }, timestamp: timestamp ?? now }); };
-    return { storage, requests, direcoes, alerts, paths, official, render, tick,
+    return { storage, requests, direcoes, alerts, paths, official, render, tick, cameras,
+        frame: ms => { now += ms; const fn = raf; raf = null; fn?.(); },
         refresh: async () => { await poll(new AbortController().signal); await flush(); },
         setEstado: (alunoId, estado) => { const r = official.registros.find(r => r.alunoId === alunoId); r.estado = estado; r.versao++; },
         setPainelError: status => { painelStatus = status; }, setConfirmationError: status => { confirmacaoStatus = status; },

@@ -385,7 +385,6 @@ export default function Mapa() {
 
     const [localizacao, setLocalizacao] = useState<LatLng | null>(null);
     const [quadroVisual, setQuadroVisual] = useState<QuadroNavegacao | null>(null);
-    const posicaoSuave = quadroVisual?.posicao ?? null;
 
     const [rota, setRota] = useState<PontoNavegacao[]>([]);
 
@@ -441,6 +440,7 @@ export default function Mapa() {
     const ultimoIndiceProjecaoRef = useRef<number | null>(null);
 
     const headingRef = useRef(0);
+    const ultimaCameraRef = useRef(-Infinity);
     const posicaoApresentadaRef = useRef<LatLng | null>(null);
     const quadroVisualRef = useRef<QuadroNavegacao | null>(null);
     const medidasRotaRef = useRef<MedidasRota | null>(null);
@@ -697,11 +697,29 @@ export default function Mapa() {
         return publisherRef.current?.send(ponto) ?? false;
     }
 
-    function publicarQuadro(quadro: QuadroNavegacao) {
+    // Segue o quadro realmente exibido, não a próxima posição bruta do GPS.
+    // Limita comandos nativos e usa uma transição curta para acompanhar as curvas.
+    function seguirCamera(quadro: QuadroNavegacao, forcar = false) {
+        if (!montadoRef.current || !focadaRef.current || !cameraRef.current) return;
+        const agora = Date.now();
+        if (!forcar && agora - ultimaCameraRef.current < 100) return;
+        ultimaCameraRef.current = agora;
+        cameraRef.current.setCamera({
+            centerCoordinate: [quadro.posicao.longitude, quadro.posicao.latitude],
+            heading: quadro.heading,
+            zoomLevel: 18,
+            pitch: 65,
+            animationMode: 'easeTo',
+            animationDuration: 120,
+        });
+    }
+
+    function publicarQuadro(quadro: QuadroNavegacao, forcarCamera = false) {
         quadroVisualRef.current = quadro;
         posicaoApresentadaRef.current = quadro.posicao;
         headingRef.current = quadro.heading;
         setQuadroVisual(quadro);
+        seguirCamera(quadro, forcarCamera);
     }
 
     function cancelarAnimacaoVisual() {
@@ -739,7 +757,7 @@ export default function Mapa() {
                 const t = fracao * fracao * (3 - 2 * fracao);
                 if (naRota && alvo !== null && metrosOrigem !== null) {
                     const quadro = quadroNaRota(medidas!, metrosOrigem + (alvo - metrosOrigem) * t, headingOrigem);
-                    publicarQuadro(quadro);
+                    publicarQuadro(quadro, fracao === 1);
                 } else {
                     // Fora da via, preserve o último recorte confirmado; não invente uma linha
                     // ligando a van à rua. O recálculo oficial continua responsável pelo desvio.
@@ -748,7 +766,7 @@ export default function Mapa() {
                             longitude: origem.longitude + (novaPos.longitude - origem.longitude) * t },
                         heading: interpolarHeading(headingOrigem, headingGPS ?? headingOrigem, t),
                         progresso: progressoAnterior ?? null,
-                    });
+                    }, fracao === 1);
                 }
             }
             if (fracao < 1) animFrameRef.current = requestAnimationFrame(passo);
@@ -896,15 +914,13 @@ export default function Mapa() {
         router.push({ pathname: '/controle-viagem', params: { tipo: 'VIAGEM', id: String(execucaoRef.current.viagemId) } });
     }
 
-    // Embarque no campus da VOLTA pode ser confirmado antes de iniciar as entregas.
-    async function confirmarPessoaNoMapa(chave: string, alunoId: number, embarqueCampus = false) {
+    // IDA confirma embarque; VOLTA privada confirma diretamente a entrega.
+    async function confirmarPessoaNoMapa(chave: string, alunoId: number) {
         const execucao = execucaoRef.current;
         if (!execucao?.privadaConfirmada || confirmandoParadaRef.current || encerrandoRef.current ||
-            !onlineRef.current || paradasRef.current[0]?.chave !== chave ||
-            (embarqueCampus && execucao.sentido !== 'VOLTA')) return;
+            !onlineRef.current || paradasRef.current[0]?.chave !== chave) return;
         const ponto = rotaRef.current.find(p => p.chave === chave);
-        if (!embarqueCampus && !ponto?.passageiros.some(p => p.id === alunoId)) return;
-        if (embarqueCampus && !rotaRef.current.some(p => p.passageiros.some(a => a.id === alunoId))) return;
+        if (!ponto?.passageiros.some(p => p.id === alunoId)) return;
         confirmandoParadaRef.current = true; setConfirmandoParada(true); setFeedbackParada('');
         const leitura = ++leituraOperacaoRef.current;
         try {
@@ -912,9 +928,8 @@ export default function Mapa() {
             if (!montadoRef.current || !focadaRef.current || execucao !== execucaoRef.current ||
                 leitura !== leituraOperacaoRef.current || paradasRef.current[0]?.chave !== chave || !onlineRef.current) return;
             const registro = painel.registros.find(r => r.alunoId === alunoId);
-            const embarque = execucao.sentido === 'IDA' || embarqueCampus;
-            const anterior = embarque ? 'AGUARDANDO' : 'EMBARCADO';
-            if (registro?.estado === anterior) {
+            const embarque = execucao.sentido === 'IDA';
+            if (registro && (registro.estado === 'AGUARDANDO' || (!embarque && registro.estado === 'EMBARCADO'))) {
                 await alterarEstadoOperacional('VIAGEM', String(execucao.viagemId), registro, true,
                     embarque ? 'EMBARCADO' : 'DESEMBARCADO');
             }
@@ -1080,6 +1095,7 @@ export default function Mapa() {
             medidasRotaRef.current = null;
             alvoProgressoRef.current = null;
             quadroVisualRef.current = null;
+            ultimaCameraRef.current = -Infinity;
             posicaoApresentadaRef.current = null;
             setQuadroVisual(null);
             paradasRef.current = [];
@@ -1141,17 +1157,7 @@ export default function Mapa() {
 
             if (!ativo) return;
 
-            if (cameraRef.current) {
-                cameraRef.current.setCamera({
-                    centerCoordinate: [
-                        posicaoInicial.longitude,
-                        posicaoInicial.latitude,
-                    ],
-                    zoomLevel: 18,
-                    pitch: 65,
-                    animationDuration: 1000,
-                });
-            }
+            if (quadroVisualRef.current) seguirCamera(quadroVisualRef.current, true);
 
             locationSubscription =
                 await Location.watchPositionAsync(
@@ -1245,16 +1251,6 @@ export default function Mapa() {
                         const headingGPS = typeof loc.coords.heading === 'number' && loc.coords.heading >= 0 && velocidadeKmh > 3
                             ? loc.coords.heading : null;
                         animarParaNovaPosicao(posicaoFinal, projecao, headingGPS);
-
-                        cameraRef.current?.setCamera({
-                            centerCoordinate: [
-                                posicaoFinal.longitude,
-                                posicaoFinal.latitude,
-                            ],
-                            zoomLevel: 18,
-                            pitch: 65,
-                            animationDuration: 1800,
-                        });
 
                         const manobrasAtuais =
                             manobrasRef.current;
@@ -1540,6 +1536,7 @@ export default function Mapa() {
 
         const execucao = execucaoRef.current;
         const idaPrivada = execucao?.privadaConfirmada && execucao.sentido === 'IDA';
+        const voltaPrivada = execucao?.privadaConfirmada && execucao.sentido === 'VOLTA';
         const destino = rotaRef.current.at(-1);
         const destinoConcluido = !!destino && visitadosRef.current.has(destino.chave);
         const chegouDestino = () => !!destino && paradasRef.current.length === 1 &&
@@ -1573,6 +1570,13 @@ export default function Mapa() {
                                 execucao !== execucaoRef.current || !focadaRef.current) return;
                             encerrandoRef.current = true;
                             try {
+                                if (voltaPrivada) {
+                                    const painel = await lerPainelAtual(execucao);
+                                    if (!montadoRef.current || !focadaRef.current || execucao !== execucaoRef.current) return;
+                                    if (painel.registros.some(r => r.estado === 'AGUARDANDO' || r.estado === 'EMBARCADO')) {
+                                        throw new Error('Confirme os desembarques ou as ausências antes de encerrar a volta.');
+                                    }
+                                }
                                 if (idaPrivada && !destinoConcluido) {
                                     if (!chegouDestino()) throw new Error('A chegada não está mais confirmada. Aguarde o GPS.');
                                     await apiRequest<void>(`/operacoes/VIAGEM/${execucao.viagemId}/concluir-ida`, { method: 'POST' });
@@ -1597,22 +1601,6 @@ export default function Mapa() {
             ]
         );
     }
-
-    const centralizarNaVan = useCallback(() => {
-        const pos = posicaoSuave || localizacao;
-
-        if (pos && cameraRef.current) {
-            cameraRef.current.setCamera({
-                centerCoordinate: [
-                    pos.longitude,
-                    pos.latitude,
-                ],
-                zoomLevel: 18,
-                animationDuration: 700,
-                pitch: 65,
-            });
-        }
-    }, [posicaoSuave, localizacao]);
 
     const pontosOperacionaisGeoJSON = useMemo(
         () => ({
@@ -1801,34 +1789,13 @@ export default function Mapa() {
                                             : 'Aguardando chegada com GPS preciso'}
                                 </Text>
 
-                                {privada && !idaPrivada && painelOperacional?.registros.some(r => r.estado === 'AGUARDANDO') && (
-                                    <View style={{ gap: 6 }}>
-                                        <Text style={styles.proximaParadaTexto}>Embarques na faculdade</Text>
-                                        {painelOperacional.registros.filter(r => r.estado === 'AGUARDANDO').map(r => (
-                                            <View key={r.id} style={{ gap: 6 }}>
-                                                <Text style={styles.proximaParadaTexto}>{r.nome}</Text>
-                                                <View style={{ flexDirection: 'row', gap: 8 }}>
-                                                    <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Confirmar embarque: ${r.nome}`}
-                                                        disabled={!online || confirmandoParada} style={[styles.acaoParada, { flex: 1 }]}
-                                                        onPress={() => void confirmarPessoaNoMapa(proximoPonto.chave, r.alunoId, true)}>
-                                                        <Text style={styles.proximaParadaTexto}>Confirmar embarque</Text>
-                                                    </TouchableOpacity>
-                                                    <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Configurações: ${r.nome}`}
-                                                        disabled={confirmandoParada} style={styles.acaoParada} onPress={abrirConfiguracoesPassageiros}>
-                                                        <Ionicons name="settings-outline" size={22} color="#00D2FF" />
-                                                    </TouchableOpacity>
-                                                </View>
-                                            </View>
-                                        ))}
-                                    </View>
-                                )}
                                 {proximoPonto.passageiros.map(p => {
                                     const registro = painelOperacional?.registros.find(r => r.alunoId === p.id);
-                                    const acaoDisponivel = privada && registro?.estado === (idaPrivada ? 'AGUARDANDO' : 'EMBARCADO');
+                                    const acaoDisponivel = privada && !!registro && (registro.estado === 'AGUARDANDO' || (!idaPrivada && registro.estado === 'EMBARCADO'));
                                     const acao = idaPrivada ? 'Confirmar embarque' : 'Confirmar desembarque';
                                     return <View key={p.id} style={{ gap: 6 }}>
                                         <Text style={styles.proximaParadaTexto}>
-                                            {p.nome}: {registro ? rotulosEstado[registro.estado] : 'Estado indisponível'}
+                                            {p.nome}: {registro ? privada && !idaPrivada && registro.estado === 'AGUARDANDO' ? 'Desembarque pendente' : rotulosEstado[registro.estado] : 'Estado indisponível'}
                                         </Text>
                                         {privada && <View style={{ flexDirection: 'row', gap: 8 }}>
                                             {acaoDisponivel && <TouchableOpacity
@@ -2004,26 +1971,12 @@ export default function Mapa() {
                 compassEnabled={false}
 
                 onDidFinishLoadingMap={() => {
-                    const pos = posicaoApresentadaRef.current;
-
-                    if (pos) {
-                        cameraRef.current?.setCamera({
-                            centerCoordinate: [
-                                pos.longitude,
-                                pos.latitude,
-                            ],
-                            zoomLevel: 18,
-                            pitch: 65,
-                            animationDuration: 800,
-                        });
-                    }
+                    if (quadroVisualRef.current) seguirCamera(quadroVisualRef.current, true);
                 }}
             >
                 <MapboxGL.Camera
                     ref={cameraRef}
-                    zoomLevel={18}
-                    pitch={65}
-                    centerCoordinate={centroInicialCamera}
+                    defaultSettings={{ zoomLevel: 18, pitch: 65, centerCoordinate: centroInicialCamera }}
                 />
 
                 <MapboxGL.Images images={IMAGENS_NAVEGACAO} />
@@ -2113,26 +2066,6 @@ export default function Mapa() {
                 </MapboxGL.ShapeSource>
             </MapboxGL.MapView>
 
-            <TouchableOpacity
-                style={[
-                    styles.locateButton,
-                    {
-                        bottom: insets.bottom + 128,
-                    },
-                ]}
-                onPress={centralizarNaVan}
-                accessibilityRole="button"
-                accessibilityLabel="Centralizar na van"
-                activeOpacity={0.8}
-            >
-                <Ionicons
-                    name="locate"
-                    size={22}
-                    color="#00D2FF"
-                />
-            </TouchableOpacity>
-
-
             <ControlesViagem
                 distanciaRestante={distanciaRestante}
                 etaMinutos={etaMinutos}
@@ -2213,17 +2146,4 @@ const styles = themedStyles(() => StyleSheet.create({
         backgroundColor: '#1E293B', borderRadius: 8, borderWidth: 1, borderColor: '#00D2FF'
     },
     proximaParadaTexto: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
-    locateButton: {
-        position: 'absolute',
-        right: theme.spacing.md,
-        zIndex: 20,
-        backgroundColor: '#1E293B',
-        borderWidth: 1,
-        borderColor: '#334155',
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
 }));

@@ -305,13 +305,41 @@ test('mapa privado VOLTA confirma desembarque individual sem encerrar a viagem',
     assert.equal(h.requests.some(url => url.endsWith('/concluir-ida')), false);h.unmount();
 });
 
-test('VOLTA privada permite confirmar embarque na faculdade diretamente no mapa', async () => {
+test('VOLTA privada inicia com entregas pendentes e registra desembarque com um toque sem embarque anterior', async () => {
     const dados = fixture('PORTA_A_PORTA', 'VOLTA');
     const h = await start({ dados, sentido: 'VOLTA', statusCampos: { modalidade: 'PRIVADA' } });
-    const button = nodes(h.render()).find(n => n.props.accessibilityLabel === 'Confirmar embarque: Pessoa 11');
-    assert.ok(button); await button.props.onPress(); await flush();
-    assert.equal(h.official.registros[0].estado, 'EMBARCADO');
-    assert.ok(nodes(h.render()).some(n => n.props.accessibilityLabel === 'Confirmar desembarque: Pessoa 11'));
+    const tela = nodes(h.render());
+    assert.equal(tela.some(n => String(n.props.accessibilityLabel).startsWith('Confirmar embarque:')), false);
+    const button = tela.find(n => n.props.accessibilityLabel === 'Confirmar desembarque: Pessoa 11');
+    assert.ok(button); assert.equal(button.props.disabled, false);
+    await button.props.onPress(); await flush();
+    assert.equal(h.official.registros[0].estado, 'DESEMBARCADO');
+    assert.equal(h.requests.filter(url => url.endsWith('/estado')).length, 1);
+    assert.match(texto(h), /Destino final: VOLTA destino/);
     assert.equal(h.paths.length, 0);
-    assert.equal(h.requests.some(url => url.endsWith('/concluir-ida')), false);h.unmount();
+    assert.equal(h.requests.some(url => url.endsWith('/concluir-ida')), false); h.unmount();
+});
+
+test('câmera segue a orientação e a posição animada nas curvas, sem botão sobre o ETA', async () => {
+    const dados = fixture('PORTA_A_PORTA', 'IDA');
+    const h = await start({ dados, mapboxHandler: coords => {
+        const esquina = [coords[1][0], coords[0][1]];
+        return Response.json({ code: 'Ok', routes: [{ geometry: { type: 'LineString', coordinates: [coords[0], esquina, ...coords.slice(1)] }, legs: coords.slice(1).map(() => ({ steps: [] })) }], waypoints: coords.map(location => ({ location })) });
+    }});
+    const conferir = () => {
+        const tela = nodes(h.render());
+        assert.equal(tela.some(n => n.props.accessibilityLabel === 'Centralizar na van'), false);
+        const quadro = tela.find(n => n.props.id === 'navegacaoVisualSource').props.shape.features.find(f => f.properties.tipo === 'van');
+        const camera = h.cameras.at(-1);
+        assert.ok(camera);
+        assert.equal(camera.heading, quadro.properties.heading);
+        assert.deepEqual(Array.from(camera.centerCoordinate), Array.from(quadro.geometry.coordinates));
+        return camera.heading;
+    };
+    h.tick({latitude: -8.6, longitude: -35.4}); h.frame(1600);
+    const antes = conferir();
+    h.tick({latitude: -8.4, longitude: -35.2}); h.frame(1600);
+    const depois = conferir();
+    assert.ok(Math.abs(antes - depois) > 60, `A câmera deve girar na curva: ${antes} -> ${depois}`);
+    h.unmount();
 });

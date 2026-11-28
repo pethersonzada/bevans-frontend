@@ -50,6 +50,7 @@ export function Painel({ tipo, id, motorista, excursaoId }: { tipo: string; id: 
         const acao = { registro, estado, correcao };
         if (estado === 'EMBARCADO') void alterar(acao); else setConfirmacao(acao);
     };
+    const voltaPrivada = motorista && tipo === 'VIAGEM' && !!data && 'registros' in data && data.modalidade === 'PRIVADA' && data.sentido === 'VOLTA';
     const registros = data ? ('registros' in data ? [...data.registros].sort((a,b) => a.ordem - b.ordem) : [data]) : [];
     const botao = (titulo: string, onPress: () => void, disabled = false) => <Pressable accessibilityRole="button" accessibilityState={{ disabled: disabled || busy, busy }} disabled={disabled || busy} style={[styles.button, (disabled || busy) && styles.disabled]} onPress={onPress}><Text style={styles.buttonText}>{titulo}</Text></Pressable>;
     const acaoOperacional=(titulo:string,onPress:()=>void,disabled=false)=>botao(titulo,onPress,disabled||operacaoBloqueada);
@@ -57,7 +58,7 @@ export function Painel({ tipo, id, motorista, excursaoId }: { tipo: string; id: 
         {botao('Voltar', () => router.back())}
         <Text style={styles.title} accessibilityRole="header">Controle da viagem</Text>
         <Text style={{ color: theme.colors.text }}>{tipo === 'EXCURSAO' ? 'Excursão' : 'Viagem'} #{id}{data && 'sentido' in data ? ` · ${data.sentido}` : ''}</Text>
-        <Text style={{ color: theme.colors.text }}>GPS e presença planejada não confirmam embarque.</Text>
+        <Text style={{ color: theme.colors.text }}>{voltaPrivada ? 'Confirme apenas o desembarque ou a ausência de cada passageiro.' : 'GPS e presença planejada não confirmam embarque.'}</Text>
         <Text style={{ color: theme.colors.text }} accessibilityLiveRegion="polite">{feedback}</Text>
         {tipo==='EXCURSAO'&&motorista&&<>
             {!excursaoId&&<Text style={{ color: theme.colors.text }}>Reabra o controle pela excursão para consultar sua execução.</Text>}
@@ -67,7 +68,7 @@ export function Painel({ tipo, id, motorista, excursaoId }: { tipo: string; id: 
         </>}
         {error ? <AsyncState message={error} onRetry={reload} /> : !data ? <AsyncState loading /> : <>
             {'contadores' in data && <View style={styles.counters}>{([
-                ['Esperados', data.contadores.esperados], ['Aguardando', data.contadores.aguardando], ['Na van', data.contadores.naVan],
+                ['Esperados', data.contadores.esperados], [voltaPrivada ? 'Desembarques pendentes' : 'Aguardando', data.contadores.aguardando], ['Na van', data.contadores.naVan],
                 ['Não embarcaram', data.contadores.naoEmbarcaram], ['Desembarcados', data.contadores.desembarcados],
             ] as const).map(([label, total]) => <View key={label} style={styles.counter} accessible accessibilityLabel={`${label}: ${total}`}><Text style={styles.total}>{total}</Text><Text style={{ color: theme.colors.text }}>{label}</Text></View>)}</View>}
             <Text style={{ color: theme.colors.text }}>A lista segue a ordem planejada; passageiros aguardando estão destacados.</Text>
@@ -80,12 +81,12 @@ export function Painel({ tipo, id, motorista, excursaoId }: { tipo: string; id: 
             {!registros.length && <AsyncState status="empty" title="Nenhum passageiro nesta operação" />}
             {registros.map(r => <View key={r.id} style={[styles.card, r.estado === 'AGUARDANDO' && styles.waiting]}>
                 <Text style={styles.name} accessibilityRole="header">{motorista ? r.nome : 'Meu embarque'}</Text>
-                <Text style={styles.state}>{rotulosEstado[r.estado] || 'Estado indisponível'}</Text>
+                <Text style={styles.state}>{voltaPrivada && r.estado === 'AGUARDANDO' ? 'Desembarque pendente' : rotulosEstado[r.estado] || 'Estado indisponível'}</Text>
                 {motorista && <Text style={{ color: theme.colors.text }}>Ordem planejada: {r.ordem}</Text>}
                 <Text style={{ color: theme.colors.text }}>Confirmado por: {r.autor || 'Ainda sem confirmação'}</Text>
                 {r.atualizadoEm && <Text style={{ color: theme.colors.text }}>{new Date(r.atualizadoEm).toLocaleString('pt-BR')}</Text>}
-                {acaoOperacional(motorista ? 'Confirmar embarque' : 'Embarquei', () => solicitar(r, 'EMBARCADO'), r.estado !== 'AGUARDANDO' || !!confirmacao)}
-                {acaoOperacional(motorista ? 'Confirmar desembarque' : 'Desembarquei', () => solicitar(r, 'DESEMBARCADO'), r.estado !== 'EMBARCADO' || !!confirmacao)}
+                {!voltaPrivada && acaoOperacional(motorista ? 'Confirmar embarque' : 'Embarquei', () => solicitar(r, 'EMBARCADO'), r.estado !== 'AGUARDANDO' || !!confirmacao)}
+                {acaoOperacional(motorista ? 'Confirmar desembarque' : 'Desembarquei', () => solicitar(r, 'DESEMBARCADO'), (r.estado !== 'EMBARCADO' && !(voltaPrivada && r.estado === 'AGUARDANDO')) || !!confirmacao)}
                 {motorista ? <>
                     {acaoOperacional('Não embarcou', () => solicitar(r, 'NAO_EMBARCOU'), r.estado !== 'AGUARDANDO' || !!confirmacao)}
                     {acaoOperacional('Corrigir para aguardando', () => solicitar(r, 'AGUARDANDO', true), !motivo.trim() || !!confirmacao)}
