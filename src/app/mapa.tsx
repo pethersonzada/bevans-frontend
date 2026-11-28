@@ -1745,8 +1745,7 @@ export default function Mapa() {
     const passageiroNoTitulo = passageiroUnico &&
         passageiroUnico.nome.trim().toLocaleLowerCase('pt-BR') === proximaParada?.trim().toLocaleLowerCase('pt-BR')
         ? passageiroUnico : undefined;
-    const registroTitulo = painelOperacional?.registros.find(r => r.alunoId === passageiroNoTitulo?.id);
-    const rotuloRegistro = (registro?: typeof registroTitulo) => registro
+    const rotuloRegistro = (registro?: PainelParadas['registros'][number]) => registro
         ? privada && !idaPrivada && registro.estado === 'AGUARDANDO' ? 'Desembarque pendente' : rotulosEstado[registro.estado]
         : 'Estado indisponível';
     const impedimento = destinoIda
@@ -1795,10 +1794,7 @@ export default function Mapa() {
                                     {proximaParada || 'Rota atualizada'}
                                 </Text>
                             </View>
-                            <View style={styles.paradaResumo}>
-                                {paradasRestantes > 0 && <Text style={styles.paradaContagem}>{paradasRestantes} {paradasRestantes === 1 ? 'restante' : 'restantes'}</Text>}
-                                {!!passageiroNoTitulo && <Text style={styles.paradaSecundario} numberOfLines={1}>{rotuloRegistro(registroTitulo)}</Text>}
-                            </View>
+                            {paradasRestantes > 0 && <Text style={styles.paradaContagem}>{paradasRestantes} {paradasRestantes === 1 ? 'restante' : 'restantes'}</Text>}
                             <Ionicons name={painelAberto ? 'chevron-up' : 'chevron-down'} size={18} color="#94A3B8" />
                         </TouchableOpacity>
 
@@ -2052,7 +2048,6 @@ const styles = themedStyles(() => StyleSheet.create({
     paradaContainer: { gap: 4 },
     paradaCabecalho: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
     paradaIdentidade: { flex: 1, gap: 2 },
-    paradaResumo: { alignItems: 'flex-end', flexShrink: 1, gap: 2 },
     paradaRotulo: { color: '#94A3B8', fontSize: 10, fontWeight: '800', letterSpacing: 1 },
     paradaTitulo: { color: '#F8FAFC', fontSize: 16, fontWeight: '800', lineHeight: 20 },
     paradaContagem: { color: '#94A3B8', fontSize: 11, fontWeight: '600' },

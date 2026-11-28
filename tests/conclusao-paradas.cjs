@@ -356,7 +356,7 @@ for (const sentido of ['IDA', 'VOLTA']) test(`${sentido} privada: título com no
     const textos = tela.filter(n => n.type === 'Text').map(n => [n.props.children].flat(Infinity).join(''));
     assert.equal(textos.filter(v => v === 'Rafaela').length, 1);
     assert.ok(textos.includes('1 restante'));
-    assert.ok(textos.includes(sentido === 'IDA' ? 'Aguardando' : 'Desembarque pendente'));
+    assert.equal(textos.some(v => v === 'Aguardando' || v === 'Desembarque pendente'), false, 'O cabeçalho deve mostrar apenas o nome e a contagem de paradas');
     assert.equal(textos.some(v => v === 'A' || v === 'A caminho'), false);
     assert.ok(tela.some(n => n.props.accessibilityLabel === 'Configurações: Rafaela'));
     const acao = sentido === 'IDA' ? 'Confirmar embarque' : 'Confirmar desembarque';
