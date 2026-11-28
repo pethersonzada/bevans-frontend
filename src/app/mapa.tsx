@@ -1756,7 +1756,6 @@ export default function Mapa() {
                         {painelAberto && <ScrollView style={{ maxHeight: 206 }} contentContainerStyle={styles.paradaConteudo} nestedScrollEnabled>
                             {proximoPonto && <>
                                 <View style={styles.paradaStatus}>
-                                    <View style={[styles.paradaStatusPonto, chegada?.chave === proximoPonto.chave && chegadaAtual(chegada, proximoPonto.chave, Date.now()) && { backgroundColor: '#34D399' }]} />
                                     <Text style={styles.paradaSecundario} accessibilityLiveRegion="polite">
                                         {chegada?.chave === proximoPonto.chave && chegadaAtual(chegada, proximoPonto.chave, Date.now())
                                             ? 'Chegou ao ponto'
@@ -1775,7 +1774,6 @@ export default function Mapa() {
                                     const estado = registro ? privada && !idaPrivada && registro.estado === 'AGUARDANDO' ? 'Desembarque pendente' : rotulosEstado[registro.estado] : 'Estado indisponível';
                                     return <View key={p.id} style={styles.passageiroBloco}>
                                         <View style={styles.passageiroLinha}>
-                                            <View style={styles.passageiroAvatar}><Ionicons name={resolvido ? 'checkmark' : 'person-outline'} size={17} color={resolvido ? '#34D399' : '#CBD5E1'} /></View>
                                             <View style={{ flex: 1 }}>
                                                 <Text style={styles.passageiroNome} numberOfLines={2}>{p.nome}</Text>
                                                 <Text style={[styles.paradaSecundario, resolvido && { color: '#34D399' }]}>{estado}</Text>
@@ -1931,7 +1929,7 @@ export default function Mapa() {
                             lineColor: '#00D2FF', lineWidth: 6, lineCap: 'round', lineJoin: 'round',
                         }} />
                     <MapboxGL.SymbolLayer id="vanNavegacaoLayer" filter={FILTRO_VAN as any} style={{
-                        iconImage: 'bevansSeta', iconSize: 0.72, iconAnchor: 'center',
+                        iconImage: 'bevansSeta', iconSize: 0.5, iconAnchor: 'center',
                         iconRotate: ['get', 'heading'], iconRotationAlignment: 'map',
                         iconPitchAlignment: 'viewport', iconAllowOverlap: true,
                         iconIgnorePlacement: true, iconPadding: 0,
@@ -2002,11 +2000,9 @@ const styles = themedStyles(() => StyleSheet.create({
     paradaContagem: { color: '#94A3B8', fontSize: 11, fontWeight: '600' },
     paradaConteudo: { gap: 9, paddingBottom: 2 },
     paradaStatus: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    paradaStatusPonto: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#38BDF8' },
     paradaSecundario: { fontSize: 12, lineHeight: 16, color: '#A5B4C7', fontWeight: '500' },
     passageiroBloco: { gap: 7, paddingTop: 6 },
     passageiroLinha: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-    passageiroAvatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#26374B', alignItems: 'center', justifyContent: 'center' },
     passageiroNome: { color: '#F8FAFC', fontSize: 15, fontWeight: '700' },
     paradaIconeBotao: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#26374B' },
     paradaPrimario: { backgroundColor: '#00D2FF', minHeight: 46, borderRadius: 12, paddingHorizontal: 10, flexDirection: 'row', gap: 7, alignItems: 'center', justifyContent: 'center' },
