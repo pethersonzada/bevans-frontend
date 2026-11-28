@@ -40,3 +40,10 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Firebase Android
+google-services.json
+
+.homologacao/
+*.apk
+*.aab

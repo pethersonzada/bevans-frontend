@@ -1,746 +1,2308 @@
-import { themedStyles } from '../styles/themedStyles';
-import { useThemeRevision } from '../hooks/useThemeRevision';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     AppState,
-
-
     Pressable,
     RefreshControl,
     ScrollView,
     StatusBar,
     StyleSheet,
     Text,
-    TouchableOpacity,
+    TextInput,
     View,
 } from 'react-native';
+
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppModal as Modal } from '../components/AppModal';
-import { useAppAlert } from '../contexts/AppAlertContext';
-import { useHomeRefresh } from '../hooks/useHomeRefresh';
-import { fetchPassageirosTurma, fetchSolicitacoesTurma, fetchTurmasMotorista, removerPassageiroTurma } from '../services/motoristaHome';
-import { analisarVinculo } from '../services/solicitacoes';
-import { consultarEstadoViagem, iniciarViagem, reiniciarViagem, TrocaViagemError } from '../services/viagens';
-
 import { AsyncState } from '../components/AsyncState';
-import { errorMessage } from '../config/api';
-import { useAuth } from '../contexts/AuthContext';
-import { theme } from '../styles/theme';
-
-import { BannerRotaAtiva } from '../components/banners/BannerRotaAtiva';
-import { CardsTurmasMotorista } from '../components/cards/CardsTurmasMotorista';
-import { BotoesAcaoMotorista } from '../components/motorista/BotoesAcaoMotorista';
 import { HeaderMotorista } from '../components/motorista/HeaderMotorista';
 import { PainelTurmaSelecionada } from '../components/motorista/PainelTurmaSelecionada';
+import { errorMessage } from '../config/api';
+import { useAppAlert } from '../contexts/AppAlertContext';
+import { useAuth } from '../contexts/AuthContext';
+import { useHomeRefresh } from '../hooks/useHomeRefresh';
+import { useThemeRevision } from '../hooks/useThemeRevision';
 
-import type { PassageiroTurma as Aluno, Turma, SolicitacaoTurma as VinculoPendente } from '../types/turma';
+import {
+    fetchPassageirosTurma,
+    fetchSolicitacoesTurma,
+    fetchTurmasMotorista,
+    removerPassageiroTurma,
+} from '../services/motoristaHome';
+
+import {
+    consultarEstadoViagem,
+    iniciarViagem,
+    type EstadoViagem,
+} from '../services/viagens';
+
+import { filterTurmas } from '../services/turmaSearch';
+import { theme } from '../styles/theme';
+import { themedStyles } from '../styles/themedStyles';
+
+import type {
+    PassageiroTurma as Aluno,
+    Turma,
+    SolicitacaoTurma as VinculoPendente,
+} from '../types/turma';
+
+type Filtro =
+    | 'TODOS'
+    | 'IDA'
+    | 'VOLTA'
+    | 'NAO_VOU'
+    | 'PENDENTES';
+
+type Sentido = 'IDA' | 'VOLTA';
+
+const participa = (p: Aluno, sentido: Sentido) =>
+    p.status === sentido || p.status === 'AMBOS';
+
+const rotuloStatus = (s?: string) => {
+    switch (s) {
+        case 'AMBOS':
+            return 'Ida e volta';
+        case 'IDA':
+            return 'Somente ida';
+        case 'VOLTA':
+            return 'Somente volta';
+        case 'NAO_VOU':
+            return 'Não vai';
+        default:
+            return 'Aguardando resposta';
+    }
+};
+
+const nomeTurma = (t: Turma) =>
+    t.nome?.trim() || t.destinoNome || 'Turma sem nome';
 
 export default function HomeMotorista() {
     const darkMode = useThemeRevision() === 'dark';
     const Alert = useAppAlert();
+    const insets = useSafeAreaInsets();
     const { user } = useAuth();
     const router = useRouter();
 
     const [loading, setLoading] = useState(true);
     const [erroCarga, setErroCarga] = useState<string | null>(null);
+
     const primeiraCarga = useRef(true);
     const turmaSelecionadaRef = useRef<Turma | null>(null);
 
     const [turmas, setTurmas] = useState<Turma[]>([]);
-    const [turmaSelecionada, setTurmaSelecionada] = useState<Turma | null>(null);
+    const [turmaSelecionada, setTurmaSelecionada] =
+        useState<Turma | null>(null);
+
     const [passageiros, setPassageiros] = useState<Aluno[]>([]);
-    const [alunosPendentes, setAlunosPendentes] = useState<VinculoPendente[]>([]);
-    const [carregandoPassageiros, setCarregandoPassageiros] = useState(false);
-    const [erroPassageiros, setErroPassageiros] = useState<string | null>(null);
-    const [carregandoPendentes, setCarregandoPendentes] = useState(false);
-    const [erroPendentes, setErroPendentes] = useState<string | null>(null);
+
+    const [alunosPendentes, setAlunosPendentes] =
+        useState<VinculoPendente[]>([]);
+
+    const [carregandoPassageiros, setCarregandoPassageiros] =
+        useState(false);
+
+    const [erroPassageiros, setErroPassageiros] =
+        useState<string | null>(null);
+
+    const [carregandoPendentes, setCarregandoPendentes] =
+        useState(false);
+
+    const [erroPendentes, setErroPendentes] =
+        useState<string | null>(null);
+
+    const [estadoViagem, setEstadoViagem] =
+        useState<EstadoViagem | null>(null);
+
+    const [erroViagem, setErroViagem] =
+        useState<string | null>(null);
+
     const passageirosRequest = useRef(0);
     const pendentesRequest = useRef(0);
-    const [viagemAtiva, setViagemAtiva] = useState(false);
+    const viagemRequest = useRef(0);
 
-    const [modalNotificacoesVisible, setModalNotificacoesVisible] = useState(false);
-    const [mostrarPassageiros, setMostrarPassageiros] = useState(false);
-    const [analisando, setAnalisando] = useState<number | null>(null);
-    const analisePendente = useRef(false);
+    const [modalTurmas, setModalTurmas] = useState(false);
+    const [pesquisa, setPesquisa] = useState('');
+
+    const [modalPassageiros, setModalPassageiros] =
+        useState(false);
+
+    const [filtro, setFiltro] = useState<Filtro>('TODOS');
+    const [buscaPassageiro, setBuscaPassageiro] = useState('');
+
+    const [gerenciarPassageiros, setGerenciarPassageiros] =
+        useState(false);
+
+    const [gestaoAberta, setGestaoAberta] = useState(false);
+
     const inicioPendente = useRef(false);
     const inicioExecutando = useRef(false);
-    const emFoco = useRef(false);
-    useFocusEffect(useCallback(() => {
-        emFoco.current = true;
-        const dismiss = () => { if (!inicioExecutando.current) inicioPendente.current = false; };
-        const subscription = AppState.addEventListener('change', state => { if (state !== 'active') dismiss(); });
-        return () => { emFoco.current = false; dismiss(); subscription.remove(); };
-    }, []));
 
-    const { refreshing, refresh } = useHomeRefresh(user?.id ?? null, carregarDadosSilencioso);
+    const [iniciando, setIniciando] = useState(false);
+
+    const emFoco = useRef(false);
+
+    useFocusEffect(
+        useCallback(() => {
+            emFoco.current = true;
+
+            const dismiss = () => {
+                if (!inicioExecutando.current) {
+                    inicioPendente.current = false;
+                }
+            };
+
+            const subscription = AppState.addEventListener(
+                'change',
+                state => {
+                    if (state !== 'active') dismiss();
+                }
+            );
+
+            return () => {
+                emFoco.current = false;
+                dismiss();
+                subscription.remove();
+            };
+        }, [])
+    );
+
+    const { refreshing, refresh } = useHomeRefresh(
+        user?.id ?? null,
+        carregarDadosSilencioso
+    );
 
     async function carregarDadosSilencioso() {
-        if (primeiraCarga.current) setLoading(true);
+        if (primeiraCarga.current) {
+            setLoading(true);
+        }
 
-        const success = user?.id ? await buscarTurmas(String(user.id)) : false;
+        const success = user?.id
+            ? await buscarTurmas(String(user.id))
+            : false;
+
         setLoading(false);
         primeiraCarga.current = false;
+
         return success;
     }
 
-    async function buscarTurmas(motoristaId: string | number) {
+    function limparSelecao() {
+        passageirosRequest.current++;
+        pendentesRequest.current++;
+        viagemRequest.current++;
+
+        setPassageiros([]);
+        setAlunosPendentes([]);
+        setEstadoViagem(null);
+        setErroViagem(null);
+        setErroPassageiros(null);
+        setErroPendentes(null);
+        setCarregandoPassageiros(false);
+        setCarregandoPendentes(false);
+        setModalPassageiros(false);
+        setGestaoAberta(false);
+    }
+
+    async function buscarTurmas(
+        motoristaId: string | number
+    ) {
         setErroCarga(null);
+
         try {
             const data = await fetchTurmasMotorista(motoristaId);
+
             setTurmas(data);
 
-            if (data.length === 0) {
+            if (!data.length) {
                 turmaSelecionadaRef.current = null;
                 setTurmaSelecionada(null);
-                setPassageiros([]);
-                setAlunosPendentes([]);
-                setViagemAtiva(false);
-                passageirosRequest.current++;
-                pendentesRequest.current++;
-                setCarregandoPassageiros(false);
-                setCarregandoPendentes(false);
-                setErroPassageiros(null);
-                setErroPendentes(null);
+                limparSelecao();
+
                 return true;
             }
 
-            const chaveTurma = `@bevans:turma_selecionada:${motoristaId}`;
+            const chave =
+                `@bevans:turma_selecionada:${motoristaId}`;
 
-            const idSalvo = await AsyncStorage.getItem(chaveTurma);
+            const salvo = await AsyncStorage.getItem(chave)
+                .catch(() => null);
 
-            const idPreferido = turmaSelecionadaRef.current?.id ??
-                (idSalvo ? Number(idSalvo) : null);
+            const preferido =
+                turmaSelecionadaRef.current?.id ??
+                (salvo ? Number(salvo) : null);
 
-            const turmaEncontrada = idPreferido !== null
-                ? data.find(
-                    (t) => Number(t.id) === Number(idPreferido)
-                )
-                : undefined;
+            const atual =
+                data.find(t => Number(t.id) === preferido) ??
+                data[0];
 
-            const atual = turmaEncontrada ?? data[0];
+            if (turmaSelecionadaRef.current?.id !== atual.id) {
+                limparSelecao();
+            }
 
             turmaSelecionadaRef.current = atual;
             setTurmaSelecionada(atual);
 
-            await AsyncStorage.setItem(
-                chaveTurma,
+            void AsyncStorage.setItem(
+                chave,
                 String(atual.id)
-            );
+            ).catch(() => {});
 
-            const [detailsLoaded] = await Promise.all([buscarDadosDaTurma(atual.id), checarAmnesia(atual.id)]);
-            return detailsLoaded;
+            const resultados = await Promise.all([
+                buscarDadosDaTurma(atual.id),
+                checarAmnesia(atual.id),
+            ]);
 
+            return resultados.every(Boolean);
         } catch (error) {
             setErroCarga(errorMessage(error));
-            console.error('Erro ao carregar turmas:', error);
             return false;
         }
     }
 
     async function buscarDadosDaTurma(turmaId: number) {
-        const results = await Promise.all([
+        const resultados = await Promise.all([
             buscarPassageirosPorTurma(turmaId),
-            buscarAlunosPendentes(turmaId)
+            buscarAlunosPendentes(turmaId),
         ]);
-        return results.every(Boolean);
+
+        return resultados.every(Boolean);
     }
 
     async function buscarPassageirosPorTurma(turmaId: number) {
         const request = ++passageirosRequest.current;
-        const atual = () => turmaSelecionadaRef.current?.id === turmaId && request === passageirosRequest.current;
+
+        const atual = () =>
+            turmaSelecionadaRef.current?.id === turmaId &&
+            request === passageirosRequest.current;
+
         setCarregandoPassageiros(true);
         setErroPassageiros(null);
+
         try {
             const dados = await fetchPassageirosTurma(turmaId);
+
             if (!atual()) return false;
+
             setPassageiros(dados);
+
             return true;
         } catch (e) {
-            if (atual()) setErroPassageiros(errorMessage(e));
-            console.log("Falha ao buscar passageiros.");
+            if (atual()) {
+                setErroPassageiros(errorMessage(e));
+            }
+
             return false;
         } finally {
-            if (atual()) setCarregandoPassageiros(false);
+            if (atual()) {
+                setCarregandoPassageiros(false);
+            }
         }
     }
 
     async function buscarAlunosPendentes(turmaId: number) {
         const request = ++pendentesRequest.current;
-        const atual = () => turmaSelecionadaRef.current?.id === turmaId && request === pendentesRequest.current;
+
+        const atual = () =>
+            turmaSelecionadaRef.current?.id === turmaId &&
+            request === pendentesRequest.current;
+
         setCarregandoPendentes(true);
         setErroPendentes(null);
+
         try {
             const dados = await fetchSolicitacoesTurma(turmaId);
+
             if (!atual()) return false;
+
             setAlunosPendentes(dados);
+
             return true;
         } catch (e) {
-            if (atual()) setErroPendentes(errorMessage(e));
-            console.log("Falha ao buscar pendentes.");
+            if (atual()) {
+                setErroPendentes(errorMessage(e));
+            }
+
             return false;
         } finally {
-            if (atual()) setCarregandoPendentes(false);
-        }
-    }
-
-    async function analisarSolicitacao(vinculoId: number, status: 'APROVADO' | 'REJEITADO') {
-        if (analisePendente.current) return;
-        analisePendente.current = true;
-        setAnalisando(vinculoId);
-        try {
-            await analisarVinculo(vinculoId, status);
-            if (turmaSelecionada) await buscarDadosDaTurma(turmaSelecionada.id);
-        } catch (e) {
-            Alert.alert("Erro", errorMessage(e));
-        } finally {
-            analisePendente.current = false;
-            setAnalisando(null);
+            if (atual()) {
+                setCarregandoPendentes(false);
+            }
         }
     }
 
     async function checarAmnesia(turmaId: number) {
-        if (!user?.id || !turmaId) return;
+        if (!user?.id || !turmaId) return false;
+
+        const request = ++viagemRequest.current;
+
+        const atual = () =>
+            turmaSelecionadaRef.current?.id === turmaId &&
+            request === viagemRequest.current;
 
         try {
-            const chaveStorage = `@vanbora:viagem_ativa_${user.id}`;
-
             const data = await consultarEstadoViagem(turmaId);
-            if (turmaSelecionadaRef.current?.id !== turmaId) return;
-            const ativo = data.status === 'ATIVA';
-            setViagemAtiva(ativo);
-            if (ativo) await AsyncStorage.setItem(chaveStorage, 'true');
-            else await AsyncStorage.removeItem(chaveStorage);
-        } catch {
-            if (turmaSelecionadaRef.current?.id === turmaId) setViagemAtiva(false);
+
+            if (!atual()) return false;
+
+            setEstadoViagem(data);
+            setErroViagem(null);
+
+            const chave = `@vanbora:viagem_ativa_${user.id}`;
+
+            void (
+                data.status === 'ATIVA'
+                    ? AsyncStorage.setItem(chave, 'true')
+                    : AsyncStorage.removeItem(chave)
+            ).catch(() => {});
+
+            return true;
+        } catch (e) {
+            if (atual()) {
+                setEstadoViagem(null);
+                setErroViagem(errorMessage(e));
+            }
+
+            return false;
         }
     }
 
-    const removerAluno = useCallback(async (alunoId: number, nomeAluno: string) => {
+    async function selecionarTurma(t: Turma) {
+        if (inicioPendente.current) return;
+
+        setModalTurmas(false);
+        setPesquisa('');
+
+        if (turmaSelecionadaRef.current?.id === t.id) return;
+
+        limparSelecao();
+
+        turmaSelecionadaRef.current = t;
+        setTurmaSelecionada(t);
+
+        if (user?.id) {
+            void AsyncStorage.setItem(
+                `@bevans:turma_selecionada:${user.id}`,
+                String(t.id)
+            ).catch(() => {});
+        }
+
+        await Promise.all([
+            buscarDadosDaTurma(t.id),
+            checarAmnesia(t.id),
+        ]);
+    }
+
+    function removerAluno(
+        alunoId: number,
+        nomeAluno: string
+    ) {
         if (!turmaSelecionada) return;
 
+        const id = turmaSelecionada.id;
+
         Alert.alert(
-            "Remover Passageiro",
-            `Deseja realmente remover ${nomeAluno} desta turma?`,
+            'Remover passageiro',
+            `Deseja remover ${nomeAluno} desta turma?`,
             [
-                { text: "Cancelar", style: "cancel" },
                 {
-                    text: "Remover",
-                    style: "destructive",
+                    text: 'Cancelar',
+                    style: 'cancel',
+                },
+                {
+                    text: 'Remover',
+                    style: 'destructive',
                     onPress: async () => {
                         try {
-                            await removerPassageiroTurma(turmaSelecionada.id, alunoId);
-                            await buscarDadosDaTurma(turmaSelecionada.id);
+                            if (
+                                turmaSelecionadaRef.current?.id !== id
+                            ) return;
+
+                            await removerPassageiroTurma(
+                                id,
+                                alunoId
+                            );
+
+                            if (
+                                turmaSelecionadaRef.current?.id === id
+                            ) {
+                                await buscarDadosDaTurma(id);
+                            }
                         } catch (e) {
-            Alert.alert("Erro", errorMessage(e));
+                            Alert.alert('Erro', errorMessage(e));
                         }
-                    }
-                }
+                    },
+                },
             ]
         );
-    }, [turmaSelecionada]);
-
-    const totalPassageiros = useMemo(() => passageiros.length, [passageiros]);
-    const totalRespostas = useMemo(() => passageiros.filter(p => p.status).length, [passageiros]);
-    const todosResponderam = useMemo(() => !carregandoPassageiros && !erroPassageiros && totalPassageiros > 0 && totalRespostas === totalPassageiros,
-        [totalPassageiros, totalRespostas, carregandoPassageiros, erroPassageiros]);
-
-    const iniciarRota = useCallback(async (sentido: 'IDA' | 'VOLTA') => {
-        if (!user.id || !turmaSelecionada || inicioPendente.current) return;
-        const turmaId = turmaSelecionada.id;
-        const vigente = () => emFoco.current && turmaSelecionadaRef.current?.id === turmaId;
-        inicioPendente.current = true;
-        const liberar = () => { inicioPendente.current = false; };
-        try {
-            const atual = await consultarEstadoViagem(turmaId);
-            if (!vigente()) { liberar(); return; }
-            setViagemAtiva(atual.status === 'ATIVA');
-            let executando = false;
-            const executar = async () => {
-                if (executando) return;
-                executando = true;
-                if (!inicioPendente.current || !vigente()) { liberar(); return; }
-                inicioExecutando.current = true;
-                try {
-                    if (atual.status === 'ATIVA') await reiniciarViagem(turmaId, sentido, atual.viagemId!, () => {
-                        if (vigente()) setViagemAtiva(false);
-                        void AsyncStorage.removeItem('@vanbora:viagem_ativa_' + user.id).catch(() => {});
-                    });
-                    else await iniciarViagem(turmaId, sentido);
-                    const oficial = await consultarEstadoViagem(turmaId);
-                    if (!vigente()) return;
-                    setViagemAtiva(oficial.status === 'ATIVA');
-                    const cache = '@vanbora:viagem_ativa_' + user.id;
-                    void (oficial.status === 'ATIVA' ? AsyncStorage.setItem(cache, 'true') : AsyncStorage.removeItem(cache)).catch(() => {});
-                    if (oficial.status === 'ATIVA') router.push({ pathname: '/mapa', params: { sentido: oficial.sentido?.toLowerCase(), turmaId: String(turmaId) } });
-                } catch (error) {
-                    if (!vigente()) return;
-                    if (error instanceof TrocaViagemError) {
-                        setViagemAtiva(error.estado?.status === 'ATIVA');
-                        if (error.anteriorEncerrada) await AsyncStorage.removeItem('@vanbora:viagem_ativa_' + user.id);
-                        Alert.alert(error.anteriorEncerrada ? 'Viagem anterior encerrada' : error.etapa === 'encerrar' ? 'Encerramento não confirmado' : 'Troca não concluída', error.message + ' ' + errorMessage(error.original));
-                    } else {
-                        await checarAmnesia(turmaId);
-                        Alert.alert('Partida não confirmada', errorMessage(error) + ' Atualize o estado antes de tentar novamente.');
-                    }
-                } finally { inicioExecutando.current = false; liberar(); }
-            };
-            Alert.alert(atual.status === 'ATIVA' ? 'Substituir viagem ativa?' : 'Iniciar viagem?',
-                atual.status === 'ATIVA'
-                    ? 'A viagem atual será encerrada: GPS e acesso operacional dessa execução serão interrompidos. A nova partida pode falhar e não há retorno automático à viagem anterior. A troca será bloqueada se houver passageiros embarcados.'
-                    : (!todosResponderam ? 'Há passageiros sem confirmar presença. Deseja iniciar mesmo assim?' : 'Deseja iniciar a viagem de ' + sentido + '?'),
-                [{ text: 'Cancelar', style: 'cancel', onPress: liberar }, { text: atual.status === 'ATIVA' ? 'Encerrar e iniciar outra' : 'Iniciar', style: atual.status === 'ATIVA' ? 'destructive' : 'default', onPress: executar }],
-                { onDismiss: liberar });
-        } catch (error) { liberar(); if (vigente()) Alert.alert('Estado indisponível', errorMessage(error)); }
-    }, [turmaSelecionada, todosResponderam, user.id, router]);
-
-    if (!loading && erroCarga && turmas.length === 0) {
-        return <View style={styles.centerContainer}><AsyncState message={erroCarga} onRetry={refresh} /></View>;
     }
+
+    const viagemAtiva = estadoViagem?.status === 'ATIVA';
+
+    const total = passageiros.length;
+
+    const ida = passageiros.filter(p =>
+        participa(p, 'IDA')
+    ).length;
+
+    const volta = passageiros.filter(p =>
+        participa(p, 'VOLTA')
+    ).length;
+
+    const ausentes = passageiros.filter(
+        p => p.status === 'NAO_VOU'
+    ).length;
+
+    const pendentes = passageiros.filter(
+        p =>
+            !['IDA', 'VOLTA', 'AMBOS', 'NAO_VOU'].includes(
+                p.status || ''
+            )
+    ).length;
+
+    const presencasDisponiveis =
+        !carregandoPassageiros &&
+        !erroPassageiros &&
+        !erroCarga;
+
+    const todosResponderam =
+        presencasDisponiveis && pendentes === 0;
+
+    const inicioBloqueado =
+        iniciando ||
+        !estadoViagem ||
+        viagemAtiva ||
+        !todosResponderam;
+
+    async function retomarViagem() {
+        if (!turmaSelecionada || inicioPendente.current) {
+            return;
+        }
+
+        const id = turmaSelecionada.id;
+
+        inicioPendente.current = true;
+        setIniciando(true);
+
+        try {
+            const atual = await consultarEstadoViagem(id);
+
+            if (
+                !emFoco.current ||
+                turmaSelecionadaRef.current?.id !== id
+            ) return;
+
+            setEstadoViagem(atual);
+            setErroViagem(null);
+
+            if (atual.status === 'ATIVA') {
+                router.push({
+                    pathname: '/mapa',
+                    params: {
+                        turmaId: String(id),
+                        sentido: atual.sentido?.toLowerCase(),
+                    },
+                });
+            } else {
+                Alert.alert(
+                    'Viagem encerrada',
+                    'Não existe mais uma viagem ativa nesta turma.'
+                );
+            }
+        } catch (e) {
+            Alert.alert(
+                'Estado indisponível',
+                errorMessage(e)
+            );
+        } finally {
+            inicioPendente.current = false;
+            setIniciando(false);
+        }
+    }
+
+    async function iniciarRota(sentido: Sentido) {
+        if (
+            !user?.id ||
+            !turmaSelecionada ||
+            inicioPendente.current ||
+            inicioBloqueado
+        ) return;
+
+        const id = turmaSelecionada.id;
+
+        const vigente = () =>
+            emFoco.current &&
+            turmaSelecionadaRef.current?.id === id;
+
+        inicioPendente.current = true;
+
+        const liberar = () => {
+            inicioPendente.current = false;
+            setIniciando(false);
+        };
+
+        try {
+            const atual = await consultarEstadoViagem(id);
+
+            if (!vigente()) {
+                liberar();
+                return;
+            }
+
+            setEstadoViagem(atual);
+
+            if (atual.status === 'ATIVA') {
+                liberar();
+
+                Alert.alert(
+                    'Viagem em andamento',
+                    'Use Continuar viagem para voltar ao mapa.'
+                );
+
+                return;
+            }
+
+            Alert.alert(
+                sentido === 'IDA'
+                    ? 'Iniciar ida?'
+                    : 'Iniciar volta?',
+                `${nomeTurma(turmaSelecionada)}\n${
+                    sentido === 'IDA' ? ida : volta
+                } passageiro(s) confirmado(s).`,
+                [
+                    {
+                        text: 'Cancelar',
+                        style: 'cancel',
+                        onPress: liberar,
+                    },
+                    {
+                        text: 'Iniciar viagem',
+                        onPress: async () => {
+                            if (
+                                !inicioPendente.current ||
+                                inicioExecutando.current ||
+                                !vigente()
+                            ) {
+                                if (!inicioExecutando.current) {
+                                    liberar();
+                                }
+
+                                return;
+                            }
+
+                            inicioExecutando.current = true;
+                            setIniciando(true);
+
+                            try {
+                                await iniciarViagem(id, sentido);
+
+                                const oficial =
+                                    await consultarEstadoViagem(id);
+
+                                if (!vigente()) return;
+
+                                setEstadoViagem(oficial);
+                                setErroViagem(null);
+
+                                if (oficial.status !== 'ATIVA') {
+                                    throw new Error(
+                                        'O servidor ainda não confirmou a partida.'
+                                    );
+                                }
+
+                                void AsyncStorage.setItem(
+                                    `@vanbora:viagem_ativa_${user.id}`,
+                                    'true'
+                                ).catch(() => {});
+
+                                router.push({
+                                    pathname: '/mapa',
+                                    params: {
+                                        turmaId: String(id),
+                                        sentido:
+                                            oficial.sentido?.toLowerCase(),
+                                    },
+                                });
+                            } catch (e) {
+                                if (vigente()) {
+                                    await checarAmnesia(id);
+
+                                    Alert.alert(
+                                        'Partida não confirmada',
+                                        errorMessage(e)
+                                    );
+                                }
+                            } finally {
+                                inicioExecutando.current = false;
+                                liberar();
+                            }
+                        },
+                    },
+                ],
+                {
+                    onDismiss: liberar,
+                }
+            );
+        } catch (e) {
+            liberar();
+
+            if (vigente()) {
+                Alert.alert(
+                    'Estado indisponível',
+                    errorMessage(e)
+                );
+            }
+        }
+    }
+
+    function abrirPassageiros(
+        f: Filtro,
+        gerenciar = false
+    ) {
+        setGerenciarPassageiros(gerenciar);
+        setBuscaPassageiro('');
+        setFiltro(f);
+        setModalPassageiros(true);
+    }
+
+    const normalizar = (valor: string) =>
+        valor
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .trim()
+            .toLowerCase();
+
+    const listaFiltrada = passageiros
+        .filter(
+            p =>
+                (
+                    filtro === 'TODOS' ||
+                    (
+                        filtro === 'PENDENTES'
+                            ? ![
+                                  'IDA',
+                                  'VOLTA',
+                                  'AMBOS',
+                                  'NAO_VOU',
+                              ].includes(p.status || '')
+                            : filtro === 'NAO_VOU'
+                              ? p.status === 'NAO_VOU'
+                              : participa(p, filtro)
+                    )
+                ) &&
+                normalizar(p.nome || '').includes(
+                    normalizar(buscaPassageiro)
+                )
+        )
+        .sort((a, b) =>
+            (a.nome || '').localeCompare(
+                b.nome || '',
+                'pt-BR'
+            )
+        );
+
+    const grupos =
+        filtro === 'TODOS'
+            ? [
+                  {
+                      titulo: 'Vão viajar',
+                      itens: listaFiltrada.filter(
+                          p =>
+                              participa(p, 'IDA') ||
+                              participa(p, 'VOLTA')
+                      ),
+                  },
+                  {
+                      titulo: 'Sem resposta',
+                      itens: listaFiltrada.filter(
+                          p =>
+                              ![
+                                  'IDA',
+                                  'VOLTA',
+                                  'AMBOS',
+                                  'NAO_VOU',
+                              ].includes(p.status || '')
+                      ),
+                  },
+                  {
+                      titulo: 'Não vão',
+                      itens: listaFiltrada.filter(
+                          p => p.status === 'NAO_VOU'
+                      ),
+                  },
+              ]
+            : [
+                  {
+                      titulo: '',
+                      itens: listaFiltrada,
+                  },
+              ];
 
     if (loading) {
         return (
-            <View style={styles.centerContainer}>
-                <AsyncState loading title="Carregando suas turmas..." />
+            <View style={styles.center}>
+                <AsyncState
+                    loading
+                    title="Carregando suas turmas..."
+                />
+            </View>
+        );
+    }
+
+    if (erroCarga && !turmas.length) {
+        return (
+            <View style={styles.center}>
+                <AsyncState
+                    message={erroCarga}
+                    onRetry={refresh}
+                />
             </View>
         );
     }
 
     return (
-
         <View style={styles.container}>
-            <StatusBar barStyle={darkMode ? "light-content" : "dark-content"} backgroundColor="transparent" translucent />
-
-            <HeaderMotorista
-                nomeMotorista={user.nome}
+            <StatusBar
+                barStyle={
+                    darkMode
+                        ? 'light-content'
+                        : 'dark-content'
+                }
+                backgroundColor="transparent"
+                translucent
             />
 
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
+            <HeaderMotorista nomeMotorista={user.nome} />
 
-                {erroCarga && <AsyncState message={erroCarga} onRetry={refresh} />}
-                {viagemAtiva && <BannerRotaAtiva
-                    onPress={() => {
-                        if (!turmaSelecionada) return;
+            <ScrollView
+                contentContainerStyle={styles.content}
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={refresh}
+                        tintColor={theme.colors.primary}
+                        colors={[theme.colors.primary]}
+                    />
+                }
+            >
+                {erroCarga && (
+                    <AsyncState
+                        message={erroCarga}
+                        onRetry={refresh}
+                    />
+                )}
 
-                        router.push({
-                            pathname: '/mapa',
-                            params: {
-                                turmaId: String(turmaSelecionada.id),
-                            },
-                        });
-                    }}
-                />}
-
-                <CardsTurmasMotorista
-                    turmas={turmas}
-                    turmaSelecionada={turmaSelecionada}
-                    onSelecionarTurma={async (t) => {
-                        turmaSelecionadaRef.current = t;
-                        setTurmaSelecionada(t);
-                        setPassageiros([]);
-                        setAlunosPendentes([]);
-                        setViagemAtiva(false);
-                        setMostrarPassageiros(false);
-
-                        if (user?.id) {
-                            const chaveTurma =
-                                `@bevans:turma_selecionada:${user.id}`;
-
-                            await AsyncStorage.setItem(
-                                chaveTurma,
-                                String(t.id)
-                            );
-                        }
-
-                        await Promise.all([buscarDadosDaTurma(t.id), checarAmnesia(t.id)]);
-
-                        console.log('TURMA SELECIONADA:', {
-                            id: t.id,
-                            nome: t.nome,
-                        });
-                    }}
-                    onEditarTurma={() => {
-                        if (turmaSelecionada) {
-                            router.push({
-                                pathname: '/configuracoes-turma',
-                                params: {
-                                    turmaId: String(turmaSelecionada.id)
-                                }
-                            });
-                        }
-                    }}
-                />
-
-
-                {turmaSelecionada ? (
-                    <>
-                        <View style={styles.sectionHeader}>
-                            <View style={styles.sectionHeaderText}>
-                                <Text style={styles.eyebrow}>TURMA ATUAL</Text>
-                                <Text style={styles.sectionTitle}>Visão geral</Text>
-                            </View>
-                            <Pressable
-                                accessibilityRole="button"
-                                accessibilityLabel="Abrir configurações da turma"
-                                style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
-                                onPress={() => router.push({
-                                    pathname: '/configuracoes-turma',
-                                    params: { turmaId: String(turmaSelecionada.id) },
-                                })}
-                            >
-                                <Ionicons name="settings-outline" size={20} color={theme.colors.text} />
-                            </Pressable>
-                        </View>
-
-                        <PainelTurmaSelecionada
-                            turma={turmaSelecionada}
-                            onAtualizarTurma={(tAtualizada) => {
-                                turmaSelecionadaRef.current = tAtualizada;
-                                setTurmaSelecionada(tAtualizada);
-                            }}
+                {!turmaSelecionada ? (
+                    <View style={styles.card}>
+                        <AsyncState
+                            status="empty"
+                            title="Nenhuma turma cadastrada"
+                            message="Crie sua primeira turma para organizar as viagens."
+                            actionLabel="Criar turma"
+                            onAction={() =>
+                                router.push('/cadastro-turma')
+                            }
                         />
-
-                        <View style={styles.operationCard}>
-                            <View style={styles.operationTop}>
-                                <View style={[styles.statusDot, { backgroundColor: viagemAtiva ? theme.colors.success : theme.colors.primary }]} />
-                                <Text style={styles.operationStatus}>{viagemAtiva ? 'Viagem em andamento' : 'Próxima viagem'}</Text>
-                            </View>
-                            <Text style={styles.operationTitle}>
-                                {todosResponderam ? 'Presenças confirmadas' : 'Aguardando confirmações'}
-                            </Text>
-                            <Text style={styles.operationDetail}>
-                                {carregandoPassageiros
-                                    ? 'Atualizando confirmações...'
-                                    : erroPassageiros
-                                        ? 'Não foi possível atualizar as confirmações.'
-                                        : `${totalRespostas} de ${totalPassageiros} passageiros responderam`}
-                            </Text>
-                            <View style={styles.progressTrack} accessibilityLabel={`${totalRespostas} de ${totalPassageiros} confirmações`}>
-                                <View style={[styles.progressFill, { width: `${totalPassageiros ? Math.min(100, (totalRespostas / totalPassageiros) * 100) : 0}%` }]} />
-                            </View>
-                            <BotoesAcaoMotorista
-                                viagemAtiva={viagemAtiva}
-                                todosResponderam={todosResponderam}
-                                onIniciarRota={iniciarRota}
-                            />
-                        </View>
-
-                        <View style={styles.sectionHeader}>
-                            <View style={styles.sectionHeaderText}>
-                                <Text style={styles.eyebrow}>GESTÃO</Text>
-                                <Text style={styles.sectionTitle}>Pessoas</Text>
-                            </View>
-                        </View>
-                        <View style={styles.listCard}>
+                    </View>
+                ) : (
+                    <>
+                        <View style={styles.turmaBar}>
                             <Pressable
                                 accessibilityRole="button"
-                                accessibilityLabel={`Ver solicitações de entrada, ${alunosPendentes.length} pendentes`}
-                                style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
-                                onPress={() => setModalNotificacoesVisible(true)}
+                                accessibilityLabel={`Trocar turma. Atual: ${nomeTurma(turmaSelecionada)}`}
+                                disabled={iniciando}
+                                onPress={() => {
+                                    setPesquisa('');
+                                    setModalTurmas(true);
+                                }}
+                                style={styles.turmaSeletor}
                             >
-                                <View style={styles.menuIcon}><Ionicons name="person-add-outline" size={21} color={theme.colors.primary} /></View>
-                                <View style={styles.menuCopy}>
-                                    <Text style={styles.menuTitle}>Solicitações de entrada</Text>
-                                    <Text style={styles.menuSubtitle}>{carregandoPendentes ? 'Atualizando...' : erroPendentes ? 'Falha ao carregar. Toque para tentar novamente.' : alunosPendentes.length === 0 ? 'Nenhuma solicitação pendente' : `${alunosPendentes.length} aguardando análise`}</Text>
+                                <View style={styles.flex}>
+                                    <Text style={styles.label}>
+                                        TURMA ATUAL
+                                    </Text>
+
+                                    <Text style={styles.turmaNome}>
+                                        {nomeTurma(turmaSelecionada)}
+                                    </Text>
                                 </View>
-                                {alunosPendentes.length > 0 && <View style={styles.countPill}><Text style={styles.countPillText}>{alunosPendentes.length}</Text></View>}
-                                <Ionicons name="chevron-forward" size={18} color={theme.colors.textLight} />
+
+                                <Ionicons
+                                    name="chevron-down"
+                                    size={20}
+                                    color={theme.colors.primary}
+                                />
                             </Pressable>
-                            <View style={styles.rowDivider} />
+
                             <Pressable
                                 accessibilityRole="button"
-                                accessibilityState={{ expanded: mostrarPassageiros }}
-                                accessibilityLabel={`${mostrarPassageiros ? 'Ocultar' : 'Mostrar'} passageiros da turma`}
-                                style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
-                                onPress={() => setMostrarPassageiros(v => !v)}
+                                accessibilityLabel="Atualizar informações"
+                                onPress={refresh}
+                                disabled={refreshing}
+                                style={styles.iconButton}
                             >
-                                <View style={styles.menuIcon}><Ionicons name="people-outline" size={21} color={theme.colors.primary} /></View>
-                                <View style={styles.menuCopy}>
-                                    <Text style={styles.menuTitle}>Passageiros</Text>
-                                    <Text style={styles.menuSubtitle}>{carregandoPassageiros ? 'Atualizando...' : erroPassageiros ? 'Erro ao carregar lista' : `${totalPassageiros} na turma`}</Text>
-                                </View>
-                                <Ionicons name={mostrarPassageiros ? 'chevron-up' : 'chevron-down'} size={18} color={theme.colors.textLight} />
+                                {refreshing ? (
+                                    <ActivityIndicator
+                                        color={theme.colors.primary}
+                                    />
+                                ) : (
+                                    <Ionicons
+                                        name="refresh-outline"
+                                        size={23}
+                                        color={theme.colors.primary}
+                                    />
+                                )}
                             </Pressable>
-                            {mostrarPassageiros && (
-                            <View style={styles.expandedList}>
-                                <View style={styles.passengerListHeading}>
-                                    <Text style={styles.passengerListTitle}>Passageiros de {turmaSelecionada.nome}</Text>
-                                    <Text style={styles.passengerListCount}>Turma selecionada</Text>
-                                </View>
-                                {carregandoPassageiros && <AsyncState loading title="Carregando passageiros..." />}
-                                {!carregandoPassageiros && erroPassageiros && (
-                                    <AsyncState message={erroPassageiros} onRetry={() => buscarPassageirosPorTurma(turmaSelecionada.id)} />
-                                )}
-                                {!carregandoPassageiros && !erroPassageiros && passageiros.length === 0 && (
-                                    <AsyncState status="empty" title="Nenhum passageiro vinculado" message="Os passageiros aprovados desta turma aparecerão aqui." />
-                                )}
-                                {!carregandoPassageiros && !erroPassageiros && passageiros.map(p => (
-                                    <View key={p.id} style={styles.passengerRow}>
-                                        <View style={styles.passengerAvatar}>
-                                            <Text style={styles.passengerInitials}>{p.nome?.trim().charAt(0).toUpperCase() || 'P'}</Text>
-                                        </View>
-                                        <View style={styles.passengerInfo}>
-                                            <Text style={styles.passengerName}>{p.nome?.trim() || 'Passageiro sem nome'}</Text>
-                                            <Text style={styles.passengerStatus}>
-                                                {p.status ? `Confirmou: ${p.status}` : 'Aguardando resposta'}
-                                            </Text>
-                                        </View>
-                                        <Pressable
-                                            accessibilityRole="button"
-                                            accessibilityLabel={`Remover ${p.nome || 'passageiro'} da turma`}
-                                            onPress={() => removerAluno(p.id, p.nome)}
-                                            hitSlop={8}
-                                            style={styles.passengerRemove}
-                                        >
-                                            <Ionicons name="trash-outline" size={19} color={theme.colors.danger} />
-                                        </Pressable>
+                        </View>
+
+                        <View style={styles.dayHeading}>
+                            <Text
+                                accessibilityRole="header"
+                                style={styles.dayTitle}
+                            >
+                                Viagens de hoje
+                            </Text>
+
+                            {presencasDisponiveis &&
+                                pendentes === 0 && (
+                                    <View style={styles.readyMark}>
+                                        <Ionicons
+                                            name="checkmark-circle"
+                                            size={16}
+                                            color={theme.colors.success}
+                                        />
+
+                                        <Text style={styles.readyText}>
+                                            Todos responderam
+                                        </Text>
                                     </View>
-                                ))}
-                            </View>
+                                )}
+                        </View>
+
+                        {viagemAtiva && (
+                            <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel="Continuar viagem"
+                                disabled={iniciando}
+                                onPress={retomarViagem}
+                                style={[
+                                    styles.continuar,
+                                    iniciando && styles.disabled,
+                                ]}
+                            >
+                                <Ionicons
+                                    name="navigate-outline"
+                                    size={28}
+                                    color={theme.colors.surface}
+                                />
+
+                                <View style={styles.flex}>
+                                    <Text style={styles.primaryTitle}>
+                                        Continuar viagem
+                                    </Text>
+
+                                    <Text style={styles.primaryDetail}>
+                                        {estadoViagem?.sentido ===
+                                        'VOLTA'
+                                            ? 'Volta'
+                                            : estadoViagem?.sentido ===
+                                                'IDA'
+                                              ? 'Ida'
+                                              : 'Rota'}{' '}
+                                        em andamento
+                                    </Text>
+                                </View>
+
+                                <Ionicons
+                                    name="arrow-forward"
+                                    size={22}
+                                    color={theme.colors.surface}
+                                />
+                            </Pressable>
+                        )}
+
+                        {erroViagem && (
+                            <AsyncState
+                                message={erroViagem}
+                                onRetry={() =>
+                                    checarAmnesia(
+                                        turmaSelecionada.id
+                                    )
+                                }
+                            />
+                        )}
+
+                        {!estadoViagem && !erroViagem && (
+                            <Text style={styles.muted}>
+                                Consultando estado da viagem...
+                            </Text>
+                        )}
+
+                        <View style={styles.tripList}>
+                            {(['IDA', 'VOLTA'] as const).map(
+                                sentido => {
+                                    const ehIda = sentido === 'IDA';
+                                    const count = ehIda ? ida : volta;
+                                    const nome = ehIda ? 'Ida' : 'Volta';
+
+                                    return (
+                                        <View
+                                            key={sentido}
+                                            style={styles.tripTile}
+                                        >
+                                            <View style={styles.tripTop}>
+                                                <View style={styles.tripIcon}>
+                                                    <Ionicons
+                                                        name={
+                                                            ehIda
+                                                                ? 'school-outline'
+                                                                : 'home-outline'
+                                                        }
+                                                        size={22}
+                                                        color={
+                                                            theme.colors.primary
+                                                        }
+                                                    />
+                                                </View>
+
+                                                <Text
+                                                    style={styles.tripTitle}
+                                                >
+                                                    {nome}
+                                                </Text>
+                                            </View>
+
+                                            <Text
+                                                style={
+                                                    styles.tripDestination
+                                                }
+                                            >
+                                                {ehIda
+                                                    ? 'Para a faculdade'
+                                                    : 'Para casa'}
+                                            </Text>
+
+                                            <Pressable
+                                                accessibilityRole="button"
+                                                accessibilityLabel={`Ver passageiros da ${nome.toLowerCase()}, ${
+                                                    presencasDisponiveis
+                                                        ? count
+                                                        : 'quantidade indisponível'
+                                                }`}
+                                                onPress={() =>
+                                                    abrirPassageiros(sentido)
+                                                }
+                                                style={styles.tripInfo}
+                                            >
+                                                <Text
+                                                    style={styles.tripNumber}
+                                                    adjustsFontSizeToFit
+                                                    numberOfLines={1}
+                                                >
+                                                    {presencasDisponiveis
+                                                        ? count
+                                                        : '—'}
+                                                </Text>
+
+                                                <View style={styles.tripCount}>
+                                                    <Text
+                                                        style={
+                                                            styles.countText
+                                                        }
+                                                    >
+                                                        {presencasDisponiveis &&
+                                                        count === 1
+                                                            ? 'Passageiro'
+                                                            : 'Passageiros'}
+                                                    </Text>
+
+                                                    <Ionicons
+                                                        name="chevron-forward"
+                                                        size={14}
+                                                        color={
+                                                            theme.colors.primary
+                                                        }
+                                                    />
+                                                </View>
+                                            </Pressable>
+
+                                            {!viagemAtiva && (
+                                                <Pressable
+                                                    accessibilityRole="button"
+                                                    accessibilityLabel={`Iniciar ${nome.toLowerCase()}`}
+                                                    accessibilityState={{
+                                                        disabled:
+                                                            inicioBloqueado,
+                                                    }}
+                                                    disabled={inicioBloqueado}
+                                                    onPress={() =>
+                                                        iniciarRota(sentido)
+                                                    }
+                                                    style={[
+                                                        styles.startButton,
+                                                        inicioBloqueado &&
+                                                            styles.disabled,
+                                                    ]}
+                                                >
+                                                    <Text
+                                                        style={styles.startText}
+                                                    >
+                                                        Iniciar{' '}
+                                                        {nome.toLowerCase()}
+                                                    </Text>
+
+                                                    <Ionicons
+                                                        name="arrow-forward"
+                                                        size={16}
+                                                        color={
+                                                            theme.colors.surface
+                                                        }
+                                                    />
+                                                </Pressable>
+                                            )}
+                                        </View>
+                                    );
+                                }
                             )}
                         </View>
+
+                        {iniciando && (
+                            <ActivityIndicator
+                                accessibilityLabel="Confirmando viagem"
+                                color={theme.colors.primary}
+                            />
+                        )}
+
+                        {erroPassageiros && (
+                            <AsyncState
+                                message={erroPassageiros}
+                                onRetry={() =>
+                                    buscarPassageirosPorTurma(
+                                        turmaSelecionada.id
+                                    )
+                                }
+                            />
+                        )}
+
+                        {presencasDisponiveis ? (
+                            <View style={styles.responseRow}>
+                                <Pressable
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Ver ${ausentes} passageiros que não vão`}
+                                    onPress={() =>
+                                        abrirPassageiros('NAO_VOU')
+                                    }
+                                    style={styles.responseLink}
+                                >
+                                    <Text style={styles.responseText}>
+                                        {ausentes} não vão
+                                    </Text>
+
+                                    <Ionicons
+                                        name="chevron-forward"
+                                        size={14}
+                                        color={theme.colors.textLight}
+                                    />
+                                </Pressable>
+
+                                <View style={styles.responseDivider} />
+
+                                <Pressable
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Ver ${pendentes} passageiros sem resposta`}
+                                    onPress={() =>
+                                        abrirPassageiros('PENDENTES')
+                                    }
+                                    style={styles.responseLink}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.responseText,
+                                            pendentes > 0 && {
+                                                color: theme.colors.danger,
+                                            },
+                                        ]}
+                                    >
+                                        {pendentes} sem resposta
+                                    </Text>
+
+                                    <Ionicons
+                                        name="chevron-forward"
+                                        size={14}
+                                        color={theme.colors.textLight}
+                                    />
+                                </Pressable>
+                            </View>
+                        ) : (
+                            <Text style={styles.muted}>
+                                {carregandoPassageiros
+                                    ? 'Atualizando passageiros...'
+                                    : 'Confirmações indisponíveis'}
+                            </Text>
+                        )}
+
+                        {!viagemAtiva &&
+                            presencasDisponiveis &&
+                            !todosResponderam && (
+                                <Text style={styles.notice}>
+                                    Aguarde as confirmações para iniciar.
+                                </Text>
+                            )}
+
+                        <View style={styles.flatMenu}>
+                            <Pressable
+                                accessibilityRole="button"
+                                onPress={() =>
+                                    abrirPassageiros('TODOS')
+                                }
+                                style={styles.menuRow}
+                            >
+                                <Ionicons
+                                    name="people-outline"
+                                    size={24}
+                                    color={theme.colors.primary}
+                                />
+
+                                <Text
+                                    style={[
+                                        styles.menuTitle,
+                                        styles.flex,
+                                    ]}
+                                >
+                                    Passageiros
+                                </Text>
+
+                                <Text style={styles.muted}>
+                                    {presencasDisponiveis
+                                        ? total
+                                        : '—'}
+                                </Text>
+
+                                <Ionicons
+                                    name="chevron-forward"
+                                    size={19}
+                                    color={theme.colors.textLight}
+                                />
+                            </Pressable>
+
+                            <View style={styles.divider} />
+
+                            <Pressable
+                                accessibilityRole="button"
+                                onPress={() =>
+                                    router.push({
+                                        pathname: '/notificacoes',
+                                        params: {
+                                            aba: 'pedidos',
+                                        },
+                                    })
+                                }
+                                style={styles.menuRow}
+                            >
+                                <Ionicons
+                                    name="person-add-outline"
+                                    size={24}
+                                    color={theme.colors.primary}
+                                />
+
+                                <Text
+                                    style={[
+                                        styles.menuTitle,
+                                        styles.flex,
+                                    ]}
+                                >
+                                    Solicitações da turma
+                                </Text>
+
+                                <Text style={styles.muted}>
+                                    {carregandoPendentes ||
+                                    erroPendentes
+                                        ? '—'
+                                        : alunosPendentes.length}
+                                </Text>
+
+                                <Ionicons
+                                    name="chevron-forward"
+                                    size={19}
+                                    color={theme.colors.textLight}
+                                />
+                            </Pressable>
+
+                            <View style={styles.divider} />
+
+                            <Pressable
+                                accessibilityRole="button"
+                                accessibilityState={{
+                                    expanded: gestaoAberta,
+                                }}
+                                onPress={() =>
+                                    setGestaoAberta(v => !v)
+                                }
+                                style={styles.menuRow}
+                            >
+                                <Ionicons
+                                    name="settings-outline"
+                                    size={24}
+                                    color={theme.colors.primary}
+                                />
+
+                                <Text
+                                    style={[
+                                        styles.menuTitle,
+                                        styles.flex,
+                                    ]}
+                                >
+                                    Gerenciar turma
+                                </Text>
+
+                                <Ionicons
+                                    name={
+                                        gestaoAberta
+                                            ? 'chevron-up'
+                                            : 'chevron-down'
+                                    }
+                                    size={19}
+                                    color={theme.colors.textLight}
+                                />
+                            </Pressable>
+                        </View>
+
+                        {gestaoAberta && (
+                            <>
+                                <PainelTurmaSelecionada
+                                    turma={turmaSelecionada}
+                                    onAtualizarTurma={t => {
+                                        if (
+                                            turmaSelecionadaRef.current?.id !==
+                                            t.id
+                                        ) return;
+
+                                        turmaSelecionadaRef.current = t;
+                                        setTurmaSelecionada(t);
+
+                                        setTurmas(lista =>
+                                            lista.map(item =>
+                                                item.id === t.id
+                                                    ? t
+                                                    : item
+                                            )
+                                        );
+                                    }}
+                                />
+
+                                <View style={styles.card}>
+                                    <Pressable
+                                        accessibilityRole="button"
+                                        onPress={() =>
+                                            abrirPassageiros(
+                                                'TODOS',
+                                                true
+                                            )
+                                        }
+                                        style={styles.menuRow}
+                                    >
+                                        <Ionicons
+                                            name="people-outline"
+                                            size={24}
+                                            color={theme.colors.primary}
+                                        />
+
+                                        <Text
+                                            style={[
+                                                styles.menuTitle,
+                                                styles.flex,
+                                            ]}
+                                        >
+                                            Gerenciar passageiros
+                                        </Text>
+
+                                        <Ionicons
+                                            name="chevron-forward"
+                                            size={20}
+                                            color={
+                                                theme.colors.textLight
+                                            }
+                                        />
+                                    </Pressable>
+
+                                    <View style={styles.divider} />
+
+                                    <Pressable
+                                        accessibilityRole="button"
+                                        onPress={() =>
+                                            router.push({
+                                                pathname:
+                                                    '/configuracoes-turma',
+                                                params: {
+                                                    turmaId: String(
+                                                        turmaSelecionada.id
+                                                    ),
+                                                },
+                                            })
+                                        }
+                                        style={styles.menuRow}
+                                    >
+                                        <Ionicons
+                                            name="settings-outline"
+                                            size={24}
+                                            color={theme.colors.primary}
+                                        />
+
+                                        <Text
+                                            style={[
+                                                styles.menuTitle,
+                                                styles.flex,
+                                            ]}
+                                        >
+                                            Configurações da turma
+                                        </Text>
+
+                                        <Ionicons
+                                            name="chevron-forward"
+                                            size={20}
+                                            color={
+                                                theme.colors.textLight
+                                            }
+                                        />
+                                    </Pressable>
+
+                                    <View style={styles.divider} />
+
+                                    <Pressable
+                                        accessibilityRole="button"
+                                        onPress={() =>
+                                            router.push(
+                                                '/cadastro-turma'
+                                            )
+                                        }
+                                        style={styles.menuRow}
+                                    >
+                                        <Ionicons
+                                            name="add-circle-outline"
+                                            size={24}
+                                            color={theme.colors.primary}
+                                        />
+
+                                        <Text
+                                            style={[
+                                                styles.menuTitle,
+                                                styles.flex,
+                                            ]}
+                                        >
+                                            Criar nova turma
+                                        </Text>
+
+                                        <Ionicons
+                                            name="chevron-forward"
+                                            size={20}
+                                            color={
+                                                theme.colors.textLight
+                                            }
+                                        />
+                                    </Pressable>
+                                </View>
+                            </>
+                        )}
                     </>
-                ) : (
-                    <View style={styles.emptyCard}>
-                        <Ionicons name="people-outline" size={28} color={theme.colors.primary} />
-                        <Text style={styles.emptyTitle}>Nenhuma turma selecionada</Text>
-                        <Text style={styles.emptyDescription}>Selecione uma turma acima para gerenciar viagens, solicitações e passageiros.</Text>
-                    </View>
                 )}
             </ScrollView>
 
             <Modal
-                visible={modalNotificacoesVisible}
+                visible={modalTurmas}
                 animationType="fade"
-                transparent={true}
-                onRequestClose={() => setModalNotificacoesVisible(false)}
+                transparent
+                onRequestClose={() =>
+                    setModalTurmas(false)
+                }
             >
-                <View style={styles.modalOverlay}>
+                <View style={styles.overlay}>
                     <Pressable
-                        style={styles.modalBackdrop}
-                        onPress={() => setModalNotificacoesVisible(false)}
+                        style={styles.backdrop}
+                        onPress={() => setModalTurmas(false)}
                     />
-                    <View style={styles.modalCard}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Solicitações de Entrada</Text>
-                            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fechar solicitações" hitSlop={12}
-                                onPress={() => setModalNotificacoesVisible(false)}>
-                                <Ionicons name="close" size={24} color={theme.colors.textLight} />
-                            </TouchableOpacity>
+
+                    <View style={styles.sheet}>
+                        <View style={styles.line}>
+                            <Text
+                                style={[
+                                    styles.title,
+                                    styles.flex,
+                                ]}
+                            >
+                                Escolher turma
+                            </Text>
+
+                            <Pressable
+                                accessibilityLabel="Fechar turmas"
+                                accessibilityRole="button"
+                                style={styles.iconButton}
+                                onPress={() =>
+                                    setModalTurmas(false)
+                                }
+                            >
+                                <Ionicons
+                                    name="close"
+                                    size={24}
+                                    color={theme.colors.text}
+                                />
+                            </Pressable>
                         </View>
 
-                        {carregandoPendentes && <AsyncState loading title="Carregando solicitações..." />}
-                        {!carregandoPendentes && erroPendentes && <AsyncState message={erroPendentes}
-                            onRetry={() => turmaSelecionada ? buscarAlunosPendentes(turmaSelecionada.id) : Promise.resolve()} />}
-                        {!carregandoPendentes && !erroPendentes && alunosPendentes.length === 0 && (
-                            <AsyncState status="empty" title="Nenhuma solicitação pendente" message="Novos pedidos de entrada aparecerão aqui." />
+                        {turmas.length > 4 && (
+                            <TextInput
+                                value={pesquisa}
+                                onChangeText={setPesquisa}
+                                placeholder="Pesquisar turma"
+                                placeholderTextColor={
+                                    theme.colors.textLight
+                                }
+                                accessibilityLabel="Pesquisar turma"
+                                style={styles.search}
+                            />
                         )}
-                        {alunosPendentes.length > 0 && (
-                            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScrollContent}>
-                                {alunosPendentes.map(item => (
-                                    <View key={item.id} style={styles.itemRowCard}>
-                                        <View style={styles.flexOne}>
-                                            <Text style={styles.nomeAluno}>{item.aluno?.nome}</Text>
-                                        </View>
-                                        <View style={styles.actionsPendenteRow}>
-                                            {analisando === item.id && <ActivityIndicator accessibilityLabel="Analisando solicitação" color={theme.colors.primary} />}
-                                            <TouchableOpacity
-                                                accessibilityRole="button"
-                                                accessibilityLabel={`Recusar entrada de ${item.aluno?.nome || 'passageiro'}`}
-                                                accessibilityState={{ disabled: analisando !== null, busy: analisando === item.id }}
-                                                disabled={analisando !== null}
-                                                hitSlop={8}
-                                                onPress={() => analisarSolicitacao(item.id, 'REJEITADO')}
-                                                style={styles.btnRecusar}
-                                                activeOpacity={0.8}
+
+                        <ScrollView
+                            keyboardShouldPersistTaps="handled"
+                        >
+                            {filterTurmas(turmas, pesquisa).map(
+                                t => (
+                                    <Pressable
+                                        key={t.id}
+                                        accessibilityRole="button"
+                                        accessibilityState={{
+                                            selected:
+                                                t.id ===
+                                                turmaSelecionada?.id,
+                                        }}
+                                        style={styles.menuRow}
+                                        onPress={() =>
+                                            selecionarTurma(t)
+                                        }
+                                    >
+                                        <View style={styles.flex}>
+                                            <Text
+                                                style={styles.menuTitle}
                                             >
-                                                <Ionicons name="close" size={20} color={theme.colors.danger} />
-                                            </TouchableOpacity>
-                                            <TouchableOpacity
-                                                accessibilityRole="button"
-                                                accessibilityLabel={`Aprovar entrada de ${item.aluno?.nome || 'passageiro'}`}
-                                                accessibilityState={{ disabled: analisando !== null, busy: analisando === item.id }}
-                                                disabled={analisando !== null}
-                                                hitSlop={8}
-                                                onPress={() => analisarSolicitacao(item.id, 'APROVADO')}
-                                                style={styles.btnAprovar}
-                                                activeOpacity={0.8}
-                                            >
-                                                <Ionicons name="checkmark" size={20} color={theme.colors.success} />
-                                            </TouchableOpacity>
+                                                {nomeTurma(t)}
+                                            </Text>
+
+                                            <Text style={styles.muted}>
+                                                {t.turno ||
+                                                    'Turno geral'}
+                                            </Text>
                                         </View>
-                                    </View>
-                                ))}
-                            </ScrollView>
-                        )}
+
+                                        <Ionicons
+                                            name={
+                                                t.id ===
+                                                turmaSelecionada?.id
+                                                    ? 'checkmark-circle'
+                                                    : 'chevron-forward'
+                                            }
+                                            size={24}
+                                            color={theme.colors.primary}
+                                        />
+                                    </Pressable>
+                                )
+                            )}
+
+                            {!filterTurmas(turmas, pesquisa)
+                                .length && (
+                                <Text style={styles.muted}>
+                                    Nenhuma turma encontrada.
+                                </Text>
+                            )}
+                        </ScrollView>
+
+                        <Pressable
+                            accessibilityRole="button"
+                            style={styles.secondaryButton}
+                            onPress={() => {
+                                setModalTurmas(false);
+
+                                router.push('/cadastro-turma');
+                            }}
+                        >
+                            <Ionicons
+                                name="add"
+                                size={24}
+                                color={theme.colors.primary}
+                            />
+
+                            <Text style={styles.secondaryTitle}>
+                                Nova turma
+                            </Text>
+                        </Pressable>
                     </View>
                 </View>
             </Modal>
 
+            <Modal
+                visible={modalPassageiros}
+                animationType="fade"
+                transparent
+                onRequestClose={() =>
+                    setModalPassageiros(false)
+                }
+            >
+                <View style={styles.overlay}>
+                    <Pressable
+                        style={styles.backdrop}
+                        onPress={() =>
+                            setModalPassageiros(false)
+                        }
+                    />
+
+                    <View
+                        style={[
+                            styles.sheet,
+                            styles.passengerSheet,
+                            {
+                                paddingBottom: Math.max(
+                                    insets.bottom,
+                                    16
+                                ),
+                            },
+                        ]}
+                    >
+                        <View style={styles.handle} />
+
+                        <View style={styles.line}>
+                            <View style={styles.flex}>
+                                <Text style={styles.title}>
+                                    {gerenciarPassageiros
+                                        ? 'Gerenciar passageiros'
+                                        : 'Passageiros'}
+                                </Text>
+
+                                <Text style={styles.muted}>
+                                    {turmaSelecionada
+                                        ? nomeTurma(turmaSelecionada)
+                                        : ''}
+                                </Text>
+                            </View>
+
+                            <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel="Fechar passageiros"
+                                onPress={() =>
+                                    setModalPassageiros(false)
+                                }
+                                style={styles.iconButton}
+                            >
+                                <Ionicons
+                                    name="close"
+                                    size={24}
+                                    color={theme.colors.text}
+                                />
+                            </Pressable>
+                        </View>
+
+                        <View style={styles.searchRow}>
+                            <Ionicons
+                                name="search-outline"
+                                size={21}
+                                color={theme.colors.textLight}
+                            />
+
+                            <TextInput
+                                value={buscaPassageiro}
+                                onChangeText={setBuscaPassageiro}
+                                placeholder="Buscar passageiro"
+                                placeholderTextColor={
+                                    theme.colors.textLight
+                                }
+                                accessibilityLabel="Buscar passageiro"
+                                style={styles.searchInput}
+                                autoCorrect={false}
+                            />
+
+                            {!!buscaPassageiro && (
+                                <Pressable
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Limpar busca"
+                                    onPress={() =>
+                                        setBuscaPassageiro('')
+                                    }
+                                    style={styles.iconButton}
+                                >
+                                    <Ionicons
+                                        name="close-circle"
+                                        size={19}
+                                        color={theme.colors.textLight}
+                                    />
+                                </Pressable>
+                            )}
+                        </View>
+
+                        <View>
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={
+                                    styles.filters
+                                }
+                                keyboardShouldPersistTaps="handled"
+                            >
+                                {(
+                                    [
+                                        {
+                                            value: 'TODOS',
+                                            label: 'Todos',
+                                            count: total,
+                                        },
+                                        {
+                                            value: 'IDA',
+                                            label: 'Ida',
+                                            count: ida,
+                                        },
+                                        {
+                                            value: 'VOLTA',
+                                            label: 'Volta',
+                                            count: volta,
+                                        },
+                                        {
+                                            value: 'NAO_VOU',
+                                            label: 'Não vão',
+                                            count: ausentes,
+                                        },
+                                        {
+                                            value: 'PENDENTES',
+                                            label: 'Pendentes',
+                                            count: pendentes,
+                                        },
+                                    ] as {
+                                        value: Filtro;
+                                        label: string;
+                                        count: number;
+                                    }[]
+                                ).map(f => (
+                                    <Pressable
+                                        key={f.value}
+                                        accessibilityRole="button"
+                                        accessibilityState={{
+                                            selected:
+                                                filtro === f.value,
+                                        }}
+                                        onPress={() =>
+                                            setFiltro(f.value)
+                                        }
+                                        style={[
+                                            styles.filter,
+                                            filtro === f.value &&
+                                                styles.filterSelected,
+                                        ]}
+                                    >
+                                        <Text
+                                            style={[
+                                                styles.filterText,
+                                                filtro === f.value && {
+                                                    color:
+                                                        theme.colors.surface,
+                                                },
+                                            ]}
+                                        >
+                                            {f.label}
+
+                                            {presencasDisponiveis
+                                                ? ` ${f.count}`
+                                                : ''}
+                                        </Text>
+                                    </Pressable>
+                                ))}
+                            </ScrollView>
+                        </View>
+
+                        {carregandoPassageiros && (
+                            <AsyncState
+                                loading
+                                title="Carregando passageiros..."
+                            />
+                        )}
+
+                        {!carregandoPassageiros &&
+                            erroPassageiros && (
+                                <AsyncState
+                                    message={erroPassageiros}
+                                    onRetry={() =>
+                                        turmaSelecionada
+                                            ? buscarPassageirosPorTurma(
+                                                  turmaSelecionada.id
+                                              )
+                                            : Promise.resolve(false)
+                                    }
+                                />
+                            )}
+
+                        {!carregandoPassageiros &&
+                            !erroPassageiros && (
+                                <ScrollView
+                                    style={styles.passengerScroll}
+                                    keyboardShouldPersistTaps="handled"
+                                    showsVerticalScrollIndicator={false}
+                                >
+                                    {!listaFiltrada.length && (
+                                        <AsyncState
+                                            status="empty"
+                                            title="Nenhum passageiro encontrado"
+                                        />
+                                    )}
+
+                                    {grupos
+                                        .filter(
+                                            g => g.itens.length > 0
+                                        )
+                                        .map(g => (
+                                            <View
+                                                key={g.titulo || filtro}
+                                            >
+                                                {!!g.titulo && (
+                                                    <Text
+                                                        style={
+                                                            styles.groupTitle
+                                                        }
+                                                    >
+                                                        {g.titulo} ·{' '}
+                                                        {g.itens.length}
+                                                    </Text>
+                                                )}
+
+                                                {g.itens.map(p => (
+                                                    <View
+                                                        key={p.id}
+                                                        style={
+                                                            styles.passengerRow
+                                                        }
+                                                    >
+                                                        <View
+                                                            style={
+                                                                styles.avatar
+                                                            }
+                                                        >
+                                                            <Text
+                                                                style={
+                                                                    styles.initial
+                                                                }
+                                                            >
+                                                                {p.nome
+                                                                    ?.trim()
+                                                                    .charAt(0)
+                                                                    .toUpperCase() ||
+                                                                    'P'}
+                                                            </Text>
+                                                        </View>
+
+                                                        <View
+                                                            style={
+                                                                styles.flex
+                                                            }
+                                                        >
+                                                            <Text
+                                                                style={
+                                                                    styles.menuTitle
+                                                                }
+                                                            >
+                                                                {p.nome ||
+                                                                    'Passageiro'}
+                                                            </Text>
+
+                                                            <Text
+                                                                style={[
+                                                                    styles.muted,
+                                                                    {
+                                                                        color:
+                                                                            participa(
+                                                                                p,
+                                                                                'IDA'
+                                                                            ) ||
+                                                                            participa(
+                                                                                p,
+                                                                                'VOLTA'
+                                                                            )
+                                                                                ? theme.colors.success
+                                                                                : theme.colors.textLight,
+                                                                    },
+                                                                ]}
+                                                            >
+                                                                {rotuloStatus(
+                                                                    p.status
+                                                                )}
+                                                            </Text>
+                                                        </View>
+
+                                                        {gerenciarPassageiros && (
+                                                            <Pressable
+                                                                accessibilityRole="button"
+                                                                accessibilityLabel={`Remover ${p.nome}`}
+                                                                onPress={() =>
+                                                                    removerAluno(
+                                                                        p.id,
+                                                                        p.nome
+                                                                    )
+                                                                }
+                                                                style={
+                                                                    styles.iconButton
+                                                                }
+                                                            >
+                                                                <Ionicons
+                                                                    name="trash-outline"
+                                                                    size={20}
+                                                                    color={
+                                                                        theme.colors.danger
+                                                                    }
+                                                                />
+                                                            </Pressable>
+                                                        )}
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        ))}
+                                </ScrollView>
+                            )}
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
 
-const styles = themedStyles(() => StyleSheet.create({
-    sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: theme.spacing.sm },
-    sectionHeaderText: { flex: 1, gap: 3 },
-    eyebrow: { color: theme.colors.textLight, fontSize: 11, fontWeight: '700', letterSpacing: 1.2 },
-    sectionTitle: { color: theme.colors.text, fontSize: 21, fontWeight: '700' },
-    iconButton: { minWidth: 48, minHeight: 48, borderRadius: 14, backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border, justifyContent: 'center', alignItems: 'center' },
-    pressed: { opacity: 0.65 },
-    operationCard: { backgroundColor: theme.colors.surface, borderRadius: 20, padding: theme.spacing.lg, borderWidth: 1, borderColor: theme.colors.border, gap: theme.spacing.sm },
-    operationTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    statusDot: { height: 9, width: 9, borderRadius: 5 },
-    operationStatus: { color: theme.colors.textLight, fontSize: 13, fontWeight: '600' },
-    operationTitle: { color: theme.colors.text, fontSize: 20, fontWeight: '700' },
-    operationDetail: { color: theme.colors.textLight, fontSize: 14, lineHeight: 20 },
-    progressTrack: { height: 6, borderRadius: 6, backgroundColor: theme.colors.border, overflow: 'hidden', marginBottom: theme.spacing.sm },
-    progressFill: { height: '100%', borderRadius: 6, backgroundColor: theme.colors.primary },
-    listCard: { backgroundColor: theme.colors.surface, borderRadius: 18, borderWidth: 1, borderColor: theme.colors.border, overflow: 'hidden' },
-    menuItem: { minHeight: 76, flexDirection: 'row', alignItems: 'center', paddingHorizontal: theme.spacing.md, paddingVertical: 12, gap: 12 },
-    menuIcon: { width: 42, height: 42, borderRadius: 13, backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center' },
-    menuCopy: { flex: 1, gap: 4 },
-    menuTitle: { color: theme.colors.text, fontSize: 15, fontWeight: '700' },
-    menuSubtitle: { color: theme.colors.textLight, fontSize: 12, lineHeight: 17 },
-    countPill: { borderRadius: 12, backgroundColor: theme.colors.primary, minWidth: 24, minHeight: 24, paddingHorizontal: 6, justifyContent: 'center', alignItems: 'center' },
-    countPillText: { color: theme.colors.surface, fontSize: 12, fontWeight: '700' },
-    rowDivider: { height: 1, marginLeft: 70, backgroundColor: theme.colors.border },
-    expandedList: { paddingBottom: 8, backgroundColor: theme.colors.surface },
-    passengerListHeading: { paddingHorizontal: theme.spacing.md, paddingTop: 12, paddingBottom: 10, gap: 3, borderTopWidth: 1, borderTopColor: theme.colors.border },
-    passengerListTitle: { color: theme.colors.text, fontWeight: '700', fontSize: 15 },
-    passengerListCount: { color: theme.colors.textLight, fontSize: 12 },
-    passengerRow: { backgroundColor: theme.colors.surface, paddingHorizontal: theme.spacing.md, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 72, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border },
-    passengerAvatar: { backgroundColor: theme.colors.background, borderRadius: 22, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-    passengerInitials: { color: theme.colors.primary, fontWeight: '700', fontSize: 16 },
-    passengerInfo: { flex: 1, gap: 4 },
-    passengerName: { color: theme.colors.text, fontWeight: '700', fontSize: 14 },
-    passengerStatus: { color: theme.colors.textLight, fontSize: 12 },
-    passengerRemove: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-    emptyCard: { padding: theme.spacing.xl, backgroundColor: theme.colors.surface, borderRadius: 18, alignItems: 'center', gap: 10 },
-    emptyTitle: { fontWeight: '700', fontSize: 17, color: theme.colors.text },
-    emptyDescription: { textAlign: 'center', color: theme.colors.textLight, lineHeight: 20 },
+const styles = themedStyles(() =>
+    StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: theme.colors.background,
+        },
 
-    container: {
-        flex: 1,
-        backgroundColor: theme.colors.background,
-    },
-    centerContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: theme.colors.background,
-    },
-    flexOne: {
-        flex: 1,
-    },
-    scrollContent: {
-        padding: theme.spacing.md,
-        gap: theme.spacing.md,
-    },
-    badgeStatus: {
-        padding: theme.spacing.md,
-        borderRadius: theme.borderRadius.md,
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
-    },
-    badgeTitle: {
-        color: theme.colors.surface,
-        fontWeight: theme.typography.weight.bold,
-        fontSize: theme.typography.size.regular,
-        letterSpacing: 0.5,
-    },
-    badgeSubtitle: {
-        color: theme.colors.surface,
-        fontSize: theme.typography.size.small,
-        marginTop: 4,
-        opacity: 0.9,
-    },
-    modalOverlay: {
-        flex: 1,
-        justifyContent: 'flex-end',
-        backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    },
-    modalBackdrop: {
-        flex: 1,
-    },
-    modalCard: {
-        backgroundColor: theme.colors.surface,
-        borderTopLeftRadius: 28,
-        borderTopRightRadius: 28,
-        padding: theme.spacing.lg,
-        maxHeight: '80%',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-        elevation: 10,
-    },
-    modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: theme.spacing.md,
-    },
-    modalTitle: {
-        fontSize: theme.typography.size.large,
-        fontWeight: theme.typography.weight.bold,
-        color: theme.colors.text,
-    },
-    emptyTextModal: {
-        color: theme.colors.textLight,
-        textAlign: 'center',
-        marginVertical: theme.spacing.xl,
-        fontSize: theme.typography.size.regular,
-    },
-    modalScrollContent: {
-        paddingBottom: theme.spacing.xl,
-        gap: theme.spacing.sm,
-    },
-    itemRowCard: {
-        backgroundColor: theme.colors.background,
-        padding: theme.spacing.md,
-        borderRadius: theme.borderRadius.md,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-    },
-    nomeAluno: {
-        fontSize: theme.typography.size.regular,
-        fontWeight: '600',
-        color: theme.colors.text,
-    },
-    telAluno: {
-        fontSize: theme.typography.size.small,
-        color: theme.colors.textLight,
-        marginTop: 2,
-    },
-    actionsPendenteRow: {
-        flexDirection: 'row',
-        gap: theme.spacing.sm,
-    },
-    btnAprovar: {
-        backgroundColor: `${theme.colors.success}15`,
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    btnRecusar: {
-        backgroundColor: `${theme.colors.danger}15`,
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-}));
+        center: {
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: theme.colors.background,
+        },
+
+        content: {
+            padding: 20,
+            paddingBottom: 24,
+            gap: 14,
+        },
+
+        flex: {
+            flex: 1,
+            minWidth: 0,
+            gap: 4,
+        },
+
+        card: {
+            backgroundColor: theme.colors.surface,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+            borderRadius: 18,
+            padding: 16,
+            gap: 12,
+        },
+
+        turmaNome: {
+            fontSize: 17,
+            fontWeight: '700',
+            color: theme.colors.text,
+        },
+
+        iconButton: {
+            minWidth: 48,
+            minHeight: 48,
+            justifyContent: 'center',
+            alignItems: 'center',
+        },
+
+        line: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10,
+        },
+
+        title: {
+            fontSize: 20,
+            fontWeight: '700',
+            color: theme.colors.text,
+        },
+
+        muted: {
+            color: theme.colors.textLight,
+            fontSize: 14,
+            lineHeight: 19,
+        },
+
+        notice: {
+            color: theme.colors.danger,
+            fontSize: 14,
+            lineHeight: 20,
+        },
+
+        continuar: {
+            backgroundColor: theme.colors.primary,
+            minHeight: 80,
+            padding: 16,
+            borderRadius: 16,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+        },
+
+        primaryTitle: {
+            color: theme.colors.surface,
+            fontSize: 18,
+            fontWeight: '700',
+        },
+
+        primaryDetail: {
+            color: theme.colors.surface,
+            fontSize: 14,
+            lineHeight: 19,
+        },
+
+        secondaryButton: {
+            minHeight: 72,
+            borderWidth: 1.5,
+            borderColor: theme.colors.primary,
+            borderRadius: 14,
+            padding: 14,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+        },
+
+        secondaryTitle: {
+            color: theme.colors.primary,
+            fontSize: 18,
+            fontWeight: '700',
+        },
+
+        disabled: {
+            opacity: 0.45,
+        },
+
+        menuRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+            minHeight: 64,
+            paddingVertical: 6,
+        },
+
+        menuTitle: {
+            fontSize: 16,
+            color: theme.colors.text,
+            fontWeight: '700',
+        },
+
+        divider: {
+            height: StyleSheet.hairlineWidth,
+            backgroundColor: theme.colors.border,
+        },
+
+        overlay: {
+            flex: 1,
+            justifyContent: 'flex-end',
+            backgroundColor: 'rgba(0,0,0,0.48)',
+        },
+
+        backdrop: {
+            flex: 1,
+        },
+
+        sheet: {
+            maxHeight: '85%',
+            padding: 20,
+            paddingBottom: 28,
+            gap: 14,
+            backgroundColor: theme.colors.surface,
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+        },
+
+        search: {
+            minHeight: 48,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+            borderRadius: 12,
+            color: theme.colors.text,
+            paddingHorizontal: 14,
+            fontSize: 16,
+        },
+
+        filters: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+            paddingRight: 4,
+        },
+
+        filter: {
+            minHeight: 44,
+            paddingHorizontal: 14,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: theme.colors.subtle,
+            borderRadius: 22,
+        },
+
+        filterSelected: {
+            backgroundColor: theme.colors.primary,
+            borderColor: theme.colors.primary,
+        },
+
+        filterText: {
+            fontSize: 14,
+            fontWeight: '600',
+            color: theme.colors.text,
+        },
+
+        passengerRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+            minHeight: 60,
+            paddingVertical: 8,
+            borderBottomWidth: StyleSheet.hairlineWidth,
+            borderBottomColor: theme.colors.border,
+        },
+
+        initial: {
+            fontSize: 18,
+            fontWeight: '700',
+            color: theme.colors.primary,
+        },
+
+        turmaBar: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 4,
+            paddingBottom: 12,
+            borderBottomWidth: StyleSheet.hairlineWidth,
+            borderBottomColor: theme.colors.border,
+        },
+
+        turmaSeletor: {
+            flex: 1,
+            minHeight: 54,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10,
+        },
+
+        label: {
+            color: theme.colors.textLight,
+            fontSize: 11,
+            fontWeight: '700',
+            letterSpacing: 0.8,
+        },
+
+        dayHeading: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 8,
+            paddingTop: 4,
+        },
+
+        dayTitle: {
+            color: theme.colors.text,
+            fontSize: 23,
+            fontWeight: '700',
+        },
+
+        readyMark: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 4,
+        },
+
+        readyText: {
+            color: theme.colors.success,
+            fontSize: 12,
+            fontWeight: '600',
+        },
+
+        tripList: {
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: 12,
+        },
+
+        tripTile: {
+            flexGrow: 1,
+            flexShrink: 1,
+            flexBasis: 138,
+            minWidth: 0,
+            backgroundColor: theme.colors.surface,
+            borderRadius: 18,
+            padding: 14,
+            gap: 6,
+        },
+
+        tripTop: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+        },
+
+        tripIcon: {
+            width: 34,
+            height: 34,
+            borderRadius: 17,
+            backgroundColor: theme.colors.subtle,
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+
+        tripTitle: {
+            flexShrink: 1,
+            fontSize: 18,
+            fontWeight: '700',
+            color: theme.colors.text,
+        },
+
+        tripDestination: {
+            fontSize: 12,
+            color: theme.colors.textLight,
+            lineHeight: 17,
+        },
+
+        tripInfo: {
+            flex: 1,
+            minHeight: 78,
+            justifyContent: 'center',
+            paddingVertical: 6,
+        },
+
+        tripNumber: {
+            fontSize: 42,
+            fontWeight: '700',
+            color: theme.colors.text,
+            fontVariant: ['tabular-nums'],
+        },
+
+        tripCount: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 3,
+            flexWrap: 'wrap',
+        },
+
+        countText: {
+            color: theme.colors.primary,
+            fontSize: 13,
+            fontWeight: '600',
+        },
+
+        startButton: {
+            minHeight: 48,
+            paddingHorizontal: 8,
+            paddingVertical: 10,
+            flexDirection: 'row',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: 4,
+            borderRadius: 10,
+            backgroundColor: theme.colors.primary,
+        },
+
+        startText: {
+            flexShrink: 1,
+            textAlign: 'center',
+            fontSize: 14,
+            fontWeight: '700',
+            color: theme.colors.surface,
+        },
+
+        responseRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+            gap: 10,
+        },
+
+        responseText: {
+            color: theme.colors.textLight,
+            fontSize: 13,
+            fontWeight: '600',
+        },
+
+        responseLink: {
+            minHeight: 44,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 3,
+        },
+
+        responseDivider: {
+            width: 1,
+            height: 14,
+            backgroundColor: theme.colors.border,
+        },
+
+        flatMenu: {
+            borderTopWidth: StyleSheet.hairlineWidth,
+            borderTopColor: theme.colors.border,
+            marginTop: 2,
+        },
+
+        passengerSheet: {
+            height: '88%',
+            maxHeight: '88%',
+            gap: 12,
+        },
+
+        handle: {
+            width: 34,
+            height: 4,
+            borderRadius: 4,
+            backgroundColor: theme.colors.border,
+            alignSelf: 'center',
+        },
+
+        searchRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: theme.colors.background,
+            paddingHorizontal: 12,
+            borderRadius: 12,
+            gap: 8,
+            minHeight: 48,
+        },
+
+        searchInput: {
+            flex: 1,
+            minHeight: 48,
+            color: theme.colors.text,
+            fontSize: 15,
+        },
+
+        passengerScroll: {
+            flex: 1,
+        },
+
+        groupTitle: {
+            fontSize: 13,
+            color: theme.colors.textLight,
+            fontWeight: '700',
+            marginTop: 14,
+            marginBottom: 5,
+        },
+
+        avatar: {
+            width: 38,
+            height: 38,
+            borderRadius: 19,
+            backgroundColor: theme.colors.subtle,
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+    })
+);

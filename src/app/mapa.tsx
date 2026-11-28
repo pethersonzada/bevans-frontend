@@ -1,5 +1,4 @@
-import { themedStyles } from '../styles/themedStyles';
-import { useThemeRevision } from '../hooks/useThemeRevision';
+
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
@@ -20,6 +19,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppAlert } from '../contexts/AppAlertContext';
+import { useThemeRevision } from '../hooks/useThemeRevision';
+import { themedStyles } from '../styles/themedStyles';
 
 import { AsyncState } from '../components/AsyncState';
 import { apiFetch, apiRequest, errorMessage, readApiJson } from '../config/api';
@@ -383,6 +384,8 @@ export default function Mapa() {
         active: viagemAtivaRef.current && !encerrandoRef.current, mounted: montadoRef.current,
     }));
     const paradasRef = useRef<ParadaNavegacao[]>([]);
+    // Conserva somente a apresentação anterior durante a troca de geometria.
+    const indiceParadaVisualRef = useRef<number | null>(null);
     const visitadosRef = useRef<Set<string>>(new Set());
     const execucaoRef = useRef<ExecucaoRoteiro | null>(null);
     const assinaturaRef = useRef('');
@@ -680,6 +683,7 @@ export default function Mapa() {
         manobrasRef.current = manobrasCalculadas;
         setManobraAtual(manobrasCalculadas[0] || null);
         paradasRef.current = paradas;
+        indiceParadaVisualRef.current = null;
         indiceMinimoRef.current = 0;
         ultimoIndiceProjecaoRef.current = null;
         chegadaRef.current = null;
@@ -719,22 +723,42 @@ export default function Mapa() {
                 confirmacao, assinatura: assinaturaRef.current,
                 chaves: Array.from(visitadosRef.current)
             }, assinaturaRef.current, rotaRef.current, painel, sentidoPrivado);
-            if (validas.size !== visitadosRef.current.size) {
-                const avancou = validas.size > visitadosRef.current.size;
+            const mudou = validas.size !== visitadosRef.current.size;
+            const pendentes = rotaRef.current.filter(p => p.tipo !== 'ORIGEM' && !validas.has(p.chave));
+            // Se a consulta viária falhar, o próximo polling tenta novamente,
+            // mesmo quando o estado dos passageiros já está sincronizado.
+            const precisaGeometria = pendentes.length > 0 && paradasRef.current.length === 0;
+            if (mudou || precisaGeometria) {
                 confirmandoParadaRef.current = true; setConfirmandoParada(true); reconciliando = true;
-                await AsyncStorage.setItem(chaveCacheRoteiro('visitadas', execucao), JSON.stringify({
-                    confirmacao, assinatura: assinaturaRef.current, chaves: Array.from(validas),
-                }));
-                if (signal.aborted || !montadoRef.current || execucao !== execucaoRef.current || leitura !== leituraOperacaoRef.current) return;
-                visitadosRef.current = validas;
-                chegadaRef.current = null; setChegada(null);
-                setFeedbackParada(avancou ? 'Confirmações recebidas. Avançando para o próximo ponto.' : 'Registro operacional alterado. A parada voltou a ficar pendente.');
-                paradasRef.current = [];
-                setGeometriaRota(null);
-                coordenadasRotaRef.current = []; setCoordenadasRota([]);
-                if (posicaoApresentadaRef.current) await carregarGeometriaRota(
-                    rotaRef.current.filter(p => p.tipo !== 'ORIGEM' && !validas.has(p.chave)), posicaoApresentadaRef.current
-                );
+                if (mudou) {
+                    const avancou = validas.size > visitadosRef.current.size;
+                    await AsyncStorage.setItem(chaveCacheRoteiro('visitadas', execucao), JSON.stringify({
+                        confirmacao, assinatura: assinaturaRef.current, chaves: Array.from(validas),
+                    }));
+                    if (signal.aborted || !montadoRef.current || execucao !== execucaoRef.current || leitura !== leituraOperacaoRef.current) return;
+                    visitadosRef.current = validas;
+                    chegadaRef.current = null; setChegada(null);
+                    setFeedbackParada(avancou ? 'Confirmação registrada.' : 'Registro operacional alterado. A parada voltou a ficar pendente.');
+
+                    // Não limpe o estado visual: isso desmontava o MapView.
+                    // Suspenda apenas a navegação baseada na geometria anterior.
+                    indiceParadaVisualRef.current = paradasRef.current[0]?.indiceRota ?? indiceParadaVisualRef.current;
+                    paradasRef.current = [];
+                    coordenadasRotaRef.current = [];
+                    manobrasRef.current = [];
+                    setManobraAtual(null);
+                    setDistanciaRestante(null); setEtaMinutos(null);
+                    setProximaParada(pendentes[0]?.nome || null);
+                    setParadasRestantes(pendentes.filter(p => p.tipo !== 'DESTINO').length);
+                }
+                if (pendentes.length) {
+                    const posicao = posicaoApresentadaRef.current;
+                    if (posicao) await carregarGeometriaRota(pendentes, posicao);
+                } else {
+                    indiceParadaVisualRef.current = null;
+                    setGeometriaRota(null); setCoordenadasRota([]);
+                    setDistanciaRestante(0); setEtaMinutos(0);
+                }
             }
         } catch (error) {
             if (!signal.aborted && montadoRef.current && execucao === execucaoRef.current && leitura === leituraOperacaoRef.current) {
@@ -937,6 +961,7 @@ export default function Mapa() {
             setCoordenadasRota([]);
             coordenadasRotaRef.current = [];
             paradasRef.current = [];
+            indiceParadaVisualRef.current = null;
             setProximaParada(null);
             setParadasRestantes(0);
             execucaoRef.current = null;
@@ -1399,6 +1424,7 @@ export default function Mapa() {
                 indiceRota: indicesWaypoints[i + 1],
             }));
             aplicarGeometria(geoJsonValido, coordenadas, manobrasCalculadas, paradas);
+            setErroNavegacao(null);
             await salvarCache(chaveCacheRoteiro('geometria', execucao), {
                 geoJson: geoJsonValido, coordenadas, manobras: manobrasCalculadas,
                 paradas, assinatura, pendentes: pendentes.map(p => p.chave),
@@ -1531,7 +1557,7 @@ export default function Mapa() {
     const trechosRoteiro = separarTrechosRoteiro(
         coordenadasRota,
         localizacao ? ultimoIndiceProjecaoRef.current : null,
-        paradasRef.current[0]?.indiceRota ?? null
+        paradasRef.current[0]?.indiceRota ?? indiceParadaVisualRef.current
     );
 
     if (loading) {
