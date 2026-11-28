@@ -361,5 +361,30 @@ for (const sentido of ['IDA', 'VOLTA']) test(`${sentido} privada: título com no
     assert.ok(tela.some(n => n.props.accessibilityLabel === 'Configurações: Rafaela'));
     const acao = sentido === 'IDA' ? 'Confirmar embarque' : 'Confirmar desembarque';
     assert.ok(tela.some(n => n.props.accessibilityLabel === acao + ': Rafaela' && !n.props.disabled));
+    assert.ok(tela.some(n => n.type === 'View' && Array.isArray(n.props.children) && n.props.children.some(b => b?.props?.accessibilityLabel === acao + ': Rafaela') && n.props.children.some(b => b?.props?.accessibilityLabel === 'Configurações: Rafaela')), 'Ação e engrenagem devem compartilhar a linha');
+    h.unmount();
+});
+
+test('zoom ou arrasto manual mantém a câmera livre até tocar em localização', async () => {
+    const dados = fixture('PORTA_A_PORTA', 'IDA');
+    const h = await start({ dados });
+    const map = () => nodes(h.render()).find(n => n.type === 'Map');
+    h.tick({latitude: -8.5, longitude: -35.5}); h.frame(1900);
+    const antes = h.cameras.length;
+    const marcadorAntes = nodes(h.render()).find(n => n.props.id === 'navegacaoVisualSource').props.shape.features.find(f => f.properties.tipo === 'van').geometry.coordinates;
+    map().props.onCameraChanged({gestures:{isGestureActive:true},properties:{zoom:14}});
+    h.tick({latitude: -8.4, longitude: -35.4}); h.frame(1900);
+    map().props.onCameraChanged({gestures:{isGestureActive:false},properties:{zoom:14}});
+    map().props.onDidFinishLoadingMap();
+    h.tick({latitude: -8.3, longitude: -35.3}); h.frame(1900);
+    assert.equal(h.cameras.length, antes, 'Nem GPS nem carregamento podem desfazer o zoom manual');
+    const marcadorDepois = nodes(h.render()).find(n => n.props.id === 'navegacaoVisualSource').props.shape.features.find(f => f.properties.tipo === 'van').geometry.coordinates;
+    assert.notDeepEqual(Array.from(marcadorAntes), Array.from(marcadorDepois), 'O marcador continua se movimentando');
+    nodes(h.render()).find(n => n.type === 'Controls').props.onCentralizar();
+    assert.equal(h.cameras.length, antes+1);
+    assert.equal(h.cameras.at(-1).zoomLevel, 18);
+    assert.equal(h.cameras.at(-1).animationDuration,650);
+    h.tick({latitude: -8.25, longitude: -35.25}); h.frame(1900);
+    assert.ok(h.cameras.length > antes+1, 'Acompanhamento retomado');
     h.unmount();
 });

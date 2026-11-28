@@ -453,6 +453,8 @@ export default function Mapa() {
 
     const headingRef = useRef(0);
     const ultimaCameraRef = useRef(-Infinity);
+    const acompanhamentoCameraRef = useRef(true);
+    const retomadaCameraAteRef = useRef(-Infinity);
     const ultimoQuadroCameraRef = useRef<QuadroNavegacao | null>(null);
     const posicaoApresentadaRef = useRef<LatLng | null>(null);
     const quadroVisualRef = useRef<QuadroNavegacao | null>(null);
@@ -712,9 +714,10 @@ export default function Mapa() {
 
     // Segue o quadro realmente exibido, não a próxima posição bruta do GPS.
     // Limita comandos nativos e usa uma transição curta para acompanhar as curvas.
-    function seguirCamera(quadro: QuadroNavegacao, forcar = false) {
-        if (!montadoRef.current || !focadaRef.current || !cameraRef.current) return;
+    function seguirCamera(quadro: QuadroNavegacao, forcar = false, recentralizar = false) {
+        if (!montadoRef.current || !focadaRef.current || !cameraRef.current || !acompanhamentoCameraRef.current) return;
         const agora = Date.now();
+        if (!recentralizar && agora < retomadaCameraAteRef.current) return;
         if (!forcar && agora - ultimaCameraRef.current < INTERVALO_CAMERA_MS) return;
         const anterior = ultimoQuadroCameraRef.current;
         if (!forcar && anterior && distanciaMetros(anterior.posicao, quadro.posicao) < 0.15 &&
@@ -726,9 +729,15 @@ export default function Mapa() {
             heading: quadro.heading,
             zoomLevel: 18,
             pitch: 65,
-            animationMode: 'linearTo',
-            animationDuration: INTERVALO_CAMERA_MS + 20,
+            animationMode: recentralizar ? 'easeTo' : 'linearTo',
+            animationDuration: recentralizar ? 650 : INTERVALO_CAMERA_MS + 20,
         });
+    }
+
+    function centralizarNaVan() {
+        acompanhamentoCameraRef.current = true;
+        retomadaCameraAteRef.current = Date.now() + 650;
+        if (quadroVisualRef.current) seguirCamera(quadroVisualRef.current, true, true);
     }
 
     function publicarQuadro(quadro: QuadroNavegacao, forcarCamera = false) {
@@ -1119,6 +1128,8 @@ export default function Mapa() {
             alvoProgressoRef.current = null;
             quadroVisualRef.current = null;
             ultimaCameraRef.current = -Infinity;
+            acompanhamentoCameraRef.current = true;
+            retomadaCameraAteRef.current = -Infinity;
             ultimoQuadroCameraRef.current = null;
             posicaoApresentadaRef.current = null;
             setQuadroVisual(null);
@@ -1703,6 +1714,14 @@ export default function Mapa() {
     const privada = execucaoRef.current?.privadaConfirmada === true;
     const idaPrivada = privada && execucaoRef.current?.sentido === 'IDA';
     const destinoIda = idaPrivada && proximoPonto?.tipo === 'DESTINO';
+    const passageiroUnico = proximoPonto?.passageiros.length === 1 ? proximoPonto.passageiros[0] : undefined;
+    const passageiroNoTitulo = passageiroUnico &&
+        passageiroUnico.nome.trim().toLocaleLowerCase('pt-BR') === proximaParada?.trim().toLocaleLowerCase('pt-BR')
+        ? passageiroUnico : undefined;
+    const registroTitulo = painelOperacional?.registros.find(r => r.alunoId === passageiroNoTitulo?.id);
+    const rotuloRegistro = (registro?: typeof registroTitulo) => registro
+        ? privada && !idaPrivada && registro.estado === 'AGUARDANDO' ? 'Desembarque pendente' : rotulosEstado[registro.estado]
+        : 'Estado indisponível';
     const impedimento = destinoIda
         ? (!painelOperacional ? 'Atualize o estado operacional.' :
             painelOperacional.registros.some(r => r.estado === 'AGUARDANDO')
@@ -1749,11 +1768,14 @@ export default function Mapa() {
                                     {proximaParada || 'Rota atualizada'}
                                 </Text>
                             </View>
-                            {paradasRestantes > 0 && <Text style={styles.paradaContagem}>{paradasRestantes} {paradasRestantes === 1 ? 'restante' : 'restantes'}</Text>}
+                            <View style={styles.paradaResumo}>
+                                {paradasRestantes > 0 && <Text style={styles.paradaContagem}>{paradasRestantes} {paradasRestantes === 1 ? 'restante' : 'restantes'}</Text>}
+                                {!!passageiroNoTitulo && <Text style={styles.paradaSecundario} numberOfLines={1}>{rotuloRegistro(registroTitulo)}</Text>}
+                            </View>
                             <Ionicons name={painelAberto ? 'chevron-up' : 'chevron-down'} size={18} color="#94A3B8" />
                         </TouchableOpacity>
 
-                        {painelAberto && <ScrollView style={{ maxHeight: 206 }} contentContainerStyle={styles.paradaConteudo} nestedScrollEnabled>
+                        {painelAberto && <ScrollView style={{ maxHeight: 148 }} contentContainerStyle={styles.paradaConteudo} nestedScrollEnabled>
                             {proximoPonto && <>
                                 {proximoPonto.passageiros.length > 1 && (
                                     <Text style={styles.paradaSecundario}>{proximoPonto.passageiros.length} passageiros</Text>
@@ -1769,27 +1791,24 @@ export default function Mapa() {
                                     const acaoDisponivel = privada && !!registro && (registro.estado === 'AGUARDANDO' || (!idaPrivada && registro.estado === 'EMBARCADO'));
                                     const acao = idaPrivada ? 'Confirmar embarque' : 'Confirmar desembarque';
                                     const resolvido = registro?.estado === 'DESEMBARCADO' || registro?.estado === 'NAO_EMBARCOU' || (idaPrivada && registro?.estado === 'EMBARCADO');
-                                    const estado = registro ? privada && !idaPrivada && registro.estado === 'AGUARDANDO' ? 'Desembarque pendente' : rotulosEstado[registro.estado] : 'Estado indisponível';
-                                    const nomeNoTitulo = proximoPonto.passageiros.length === 1 &&
-                                        p.nome.trim().toLocaleLowerCase('pt-BR') === proximaParada?.trim().toLocaleLowerCase('pt-BR');
+                                    const nomeNoTitulo = passageiroNoTitulo?.id === p.id;
                                     return <View key={p.id} style={styles.passageiroBloco}>
-                                        <View style={styles.passageiroLinha}>
-                                            <View style={{ flex: 1 }}>
-                                                {!nomeNoTitulo && <Text style={styles.passageiroNome} numberOfLines={2}>{p.nome}</Text>}
-                                                <Text style={[styles.paradaSecundario, resolvido && { color: '#34D399' }]}>{estado}</Text>
-                                            </View>
-                                            {privada && <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Configurações: ${p.nome}`}
+                                        {!nomeNoTitulo && <View style={styles.passageiroLinha}>
+                                            <Text style={[styles.passageiroNome, { flex: 1 }]} numberOfLines={2}>{p.nome}</Text>
+                                            <Text style={[styles.paradaSecundario, resolvido && { color: '#34D399' }]}>{rotuloRegistro(registro)}</Text>
+                                        </View>}
+                                        {privada && <View style={styles.paradaAcoes}>
+                                            {acaoDisponivel && <TouchableOpacity accessibilityRole="button" accessibilityLabel={`${acao}: ${p.nome}`}
+                                                disabled={!online || confirmandoParada} activeOpacity={0.85}
+                                                style={[styles.paradaPrimario, { flex: 1 }, (!online || confirmandoParada) && styles.paradaDesabilitado]}
+                                                onPress={() => void confirmarPessoaNoMapa(proximoPonto.chave, p.id)}>
+                                                <Text style={styles.paradaPrimarioTexto}>{confirmandoParada ? 'Confirmando…' : acao}</Text>
+                                            </TouchableOpacity>}
+                                            <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Configurações: ${p.nome}`}
                                                 disabled={confirmandoParada} style={styles.paradaIconeBotao} onPress={abrirConfiguracoesPassageiros}>
                                                 <Ionicons name="settings-outline" size={20} color="#CBD5E1" />
-                                            </TouchableOpacity>}
-                                        </View>
-                                        {acaoDisponivel && <TouchableOpacity accessibilityRole="button" accessibilityLabel={`${acao}: ${p.nome}`}
-                                            disabled={!online || confirmandoParada} activeOpacity={0.85}
-                                            style={[styles.paradaPrimario, (!online || confirmandoParada) && styles.paradaDesabilitado]}
-                                            onPress={() => void confirmarPessoaNoMapa(proximoPonto.chave, p.id)}>
-                                            <Ionicons name="checkmark-circle-outline" size={20} color="#082F49" />
-                                            <Text style={styles.paradaPrimarioTexto}>{confirmandoParada ? 'Confirmando…' : acao}</Text>
-                                        </TouchableOpacity>}
+                                            </TouchableOpacity>
+                                        </View>}
                                     </View>;
                                 })}
 
@@ -1840,7 +1859,11 @@ export default function Mapa() {
                 logoEnabled={false}
                 attributionEnabled={false}
                 compassEnabled={false}
-
+                onCameraChanged={estado => {
+                    // Só gestos do usuário suspendem o acompanhamento. A animação
+                    // programática não deve desativar a navegação automaticamente.
+                    if (estado.gestures.isGestureActive) acompanhamentoCameraRef.current = false;
+                }}
                 onDidFinishLoadingMap={() => {
                     if (quadroVisualRef.current) seguirCamera(quadroVisualRef.current, true);
                 }}
@@ -1943,7 +1966,7 @@ export default function Mapa() {
                 viagemAtiva={viagemAtiva}
                 onIniciarViagem={() => { }}
                 onEncerrarViagem={handleEncerrarViagem}
-                onCentralizar={() => { if (quadroVisualRef.current) seguirCamera(quadroVisualRef.current, true); }}
+                onCentralizar={centralizarNaVan}
             />
         </View>
     );
@@ -1992,19 +2015,20 @@ const styles = themedStyles(() => StyleSheet.create({
         fontSize: 14,
     },
 
-    paradaContainer: { gap: 8 },
-    paradaCabecalho: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46 },
-    paradaIdentidade: { flex: 1, gap: 3 },
+    paradaContainer: { gap: 4 },
+    paradaCabecalho: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
+    paradaIdentidade: { flex: 1, gap: 2 },
+    paradaResumo: { alignItems: 'flex-end', flexShrink: 1, gap: 2 },
     paradaRotulo: { color: '#94A3B8', fontSize: 10, fontWeight: '800', letterSpacing: 1 },
     paradaTitulo: { color: '#F8FAFC', fontSize: 16, fontWeight: '800', lineHeight: 20 },
     paradaContagem: { color: '#94A3B8', fontSize: 11, fontWeight: '600' },
-    paradaConteudo: { gap: 9, paddingBottom: 2 },
+    paradaConteudo: { gap: 6, paddingBottom: 1 },
     paradaSecundario: { fontSize: 12, lineHeight: 16, color: '#A5B4C7', fontWeight: '500' },
-    passageiroBloco: { gap: 7 },
+    passageiroBloco: { gap: 4 },
     passageiroLinha: { flexDirection: 'row', alignItems: 'center', gap: 9 },
     passageiroNome: { color: '#F8FAFC', fontSize: 15, fontWeight: '700' },
     paradaIconeBotao: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#26374B' },
-    paradaPrimario: { backgroundColor: '#00D2FF', minHeight: 46, borderRadius: 12, paddingHorizontal: 10, flexDirection: 'row', gap: 7, alignItems: 'center', justifyContent: 'center' },
+    paradaPrimario: { backgroundColor: '#00D2FF', minHeight: 44, borderRadius: 10, paddingHorizontal: 10, flexDirection: 'row', gap: 7, alignItems: 'center', justifyContent: 'center' },
     paradaPrimarioTexto: { color: '#082F49', fontSize: 14, fontWeight: '800', textAlign: 'center' },
     paradaDesabilitado: { opacity: 0.45 },
     paradaAcoes: { flexDirection: 'row', gap: 8 },
