@@ -347,3 +347,19 @@ test('câmera segue a orientação e a posição animada nas curvas, com recentr
     assert.ok(Math.abs(antes - depois) > 60, `A câmera deve girar na curva: ${antes} -> ${depois}`);
     h.unmount();
 });
+
+for (const sentido of ['IDA', 'VOLTA']) test(`${sentido} privada: título com nome do passageiro não duplica o nome nem mostra estado de deslocamento redundante`, async () => {
+    const dados = fixture('PORTA_A_PORTA', sentido);
+    dados[1].nome = dados[1].passageiros[0].nome = 'Rafaela';
+    const h = await start({ dados, sentido, statusCampos: { modalidade: 'PRIVADA' } });
+    const tela = nodes(h.render());
+    const textos = tela.filter(n => n.type === 'Text').map(n => [n.props.children].flat(Infinity).join(''));
+    assert.equal(textos.filter(v => v === 'Rafaela').length, 1);
+    assert.ok(textos.includes('1 restante'));
+    assert.ok(textos.includes(sentido === 'IDA' ? 'Aguardando' : 'Desembarque pendente'));
+    assert.equal(textos.some(v => v === 'A' || v === 'A caminho'), false);
+    assert.ok(tela.some(n => n.props.accessibilityLabel === 'Configurações: Rafaela'));
+    const acao = sentido === 'IDA' ? 'Confirmar embarque' : 'Confirmar desembarque';
+    assert.ok(tela.some(n => n.props.accessibilityLabel === acao + ': Rafaela' && !n.props.disabled));
+    h.unmount();
+});

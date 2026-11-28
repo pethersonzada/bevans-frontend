@@ -1755,16 +1755,14 @@ export default function Mapa() {
 
                         {painelAberto && <ScrollView style={{ maxHeight: 206 }} contentContainerStyle={styles.paradaConteudo} nestedScrollEnabled>
                             {proximoPonto && <>
-                                <View style={styles.paradaStatus}>
-                                    <Text style={styles.paradaSecundario} accessibilityLiveRegion="polite">
-                                        {chegada?.chave === proximoPonto.chave && chegadaAtual(chegada, proximoPonto.chave, Date.now())
-                                            ? 'Chegou ao ponto'
-                                            : chegada?.chave === proximoPonto.chave && chegada.situacao === 'PROXIMO'
-                                                ? 'Próximo da parada'
-                                                : 'A caminho'}
-                                    </Text>
-                                    {proximoPonto.passageiros.length > 1 && <Text style={styles.paradaSecundario}>{proximoPonto.passageiros.length} passageiros</Text>}
-                                </View>
+                                {proximoPonto.passageiros.length > 1 && (
+                                    <Text style={styles.paradaSecundario}>{proximoPonto.passageiros.length} passageiros</Text>
+                                )}
+                                {(!privada || !proximoPonto.passageiros.length) &&
+                                    chegada?.chave === proximoPonto.chave &&
+                                    chegadaAtual(chegada, proximoPonto.chave, Date.now()) && (
+                                    <Text style={[styles.paradaSecundario, { color: '#34D399' }]} accessibilityLiveRegion="polite">Chegou ao ponto</Text>
+                                )}
 
                                 {proximoPonto.passageiros.map(p => {
                                     const registro = painelOperacional?.registros.find(r => r.alunoId === p.id);
@@ -1772,10 +1770,12 @@ export default function Mapa() {
                                     const acao = idaPrivada ? 'Confirmar embarque' : 'Confirmar desembarque';
                                     const resolvido = registro?.estado === 'DESEMBARCADO' || registro?.estado === 'NAO_EMBARCOU' || (idaPrivada && registro?.estado === 'EMBARCADO');
                                     const estado = registro ? privada && !idaPrivada && registro.estado === 'AGUARDANDO' ? 'Desembarque pendente' : rotulosEstado[registro.estado] : 'Estado indisponível';
+                                    const nomeNoTitulo = proximoPonto.passageiros.length === 1 &&
+                                        p.nome.trim().toLocaleLowerCase('pt-BR') === proximaParada?.trim().toLocaleLowerCase('pt-BR');
                                     return <View key={p.id} style={styles.passageiroBloco}>
                                         <View style={styles.passageiroLinha}>
                                             <View style={{ flex: 1 }}>
-                                                <Text style={styles.passageiroNome} numberOfLines={2}>{p.nome}</Text>
+                                                {!nomeNoTitulo && <Text style={styles.passageiroNome} numberOfLines={2}>{p.nome}</Text>}
                                                 <Text style={[styles.paradaSecundario, resolvido && { color: '#34D399' }]}>{estado}</Text>
                                             </View>
                                             {privada && <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Configurações: ${p.nome}`}
@@ -1999,9 +1999,8 @@ const styles = themedStyles(() => StyleSheet.create({
     paradaTitulo: { color: '#F8FAFC', fontSize: 16, fontWeight: '800', lineHeight: 20 },
     paradaContagem: { color: '#94A3B8', fontSize: 11, fontWeight: '600' },
     paradaConteudo: { gap: 9, paddingBottom: 2 },
-    paradaStatus: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     paradaSecundario: { fontSize: 12, lineHeight: 16, color: '#A5B4C7', fontWeight: '500' },
-    passageiroBloco: { gap: 7, paddingTop: 6 },
+    passageiroBloco: { gap: 7 },
     passageiroLinha: { flexDirection: 'row', alignItems: 'center', gap: 9 },
     passageiroNome: { color: '#F8FAFC', fontSize: 15, fontWeight: '700' },
     paradaIconeBotao: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#26374B' },
