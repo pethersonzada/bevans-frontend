@@ -16,7 +16,6 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppAlert } from '../contexts/AppAlertContext';
 import { useThemeRevision } from '../hooks/useThemeRevision';
 import { themedStyles } from '../styles/themedStyles';
@@ -365,7 +364,6 @@ export default function Mapa() {
     useThemeRevision();
     const Alert = useAppAlert();
     const router = useRouter();
-    const insets = useSafeAreaInsets();
 
     const { sentido, turmaId, rotaId, viagemId, modalidade } = useLocalSearchParams<{
         sentido?: string;
@@ -481,7 +479,7 @@ export default function Mapa() {
     const indiceMinimoRef = useRef(0);
     const [proximaParada, setProximaParada] = useState<string | null>(null);
     const [paradasRestantes, setParadasRestantes] = useState(0);
-    const [painelAberto, setPainelAberto] = useState(false);
+    const [painelAberto, setPainelAberto] = useState(true);
 
     useFocusEffect(useCallback(() => {
         focadaRef.current = true;
@@ -1708,260 +1706,108 @@ export default function Mapa() {
                 manobraAtual={manobraAtual}
                 velocidadeAtual={velocidadeAtual}
             >
-            {(proximaParada || feedbackParada) && (
-                <View style={{ width: '100%' }}>
-                    <TouchableOpacity
-                        accessibilityRole="button"
-                        accessibilityLabel={
-                            painelAberto
-                                ? 'Recolher detalhes da parada'
-                                : 'Expandir detalhes da parada'
-                        }
-                        onPress={() => setPainelAberto(valor => !valor)}
-                        style={{
-                            minHeight: 44,
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            gap: 8,
-                        }}
-                    >
-                        <Ionicons
-                            name="navigate-outline"
-                            size={18}
-                            color="#00D2FF"
-                        />
-
-                        <Text
-                            numberOfLines={1}
-                            style={{
-                                flex: 1,
-                                color: '#FFFFFF',
-                                fontSize: 12,
-                                fontWeight: '700',
-                            }}
+                {(proximaParada || feedbackParada) && (
+                    <View style={styles.paradaContainer}>
+                        <TouchableOpacity
+                            accessibilityRole="button"
+                            accessibilityLabel={painelAberto ? 'Recolher detalhes da parada' : 'Expandir detalhes da parada'}
+                            accessibilityState={{ expanded: painelAberto }}
+                            onPress={() => setPainelAberto(valor => !valor)}
+                            activeOpacity={0.8}
+                            style={styles.paradaCabecalho}
                         >
-                            {proximaParada
-                                ? proximoPonto?.tipo === 'DESTINO'
-                                    ? `Destino final: ${proximaParada}`
-                                    : `Próxima parada: ${proximaParada} (${paradasRestantes} ${paradasRestantes === 1 ? 'restante' : 'restantes'})`
-                                : feedbackParada}
-                        </Text>
-
-                        <Ionicons
-                            name={painelAberto ? 'chevron-down' : 'chevron-up'}
-                            size={18}
-                            color="#94A3B8"
-                        />
-                    </TouchableOpacity>
-
-                    <ScrollView
-                        style={{ display: painelAberto ? 'flex' : 'none', maxHeight: 230 }}
-                        contentContainerStyle={{ gap: 8, paddingTop: 8 }}
-                        nestedScrollEnabled
-                    >
-                        {proximoPonto && (
-                            <Text style={styles.proximaParadaTexto}>
-                                {proximoPonto.passageiros.length
-                                    ? `Passageiros (${proximoPonto.passageiros.length}): ${proximoPonto.passageiros.map(a => a.nome).join(', ')}`
-                                    : proximoPonto.tipo === 'DESTINO'
-                                        ? 'Destino do itinerário'
-                                        : 'Sem passageiros previstos neste ponto'}
-                            </Text>
-                        )}
-
-                        {proximoPonto && (
-                            <>
-                                <Text
-                                    style={styles.proximaParadaTexto}
-                                    accessibilityLiveRegion="polite"
-                                >
-                                    {chegada?.chave === proximoPonto.chave &&
-                                        chegadaAtual(
-                                            chegada,
-                                            proximoPonto.chave,
-                                            Date.now()
-                                        )
-                                        ? 'Chegou ao ponto'
-                                        : chegada?.chave === proximoPonto.chave &&
-                                            chegada.situacao === 'PROXIMO'
-                                            ? 'Próximo da parada'
-                                            : 'Aguardando chegada com GPS preciso'}
+                            <View style={styles.paradaIdentidade}>
+                                <Text style={styles.paradaRotulo}>{proximoPonto?.tipo === 'DESTINO' ? 'DESTINO FINAL' : 'PRÓXIMA PARADA'}</Text>
+                                <Text style={styles.paradaTitulo} numberOfLines={2}>
+                                    {proximaParada || 'Rota atualizada'}
                                 </Text>
+                            </View>
+                            {paradasRestantes > 0 && <Text style={styles.paradaContagem}>{paradasRestantes} restantes</Text>}
+                            <Ionicons name={painelAberto ? 'chevron-up' : 'chevron-down'} size={18} color="#94A3B8" />
+                        </TouchableOpacity>
+
+                        {painelAberto && <ScrollView style={{ maxHeight: 206 }} contentContainerStyle={styles.paradaConteudo} nestedScrollEnabled>
+                            {proximoPonto && <>
+                                <View style={styles.paradaStatus}>
+                                    <View style={[styles.paradaStatusPonto, chegada?.chave === proximoPonto.chave && chegadaAtual(chegada, proximoPonto.chave, Date.now()) && { backgroundColor: '#34D399' }]} />
+                                    <Text style={styles.paradaSecundario} accessibilityLiveRegion="polite">
+                                        {chegada?.chave === proximoPonto.chave && chegadaAtual(chegada, proximoPonto.chave, Date.now())
+                                            ? 'Chegou ao ponto'
+                                            : chegada?.chave === proximoPonto.chave && chegada.situacao === 'PROXIMO'
+                                                ? 'Próximo da parada'
+                                                : 'A caminho'}
+                                    </Text>
+                                    {proximoPonto.passageiros.length > 1 && <Text style={styles.paradaSecundario}>{proximoPonto.passageiros.length} passageiros</Text>}
+                                </View>
 
                                 {proximoPonto.passageiros.map(p => {
                                     const registro = painelOperacional?.registros.find(r => r.alunoId === p.id);
                                     const acaoDisponivel = privada && !!registro && (registro.estado === 'AGUARDANDO' || (!idaPrivada && registro.estado === 'EMBARCADO'));
                                     const acao = idaPrivada ? 'Confirmar embarque' : 'Confirmar desembarque';
-                                    return <View key={p.id} style={{ gap: 6 }}>
-                                        <Text style={styles.proximaParadaTexto}>
-                                            {p.nome}: {registro ? privada && !idaPrivada && registro.estado === 'AGUARDANDO' ? 'Desembarque pendente' : rotulosEstado[registro.estado] : 'Estado indisponível'}
-                                        </Text>
-                                        {privada && <View style={{ flexDirection: 'row', gap: 8 }}>
-                                            {acaoDisponivel && <TouchableOpacity
-                                                accessibilityRole="button"
-                                                accessibilityLabel={`${acao}: ${p.nome}`}
-                                                disabled={!online || confirmandoParada}
-                                                style={[styles.acaoParada, { flex: 1 }, (!online || confirmandoParada) && { opacity: 0.45 }]}
-                                                onPress={() => void confirmarPessoaNoMapa(proximoPonto.chave, p.id)}
-                                            ><Text style={styles.proximaParadaTexto}>{acao}</Text></TouchableOpacity>}
-                                            <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Configurações: ${p.nome}`}
-                                                disabled={confirmandoParada} style={styles.acaoParada} onPress={abrirConfiguracoesPassageiros}>
-                                                <Ionicons name="settings-outline" size={22} color="#00D2FF" />
-                                            </TouchableOpacity>
-                                        </View>}
+                                    const resolvido = registro?.estado === 'DESEMBARCADO' || registro?.estado === 'NAO_EMBARCOU' || (idaPrivada && registro?.estado === 'EMBARCADO');
+                                    const estado = registro ? privada && !idaPrivada && registro.estado === 'AGUARDANDO' ? 'Desembarque pendente' : rotulosEstado[registro.estado] : 'Estado indisponível';
+                                    return <View key={p.id} style={styles.passageiroBloco}>
+                                        <View style={styles.passageiroLinha}>
+                                            <View style={styles.passageiroAvatar}><Ionicons name={resolvido ? 'checkmark' : 'person-outline'} size={17} color={resolvido ? '#34D399' : '#CBD5E1'} /></View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.passageiroNome} numberOfLines={2}>{p.nome}</Text>
+                                                <Text style={[styles.paradaSecundario, resolvido && { color: '#34D399' }]}>{estado}</Text>
+                                            </View>
+                                            {privada && <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Configurações: ${p.nome}`}
+                                                disabled={confirmandoParada} style={styles.paradaIconeBotao} onPress={abrirConfiguracoesPassageiros}>
+                                                <Ionicons name="settings-outline" size={20} color="#CBD5E1" />
+                                            </TouchableOpacity>}
+                                        </View>
+                                        {acaoDisponivel && <TouchableOpacity accessibilityRole="button" accessibilityLabel={`${acao}: ${p.nome}`}
+                                            disabled={!online || confirmandoParada} activeOpacity={0.85}
+                                            style={[styles.paradaPrimario, (!online || confirmandoParada) && styles.paradaDesabilitado]}
+                                            onPress={() => void confirmarPessoaNoMapa(proximoPonto.chave, p.id)}>
+                                            <Ionicons name="checkmark-circle-outline" size={20} color="#082F49" />
+                                            <Text style={styles.paradaPrimarioTexto}>{confirmandoParada ? 'Confirmando…' : acao}</Text>
+                                        </TouchableOpacity>}
                                     </View>;
                                 })}
-                                {destinoIda && !impedimento && <Text style={styles.proximaParadaTexto}>
-                                    Ao chegar à faculdade, use Encerrar viagem para confirmar todos os desembarques de uma vez.
+
+                                {!proximoPonto.passageiros.length && <Text style={styles.paradaSecundario}>
+                                    {proximoPonto.tipo === 'DESTINO' ? 'Último ponto do itinerário' : 'Sem passageiros neste ponto'}
                                 </Text>}
+                                {destinoIda && !impedimento && <Text style={styles.paradaSecundario}>Ao chegar, encerre a viagem para confirmar todos os desembarques.</Text>}
+                                {!!impedimento && (!privada || !proximoPonto.passageiros.length || !painelOperacional) &&
+                                    <Text style={styles.paradaAviso}>{impedimento}</Text>}
 
-                                {!!impedimento && (
-                                    <Text style={styles.proximaParadaTexto}>
-                                        {impedimento}
-                                    </Text>
+                                {((!privada && proximoPonto.passageiros.length > 0) || proximoPonto.tipo === 'DESTINO' ||
+                                    (!destinoIda && (!privada || !proximoPonto.passageiros.length))) && (
+                                    <View style={styles.paradaAcoes}>
+                                        {((!privada && proximoPonto.passageiros.length > 0) || proximoPonto.tipo === 'DESTINO') &&
+                                            <TouchableOpacity accessibilityRole="button" accessibilityLabel={privada ? 'Configurações de passageiros' : 'Controle de embarque'}
+                                                disabled={confirmandoParada} style={[styles.paradaSecundarioBotao, { flex: 1 }]} onPress={abrirConfiguracoesPassageiros}>
+                                                <Ionicons name="settings-outline" size={18} color="#CBD5E1" />
+                                                <Text style={styles.paradaSecundarioTexto}>{privada ? 'Configurações' : 'Embarques'}</Text>
+                                            </TouchableOpacity>}
+                                        {!destinoIda && (!privada || !proximoPonto.passageiros.length || proximoPonto.tipo === 'DESTINO') &&
+                                            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Concluir parada"
+                                                accessibilityState={{ disabled: !podeConcluir || confirmandoParada, busy: confirmandoParada }}
+                                                disabled={!podeConcluir || confirmandoParada}
+                                                style={[styles.paradaPrimario, { flex: 1 }, (!podeConcluir || confirmandoParada) && styles.paradaDesabilitado]}
+                                                onPress={() => void registrarParadaVisitada(proximoPonto.chave)}>
+                                                <Text style={styles.paradaPrimarioTexto}>{confirmandoParada ? 'Conferindo…' : 'Concluir'}</Text>
+                                            </TouchableOpacity>}
+                                    </View>
                                 )}
-
-                                <View
-                                    style={{
-                                        flexDirection: 'row',
-                                        gap: 8,
-                                    }}
-                                >
-                                    {((!privada && proximoPonto.passageiros.length > 0) ||
-                                        proximoPonto.tipo === 'DESTINO') && (
-                                            <TouchableOpacity
-                                                accessibilityRole="button"
-                                                accessibilityLabel={privada ? "Configurações de passageiros" : "Controle de embarque"}
-                                                disabled={confirmandoParada}
-                                                style={[
-                                                    styles.acaoParada,
-                                                    { flex: 1 },
-                                                ]}
-                                                onPress={abrirConfiguracoesPassageiros}
-                                            >
-                                                {privada && <Ionicons name="settings-outline" size={20} color="#00D2FF" />}
-                                                <Text style={styles.proximaParadaTexto}>
-                                                    {privada ? 'Configurações' : 'Embarques'}
-                                                </Text>
-                                            </TouchableOpacity>
-                                        )}
-
-                                    {!destinoIda && (!privada || !proximoPonto.passageiros.length || proximoPonto.tipo === 'DESTINO') && <TouchableOpacity
-                                        accessibilityRole="button"
-                                        accessibilityLabel="Concluir parada"
-                                        accessibilityState={{
-                                            disabled:
-                                                !podeConcluir || confirmandoParada,
-                                            busy: confirmandoParada,
-                                        }}
-                                        disabled={
-                                            !podeConcluir || confirmandoParada
-                                        }
-                                        style={[
-                                            styles.acaoParada,
-                                            { flex: 1 },
-                                            (!podeConcluir || confirmandoParada) && {
-                                                opacity: 0.45,
-                                            },
-                                        ]}
-                                        onPress={() =>
-                                            void registrarParadaVisitada(
-                                                proximoPonto.chave
-                                            )
-                                        }
-                                    >
-                                        <Text style={styles.proximaParadaTexto}>
-                                            {confirmandoParada
-                                                ? 'Conferindo…'
-                                                : 'Concluir'}
-                                        </Text>
-                                    </TouchableOpacity>}
-                                </View>
-                            </>
-                        )}
-
-                        {!!feedbackParada && (
-                            <Text
-                                style={styles.proximaParadaTexto}
-                                accessibilityLiveRegion="polite"
-                            >
-                                {feedbackParada}
-                            </Text>
-                        )}
-                    </ScrollView>
-                </View>
-            )}
+                            </>}
+                            {!!feedbackParada && <Text style={styles.paradaSecundario} accessibilityLiveRegion="polite">{feedbackParada}</Text>}
+                        </ScrollView>}
+                    </View>
+                )}
+                {(recalculandoRota || foraDaRota || erroNavegacao || erroRede) && (
+                    <View style={styles.avisoInline}>
+                        {recalculandoRota && <ActivityIndicator size="small" color="#38BDF8" />}
+                        <Text style={styles.paradaAviso} accessibilityLiveRegion="polite">
+                            {recalculandoRota ? 'Recalculando rota...' : foraDaRota ? 'Fora da rota planejada. Recalculando automaticamente...' : erroNavegacao || erroRede}
+                        </Text>
+                    </View>
+                )}
             </PainelManobra>
-
-            {recalculandoRota ? (
-                <View
-                    style={[
-                        styles.bannerNotificacao,
-                        {
-                            top: insets.top + (painelAberto ? 402 : 225),
-                            backgroundColor: '#0D2B3A',
-                            borderColor: '#29B6F6',
-                        },
-                    ]}
-                >
-                    <ActivityIndicator
-                        size="small"
-                        color="#29B6F6"
-                        style={styles.bannerIcon}
-                    />
-
-                    <Text
-                        style={[
-                            styles.bannerText,
-                            { color: '#29B6F6' },
-                        ]}
-                    >
-                        Recalculando rota...
-                    </Text>
-                </View>
-            ) : foraDaRota ? (
-                <View
-                    style={[
-                        styles.bannerNotificacao,
-                        {
-                            top: insets.top + (painelAberto ? 402 : 225),
-                            backgroundColor: '#3A1A00',
-                            borderColor: '#FF9800',
-                        },
-                    ]}
-                >
-                    <Text
-                        style={[
-                            styles.bannerText,
-                            { color: '#FF9800' },
-                        ]}
-                    >
-                        Fora da rota planejada. Recalculando
-                        automaticamente...
-                    </Text>
-                </View>
-            ) : (erroNavegacao || erroRede) ? (
-                <View
-                    style={[
-                        styles.bannerNotificacao,
-                        {
-                            top: insets.top + (painelAberto ? 402 : 225),
-                            backgroundColor: '#1E293B',
-                            borderColor: '#3B82F6',
-                        },
-                    ]}
-                >
-                    <Text
-                        style={[
-                            styles.bannerText,
-                            { color: '#60A5FA' },
-                        ]}
-                    >
-                        {erroNavegacao || erroRede}
-                    </Text>
-                </View>
-            ) : null}
 
             <MapboxGL.MapView
                 style={styles.mapa}
@@ -2072,6 +1918,7 @@ export default function Mapa() {
                 viagemAtiva={viagemAtiva}
                 onIniciarViagem={() => { }}
                 onEncerrarViagem={handleEncerrarViagem}
+                onCentralizar={() => { if (quadroVisualRef.current) seguirCamera(quadroVisualRef.current, true); }}
             />
         </View>
     );
@@ -2103,27 +1950,6 @@ const styles = themedStyles(() => StyleSheet.create({
         fontWeight: '600',
     },
 
-    bannerNotificacao: {
-        position: 'absolute',
-        left: theme.spacing.md,
-        right: theme.spacing.md,
-        zIndex: 9,
-        borderWidth: 1,
-        borderRadius: theme.borderRadius.md,
-        padding: theme.spacing.xs + 2,
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-
-    bannerIcon: {
-        marginRight: theme.spacing.xs,
-    },
-
-    bannerText: {
-        fontSize: theme.typography.size.small,
-        fontWeight: '700',
-    },
-
     markerPontoBox: {
         backgroundColor: '#1E293B',
         padding: 8,
@@ -2141,9 +1967,27 @@ const styles = themedStyles(() => StyleSheet.create({
         fontSize: 14,
     },
 
-    acaoParada: {
-        minHeight: 48, padding: 10, justifyContent: 'center', alignItems: 'center',
-        backgroundColor: '#1E293B', borderRadius: 8, borderWidth: 1, borderColor: '#00D2FF'
-    },
-    proximaParadaTexto: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
+    paradaContainer: { gap: 8 },
+    paradaCabecalho: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46 },
+    paradaIdentidade: { flex: 1, gap: 3 },
+    paradaRotulo: { color: '#94A3B8', fontSize: 10, fontWeight: '800', letterSpacing: 1 },
+    paradaTitulo: { color: '#F8FAFC', fontSize: 16, fontWeight: '800', lineHeight: 20 },
+    paradaContagem: { color: '#94A3B8', fontSize: 11, fontWeight: '600' },
+    paradaConteudo: { gap: 9, paddingBottom: 2 },
+    paradaStatus: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    paradaStatusPonto: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#38BDF8' },
+    paradaSecundario: { fontSize: 12, lineHeight: 16, color: '#A5B4C7', fontWeight: '500' },
+    passageiroBloco: { gap: 7, paddingTop: 6 },
+    passageiroLinha: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+    passageiroAvatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#26374B', alignItems: 'center', justifyContent: 'center' },
+    passageiroNome: { color: '#F8FAFC', fontSize: 15, fontWeight: '700' },
+    paradaIconeBotao: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#26374B' },
+    paradaPrimario: { backgroundColor: '#00D2FF', minHeight: 46, borderRadius: 12, paddingHorizontal: 10, flexDirection: 'row', gap: 7, alignItems: 'center', justifyContent: 'center' },
+    paradaPrimarioTexto: { color: '#082F49', fontSize: 14, fontWeight: '800', textAlign: 'center' },
+    paradaDesabilitado: { opacity: 0.45 },
+    paradaAcoes: { flexDirection: 'row', gap: 8 },
+    paradaSecundarioBotao: { minHeight: 46, paddingHorizontal: 8, gap: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#26374B', borderRadius: 12 },
+    paradaSecundarioTexto: { color: '#E2E8F0', fontSize: 12, fontWeight: '700' },
+    paradaAviso: { flexShrink: 1, color: '#FBBF24', fontSize: 12, lineHeight: 16, fontWeight: '600' },
+    avisoInline: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 6 },
 }));

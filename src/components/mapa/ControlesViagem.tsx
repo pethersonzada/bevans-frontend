@@ -12,6 +12,7 @@ type ControlesViagemProps = {
     viagemAtiva: boolean;
     onIniciarViagem: () => void;
     onEncerrarViagem: () => void;
+    onCentralizar?: () => void;
 };
 
 export function ControlesViagem({
@@ -20,14 +21,18 @@ export function ControlesViagem({
     viagemAtiva,
     onIniciarViagem,
     onEncerrarViagem,
+    onCentralizar,
 }: ControlesViagemProps) {
     useThemeRevision();
     const insets = useSafeAreaInsets();
 
     return (
-        <>
+        <View pointerEvents="box-none" style={[styles.rodape, { bottom: insets.bottom + 16 }]}>
+            {onCentralizar && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Centralizar na van" onPress={onCentralizar} activeOpacity={0.8} style={styles.localizacao}>
+                <Ionicons name="locate" size={22} color="#00D2FF" />
+            </TouchableOpacity>}
             {distanciaRestante !== null && (
-                <View style={[styles.cardMetricas, { bottom: insets.bottom + 92 }]}>
+                <View style={styles.cardMetricas}>
                     <View>
                         <Text style={styles.rotuloMetrica}>DISTÂNCIA RESTANTE</Text>
                         <Text style={styles.valorMetrica}>{(distanciaRestante / 1000).toFixed(1)} km</Text>
@@ -39,7 +44,7 @@ export function ControlesViagem({
                 </View>
             )}
 
-            <View style={[styles.containerAcao, { bottom: insets.bottom + 16 }]}>
+            <View style={styles.containerAcao}>
                 {!viagemAtiva ? (
                     <TouchableOpacity style={styles.botaoIniciar} onPress={onIniciarViagem} activeOpacity={0.8}>
                         <Ionicons name="play" size={20} color="#0F172A" style={styles.iconeBotao} />
@@ -52,16 +57,21 @@ export function ControlesViagem({
                     </TouchableOpacity>
                 )}
             </View>
-        </>
+        </View>
     );
 }
 
 const styles = themedStyles(() => StyleSheet.create({
+    rodape: {
+        position: 'absolute', left: theme.spacing.md, right: theme.spacing.md,
+        zIndex: 20, gap: 12,
+    },
+    localizacao: {
+        alignSelf: 'flex-end', width: 48, height: 48, borderRadius: 24,
+        backgroundColor: '#1E293B', borderWidth: 1, borderColor: '#334155',
+        justifyContent: 'center', alignItems: 'center', elevation: 7,
+    },
     cardMetricas: {
-        position: 'absolute',
-        left: theme.spacing.md,
-        right: theme.spacing.md,
-        zIndex: 20,
         backgroundColor: '#1E293B',
         borderRadius: theme.borderRadius.md,
         borderWidth: 1,
@@ -96,13 +106,7 @@ const styles = themedStyles(() => StyleSheet.create({
         fontWeight: '900',
         marginTop: 2,
     },
-    containerAcao: {
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        zIndex: 20,
-        paddingHorizontal: theme.spacing.md,
-    },
+    containerAcao: { width: '100%' },
     botaoIniciar: {
         flexDirection: 'row',
         justifyContent: 'center',

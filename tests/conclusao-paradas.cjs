@@ -3,7 +3,7 @@ const { load, fixture, painel } = require('./helpers/roteiro.cjs');
 const { harness, nodes, flush, r } = require('./helpers/mapa.cjs');
 const c = load('src/services/conclusaoParada.ts', { './roteiroNavegacao': r });
 const botao = h => nodes(h.render()).find(n => n.props.accessibilityLabel === 'Concluir parada');
-const texto = h => nodes(h.render()).filter(n => n.type === 'Text').map(n => [n.props.children].flat(Infinity).join('')).join('\n');
+const texto = h => nodes(h.render()).filter(n => n.type === 'Text').map(n => [n.props.children].flat(Infinity).join('')).join('\n').replace(/PRÓXIMA PARADA\n/g, 'Próxima parada: ').replace(/DESTINO FINAL\n/g, 'Destino final: ');
 const key = (viagemId = 42) => r.chaveCacheRoteiro('visitadas', { usuarioId: 'driver', turmaId: 7, viagemId, sentido: 'IDA' });
 const saved = h => JSON.parse(h.storage.get(key()) || '{"chaves":[]}').chaves;
 const start = async options => { const h = harness(options); h.render(); await flush(); h.render(); return h; };
@@ -320,7 +320,7 @@ test('VOLTA privada inicia com entregas pendentes e registra desembarque com um 
     assert.equal(h.requests.some(url => url.endsWith('/concluir-ida')), false); h.unmount();
 });
 
-test('câmera segue a orientação e a posição animada nas curvas, sem botão sobre o ETA', async () => {
+test('câmera segue a orientação e a posição animada nas curvas, com recentralização manual', async () => {
     const dados = fixture('PORTA_A_PORTA', 'IDA');
     const h = await start({ dados, mapboxHandler: coords => {
         const esquina = [coords[1][0], coords[0][1]];
@@ -328,7 +328,7 @@ test('câmera segue a orientação e a posição animada nas curvas, sem botão 
     }});
     const conferir = () => {
         const tela = nodes(h.render());
-        assert.equal(tela.some(n => n.props.accessibilityLabel === 'Centralizar na van'), false);
+        assert.equal(typeof tela.find(n => n.type === 'Controls').props.onCentralizar, 'function');
         const quadro = tela.find(n => n.props.id === 'navegacaoVisualSource').props.shape.features.find(f => f.properties.tipo === 'van');
         const camera = h.cameras.at(-1);
         assert.ok(camera);
@@ -340,6 +340,10 @@ test('câmera segue a orientação e a posição animada nas curvas, sem botão 
     const antes = conferir();
     h.tick({latitude: -8.4, longitude: -35.2}); h.frame(1600);
     const depois = conferir();
+    const comandos = h.cameras.length;
+    nodes(h.render()).find(n => n.type === 'Controls').props.onCentralizar();
+    assert.equal(h.cameras.length, comandos + 1);
+    assert.equal(h.cameras.at(-1).heading, depois);
     assert.ok(Math.abs(antes - depois) > 60, `A câmera deve girar na curva: ${antes} -> ${depois}`);
     h.unmount();
 });

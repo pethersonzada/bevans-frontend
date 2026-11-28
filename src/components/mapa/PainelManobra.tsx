@@ -79,7 +79,7 @@ const styles = themedStyles(() => StyleSheet.create({
     },
     secaoParada: {
         marginTop: 10,
-        paddingTop: 4,
+        paddingTop: 10,
         borderTopWidth: 1,
         borderTopColor: '#334155',
     },
