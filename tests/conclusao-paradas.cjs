@@ -283,14 +283,15 @@ test('mapa privado confirma embarque diretamente e finaliza IDA em uma única a�
     assert.equal(nodes(h.render()).some(n => n.props.accessibilityLabel === 'Configurações de passageiros'), true);
     const encerrar = () => nodes(h.render()).find(n => n.type === 'Controls').props.onEncerrarViagem();
     await encerrar();
-    assert.equal(h.alerts.at(-1)[0], 'Chegue ao destino');
-    assert.equal(h.requests.some(url => url.endsWith('/concluir-ida')), false);
-    h.tick(dados[2]); h.tick(dados[2]); h.render();
+    assert.equal(h.alerts.at(-1)[0], 'Resolva os passageiros pendentes');
+    assert.equal(h.conclusoes.length, 0);
+    h.setDistanciaConclusao(150); // Dentro de 200 m, sem exigir duas leituras ou parada do veículo.
     await encerrar();
     assert.equal(h.alerts.at(-1)[0], 'Encerrar Viagem');
     await h.alerts.at(-1)[2].find(b => b.style === 'destructive').onPress();
     await flush();
-    assert.equal(h.requests.filter(url => url.endsWith('/concluir-ida')).length, 1);
+    assert.equal(h.conclusoes.length, 1);
+    assert.equal(h.conclusoes[0].motivo, undefined);
     assert.equal(h.official.registros[0].estado, 'DESEMBARCADO');
     h.unmount();
 });
@@ -411,5 +412,23 @@ test('novo gesto ou saída da tela cancela retorno automático pendente', async 
     gesto(true); gesto(false); gesto(true); const antes=h.cameras.length;
     h.advance(2000); assert.equal(h.cameras.length,antes);
     gesto(false); h.blur(); h.advance(2000); assert.equal(h.cameras.length,antes);
+    h.unmount();
+});
+
+test('encerramento manual fora da faculdade exige todos resolvidos e motivo explícito', async () => {
+    const dados = fixture('PORTA_A_PORTA','IDA');
+    const h=await start({dados,estados:{11:'DESEMBARCADO'},statusCampos:{modalidade:'PRIVADA'}});
+    h.setDistanciaConclusao(350);
+    await nodes(h.render()).find(n=>n.type==='Controls').props.onEncerrarViagem();
+    let tela=nodes(h.render());
+    assert.ok(tela.some(n=>n.type==='Modal'));
+    assert.equal(tela.find(n=>n.props.accessibilityLabel==='Confirmar encerramento manual').props.disabled,true);
+    tela.find(n=>n.props.accessibilityLabel==='Motivo do encerramento').props.onChangeText('Entrada lateral da faculdade');
+    tela=nodes(h.render());
+    const confirmar=tela.find(n=>n.props.accessibilityLabel==='Confirmar encerramento manual');
+    assert.equal(confirmar.props.disabled,false);
+    confirmar.props.onPress();await flush();
+    assert.equal(h.conclusoes.length,1);
+    assert.equal(h.conclusoes[0].motivo,'Entrada lateral da faculdade');
     h.unmount();
 });

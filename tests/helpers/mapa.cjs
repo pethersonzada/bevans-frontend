@@ -12,7 +12,8 @@ function harness({ dados = fixture('FIXA', 'IDA'), sentido = 'IDA', viagemId = 4
     let painelStatus = 200, confirmacaoStatus = 200, statusViagemId = viagemId;
     const timers = new Map(); let nextTimer = 0;
     const avancarRelogio = ms => { now += ms; for (const [id, timer] of [...timers]) { if (timers.has(id) && timer.at <= now) { timers.delete(id); timer.fn(); } } };
-    const official = painel(dados, viagemId, sentido), paths = [];
+    const official = painel(dados, viagemId, sentido), paths = [], conclusoes = [];
+    let distanciaConclusao = null;
     for (const registro of official.registros) registro.estado = estados[registro.alunoId] || 'AGUARDANDO';
     const react = {
         useState: initial => { const i = cursor++; if (!(i in slots)) slots[i] = initial; return [slots[i], value => { slots[i] = typeof value === 'function' ? value(slots[i]) : value; }]; },
@@ -37,6 +38,11 @@ function harness({ dados = fixture('FIXA', 'IDA'), sentido = 'IDA', viagemId = 4
         if (url.endsWith(`/operacoes/VIAGEM/${viagemId}/roteiro`)) return Response.json(roteiroStatus === 200 ? dados : { erro: 'Snapshot indisponível' }, { status: roteiroStatus });
         if (url.endsWith(`/operacoes/VIAGEM/${viagemId}`)) return panelHandler ? panelHandler(official) : Response.json(painelStatus === 200 ? official : { erro: 'Confirmação indisponível' }, { status: painelStatus });
         if (url.endsWith(`/operacoes/VIAGEM/${viagemId}/concluir-ida`)) {
+            const perto = distanciaConclusao !== null && distanciaConclusao <= 200;
+            if (options.method !== 'POST') return Response.json({ perto, distanciaMetros: distanciaConclusao, aguardando: official.registros.filter(r => r.estado === 'AGUARDANDO').length, naVan: official.registros.filter(r => r.estado === 'EMBARCADO').length });
+            const motivo = options.body ? JSON.parse(options.body).motivo : undefined;
+            conclusoes.push({ motivo });
+            if ((!perto && !motivo) || (motivo && official.registros.some(r=>r.estado==='EMBARCADO'))) return Response.json({erro:'Confirme os desembarques reais'}, {status:409});
             if (official.registros.some(r => r.estado === 'AGUARDANDO')) return Response.json({ erro: 'Aguardando' }, { status: 409 });
             for (const r of official.registros) if (r.estado === 'EMBARCADO') { r.estado = 'DESEMBARCADO'; r.versao++; }
             return new Response(null, { status: 204 });
@@ -60,7 +66,7 @@ function harness({ dados = fixture('FIXA', 'IDA'), sentido = 'IDA', viagemId = 4
     const jsx = (type, props) => ({ type, props });
     const module = load('src/app/mapa.tsx', {
         react, 'react/jsx-runtime': { jsx, jsxs: jsx },
-        'react-native': { View: 'View', ScrollView: 'Scroll', Text: 'Text', ActivityIndicator: 'Spinner', TouchableOpacity: 'Button', StatusBar: 'StatusBar', Linking: {}, StyleSheet: { create: x => x } },
+        'react-native': { View: 'View', ScrollView: 'Scroll', Text: 'Text', TextInput: 'Input', ActivityIndicator: 'Spinner', TouchableOpacity: 'Button', StatusBar: 'StatusBar', Linking: {}, StyleSheet: { create: x => x } },
         '@expo/vector-icons': { Ionicons: 'Icon' },
         '@react-native-async-storage/async-storage': { __esModule: true, default: {
             getItem: async k => storage.get(k) ?? null, setItem: async (k, v) => { if (storageFailure && k.includes('visitadas')) throw Error('Falha ao salvar conclusão'); storage.set(k, v); }, removeItem: async k => { storage.delete(k); }, multiRemove: async keys => { keys.forEach(k => storage.delete(k)); },
@@ -75,6 +81,7 @@ function harness({ dados = fixture('FIXA', 'IDA'), sentido = 'IDA', viagemId = 4
         '../contexts/AuthContext': { useAuth: () => ({ user: { id: 'driver' } }) },
         '../config/config': { API_URL: 'https://api.test' }, '../config/api': api,
         '../components/AsyncState': { AsyncState: 'AsyncState' },
+        '../components/AppModal': { AppModal: 'Modal' },
         '../services/asyncOperation': { withDeadline: fn => fn() },
         '../services/location': { validCoordinates: (lat, lng) => Number.isFinite(lat) && Number.isFinite(lng) },
         '../services/navigationLocation': { ensureNavigationLocation: async () => true, NavigationLocationError: class extends Error {} },
@@ -91,7 +98,7 @@ function harness({ dados = fixture('FIXA', 'IDA'), sentido = 'IDA', viagemId = 4
         Date: class extends Date { static now() { return now; } }, setTimeout: (fn, ms) => { const id = ++nextTimer; timers.set(id, { fn, at: now + ms }); return id; }, clearTimeout: id => timers.delete(id), setInterval: () => 1, clearInterval() {}, requestAnimationFrame: fn => { raf = fn; return 1; }, cancelAnimationFrame: () => { raf = null; } });
     const render = () => { cursor = 0; effects = []; const tree = module.default(); const node = nodes(tree).find(n => n.type === 'Camera'); if (node?.props.ref) node.props.ref.current = camera; effects.forEach(fn => fn()); return tree; };
     const tick = (p, { accuracy = 5, speed = 0, advance = 2000, timestamp } = {}) => { now += advance; location({ coords: { ...p, accuracy, speed }, timestamp: timestamp ?? now }); };
-    return { storage, requests, direcoes, alerts, paths, official, render, tick, cameras,
+    return { storage, requests, direcoes, alerts, paths, official, render, tick, cameras, conclusoes, setDistanciaConclusao: value => { distanciaConclusao = value; },
         frame: ms => { now += ms; const fn = raf; raf = null; fn?.(); },
         refresh: async () => { await poll(new AbortController().signal); await flush(); },
         setEstado: (alunoId, estado) => { const r = official.registros.find(r => r.alunoId === alunoId); r.estado = estado; r.versao++; },

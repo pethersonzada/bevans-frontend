@@ -13,6 +13,7 @@ import {
     StatusBar,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
@@ -21,6 +22,7 @@ import { useThemeRevision } from '../hooks/useThemeRevision';
 import { themedStyles } from '../styles/themedStyles';
 
 import { AsyncState } from '../components/AsyncState';
+import { AppModal } from '../components/AppModal';
 import { apiFetch, apiRequest, errorMessage, readApiJson } from '../config/api';
 import { API_URL } from '../config/config';
 import { useAuth } from '../contexts/AuthContext';
@@ -420,6 +422,10 @@ export default function Mapa() {
     const viagemAtivaRef = useRef(false);
     const onlineRef = useRef(true);
     const encerrandoRef = useRef(false);
+    const consultandoConclusaoRef = useRef(false);
+    const [conclusaoManual, setConclusaoManual] = useState<{ viagemId: number; distanciaMetros: number | null } | null>(null);
+    const [motivoConclusao, setMotivoConclusao] = useState('');
+    const [finalizando, setFinalizando] = useState(false);
     const usuarioAtualRef = useRef(user?.id);
     usuarioAtualRef.current = user?.id;
 
@@ -1588,80 +1594,105 @@ export default function Mapa() {
         }
     }
 
+    async function efetivarEncerramento(execucao: ExecucaoRoteiro, motivo?: string) {
+        if (encerrandoRef.current || confirmandoParadaRef.current || !onlineRef.current ||
+            !montadoRef.current || !focadaRef.current || execucao !== execucaoRef.current) return;
+        const turmaIdParam = turmaIdRef.current, motoristaIdParam = user?.id;
+        if (!turmaIdParam || !motoristaIdParam) {
+            Alert.alert('Erro', 'Turma ou motorista não identificado.');
+            return;
+        }
+        encerrandoRef.current = true;
+        setFinalizando(true);
+        try {
+            if (execucao.privadaConfirmada && execucao.sentido === 'VOLTA') {
+                const painel = await lerPainelAtual(execucao);
+                if (!montadoRef.current || !focadaRef.current || execucao !== execucaoRef.current) return;
+                if (painel.registros.some(r => r.estado === 'AGUARDANDO' || r.estado === 'EMBARCADO')) {
+                    throw new Error('Confirme os desembarques ou as ausências antes de encerrar a volta.');
+                }
+            }
+            if (execucao.privadaConfirmada && execucao.sentido === 'IDA') {
+                await apiRequest<void>(`/operacoes/VIAGEM/${execucao.viagemId}/concluir-ida`, {
+                    method: 'POST',
+                    ...(motivo !== undefined ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ motivo }) } : {}),
+                });
+            } else {
+                await encerrarViagemConferida(turmaIdParam, execucao.viagemId);
+            }
+            publisherRef.current?.cancel();
+            viagemAtivaRef.current = false;
+            if (montadoRef.current) {
+                setViagemAtiva(false);
+                setConclusaoManual(null);
+            }
+            await AsyncStorage.multiRemove(['@vanbora:viagem_ativa', '@vanbora:viagem_ativa_' + motoristaIdParam]).catch(() => {});
+            if (montadoRef.current && focadaRef.current) router.replace('/(tabs)/home');
+        } catch (error) {
+            if (montadoRef.current && focadaRef.current) {
+                setConclusaoManual(null);
+                Alert.alert('Encerramento não confirmado', errorMessage(error, 'Atualize e tente novamente.'));
+            }
+        } finally {
+            encerrandoRef.current = false;
+            if (montadoRef.current) setFinalizando(false);
+        }
+    }
+
     async function handleEncerrarViagem() {
-        if (!online) {
-            return Alert.alert(
-                'Conexão Necessária',
-                'Conecte-se à internet para sincronizar o encerramento.'
-            );
-        }
-
+        if (!onlineRef.current) return Alert.alert('Conexão necessária', 'Conecte-se à internet para sincronizar o encerramento.');
         const execucao = execucaoRef.current;
-        const idaPrivada = execucao?.privadaConfirmada && execucao.sentido === 'IDA';
-        const voltaPrivada = execucao?.privadaConfirmada && execucao.sentido === 'VOLTA';
-        const destino = rotaRef.current.at(-1);
-        const destinoConcluido = !!destino && visitadosRef.current.has(destino.chave);
-        const chegouDestino = () => !!destino && paradasRef.current.length === 1 &&
-            paradasRef.current[0]?.chave === destino.chave && chegadaAtual(chegadaRef.current, destino.chave, Date.now());
-        if (idaPrivada && !destinoConcluido && !chegouDestino()) {
-            return Alert.alert('Chegue ao destino', 'Conclua as coletas e aguarde a confirmação de chegada à faculdade antes de encerrar.');
+        if (!execucao || consultandoConclusaoRef.current || encerrandoRef.current || confirmandoParadaRef.current ||
+            !montadoRef.current || !focadaRef.current) return;
+        if (execucao.privadaConfirmada && execucao.sentido === 'IDA') {
+            consultandoConclusaoRef.current = true;
+            setFinalizando(true);
+            try {
+                // A distância é calculada pelo servidor a partir da última amostra GPS,
+                // nunca da seta interpolada ou da conclusão visual da parada.
+                const situacao = await apiRequest<{ perto: boolean; distanciaMetros: number | null; aguardando: number; naVan: number }>(
+                    `/operacoes/VIAGEM/${execucao.viagemId}/concluir-ida`);
+                if (!montadoRef.current || !focadaRef.current || execucao !== execucaoRef.current) return;
+                if (!situacao || typeof situacao.perto !== 'boolean' ||
+                    !Number.isSafeInteger(situacao.aguardando) || situacao.aguardando < 0 ||
+                    !Number.isSafeInteger(situacao.naVan) || situacao.naVan < 0 ||
+                    (situacao.distanciaMetros !== null && (!Number.isFinite(situacao.distanciaMetros) || situacao.distanciaMetros < 0)) ||
+                    situacao.perto !== (situacao.distanciaMetros !== null && situacao.distanciaMetros <= 200))
+                    throw new Error('Não foi possível verificar a chegada. Atualize e tente novamente.');
+                if (situacao.aguardando > 0 || (!situacao.perto && situacao.naVan > 0)) {
+                    return Alert.alert('Resolva os passageiros pendentes',
+                        situacao.aguardando > 0 ? 'Existem passageiros aguardando. Registre o que aconteceu com cada um antes de encerrar.'
+                            : 'Você está fora da área de chegada ou o GPS está indisponível. Confirme os desembarques reais antes de encerrar manualmente.',
+                        [{ text: 'Voltar', style: 'cancel' }, { text: 'Ver passageiros', onPress: () => {
+                            if (execucaoRef.current === execucao && focadaRef.current) abrirConfiguracoesPassageiros();
+                        } }]);
+                }
+                if (!situacao.perto) {
+                    setMotivoConclusao('');
+                    setConclusaoManual({ viagemId: execucao.viagemId, distanciaMetros: situacao.distanciaMetros });
+                    return;
+                }
+                Alert.alert('Encerrar Viagem',
+                    situacao.naVan > 0 ? 'Você está próximo da faculdade. Confirma que todos os passageiros embarcados já saíram da van? Os desembarques e o encerramento serão registrados juntos.'
+                        : 'Você está próximo da faculdade e não há passageiros embarcados. Confirma o encerramento?',
+                    [{ text: 'Voltar', style: 'cancel' }, { text: 'Sim, encerrar', style: 'destructive', onPress: () => efetivarEncerramento(execucao) }]);
+            } catch (error) {
+                if (montadoRef.current && focadaRef.current) Alert.alert('Não foi possível verificar a chegada', errorMessage(error));
+            } finally {
+                consultandoConclusaoRef.current = false;
+                if (montadoRef.current) setFinalizando(false);
+            }
+            return;
         }
+        Alert.alert('Encerrar Viagem', 'Você tem certeza de que deseja encerrar a rota atual?',
+            [{ text: 'Voltar', style: 'cancel' }, { text: 'Sim, encerrar', style: 'destructive', onPress: () => efetivarEncerramento(execucao) }]);
+    }
 
-        Alert.alert(
-            'Encerrar Viagem',
-            idaPrivada ? 'Confirma que chegou à faculdade e todos os passageiros embarcados desembarcaram? A viagem será encerrada.' : 'Você tem certeza de que deseja encerrar a rota atual?',
-            [
-                {
-                    text: 'Cancelar',
-                    style: 'cancel',
-                },
-                {
-                    text: 'Sim, Encerrar',
-                    style: 'destructive',
-
-                    onPress: async () => {
-                        try {
-                            const turmaIdParam = turmaIdRef.current;
-                            const motoristaIdParam = user?.id;
-                            if (!turmaIdParam || !motoristaIdParam) {
-                                Alert.alert('Erro', 'Turma ou motorista não identificado.');
-                                return;
-                            }
-
-                            if (encerrandoRef.current || confirmandoParadaRef.current || !execucao ||
-                                execucao !== execucaoRef.current || !focadaRef.current) return;
-                            encerrandoRef.current = true;
-                            try {
-                                if (voltaPrivada) {
-                                    const painel = await lerPainelAtual(execucao);
-                                    if (!montadoRef.current || !focadaRef.current || execucao !== execucaoRef.current) return;
-                                    if (painel.registros.some(r => r.estado === 'AGUARDANDO' || r.estado === 'EMBARCADO')) {
-                                        throw new Error('Confirme os desembarques ou as ausências antes de encerrar a volta.');
-                                    }
-                                }
-                                if (idaPrivada && !destinoConcluido) {
-                                    if (!chegouDestino()) throw new Error('A chegada não está mais confirmada. Aguarde o GPS.');
-                                    await apiRequest<void>(`/operacoes/VIAGEM/${execucao.viagemId}/concluir-ida`, { method: 'POST' });
-                                } else {
-                                    await encerrarViagemConferida(turmaIdParam, execucao.viagemId);
-                                }
-                                publisherRef.current?.cancel();
-                                viagemAtivaRef.current = false;
-                                setViagemAtiva(false);
-                                await AsyncStorage.multiRemove(['@vanbora:viagem_ativa', '@vanbora:viagem_ativa_' + motoristaIdParam]);
-                                router.replace('/(tabs)/home');
-                            } finally { encerrandoRef.current = false; }
-                        } catch (error) {
-                            if (montadoRef.current) {
-                                setErroRede(
-                                    errorMessage(error, 'Não foi possível confirmar o encerramento. Atualize e tente novamente.')
-                                );
-                            }
-                        }
-                    },
-                },
-            ]
-        );
+    function confirmarConclusaoManual() {
+        const execucao = execucaoRef.current;
+        const motivo = motivoConclusao.trim();
+        if (!conclusaoManual || !execucao || execucao.viagemId !== conclusaoManual.viagemId || !motivo || motivo.length > 500) return;
+        void efetivarEncerramento(execucao, motivo);
     }
 
     const pontosOperacionaisGeoJSON = useMemo(
@@ -1990,6 +2021,26 @@ export default function Mapa() {
                 </MapboxGL.ShapeSource>
             </MapboxGL.MapView>
 
+            {conclusaoManual && <AppModal visible transparent animationType="fade" onRequestClose={() => { if (!finalizando) setConclusaoManual(null); }}>
+                <View style={styles.conclusaoOverlay}>
+                    <View style={styles.conclusaoCard}>
+                        <Text style={styles.conclusaoTitulo}>Encerrar fora da área de chegada</Text>
+                        <Text style={styles.conclusaoTexto}>{conclusaoManual.distanciaMetros === null
+                            ? 'O GPS não conseguiu confirmar sua proximidade com a faculdade.'
+                            : `Você está a aproximadamente ${Math.round(conclusaoManual.distanciaMetros)} m da faculdade, fora do raio de 200 m.`}</Text>
+                        <Text style={styles.conclusaoTexto}>Todos os passageiros já foram resolvidos. Informe onde ou por que a viagem terminou. O motivo e a localização disponível ficarão registrados.</Text>
+                        <TextInput style={styles.conclusaoInput} accessibilityLabel="Motivo do encerramento" placeholder="Ex.: desembarque na entrada lateral"
+                            placeholderTextColor="#94A3B8" multiline maxLength={500} value={motivoConclusao} onChangeText={setMotivoConclusao} editable={!finalizando} />
+                        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Confirmar encerramento manual" disabled={finalizando || !motivoConclusao.trim()}
+                            style={[styles.conclusaoBotao, (finalizando || !motivoConclusao.trim()) && styles.paradaDesabilitado]} onPress={confirmarConclusaoManual}>
+                            <Text style={styles.conclusaoBotaoTexto}>{finalizando ? 'Encerrando…' : 'Encerrar viagem'}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity accessibilityRole="button" disabled={finalizando} onPress={() => setConclusaoManual(null)} style={styles.conclusaoVoltar}>
+                            <Text style={styles.conclusaoTexto}>Voltar</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </AppModal>}
             <ControlesViagem
                 distanciaRestante={distanciaRestante}
                 etaMinutos={etaMinutos}
@@ -2003,6 +2054,14 @@ export default function Mapa() {
 }
 
 const styles = themedStyles(() => StyleSheet.create({
+    conclusaoOverlay: { flex: 1, padding: 20, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.65)' },
+    conclusaoCard: { padding: 18, borderRadius: 16, gap: 12, backgroundColor: '#1E293B', borderWidth: 1, borderColor: '#334155' },
+    conclusaoTitulo: { color: '#F8FAFC', fontSize: 19, fontWeight: '700' },
+    conclusaoTexto: { color: '#CBD5E1', fontSize: 14, lineHeight: 20 },
+    conclusaoInput: { color: '#F8FAFC', backgroundColor: '#0F172A', borderRadius: 10, borderWidth: 1, borderColor: '#475569', padding: 12, minHeight: 82, textAlignVertical: 'top' },
+    conclusaoBotao: { minHeight: 48, borderRadius: 10, backgroundColor: '#DC2626', alignItems: 'center', justifyContent: 'center' },
+    conclusaoBotaoTexto: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
+    conclusaoVoltar: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
     fullScreenContainer: {
         flex: 1,
         backgroundColor: '#0F172A',
