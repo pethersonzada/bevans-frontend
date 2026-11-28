@@ -50,6 +50,32 @@ export async function encerrarViagemConferida(turmaId: number, viagemEsperada: n
     if (falha) throw falha;
     throw new Error('O servidor ainda informa uma viagem ativa. Atualize antes de tentar encerrar novamente.');
 }
+const cancelamentosPendentes = new Set<number>();
+export async function cancelarViagemConferida(turmaId: number, viagemEsperada: number): Promise<EstadoViagem> {
+    turmaIdValido(turmaId);
+    if (!Number.isSafeInteger(viagemEsperada) || viagemEsperada <= 0) throw new Error('Atualize a viagem antes de cancelar.');
+    if (cancelamentosPendentes.has(turmaId)) throw new Error('Já há um cancelamento em andamento.');
+    cancelamentosPendentes.add(turmaId);
+    const cancelada = (estado: EstadoViagem) => estado.status === 'INATIVA' &&
+        estado.estado === 'CANCELADA' && estado.ultimaViagemId === viagemEsperada;
+    try {
+        const atual = await consultarEstadoViagem(turmaId);
+        if (cancelada(atual)) return atual;
+        if (atual.status !== 'ATIVA' || atual.viagemId !== viagemEsperada) throw new Error('A viagem mudou. Atualize antes de cancelar.');
+        let falha: unknown;
+        try {
+            const response = await apiFetch(`/viagens/${viagemEsperada}/cancelamento`, { method: 'PUT' });
+            if (!response.ok) throw await readApiError(response);
+        } catch (error) { falha = error; }
+        let oficial: EstadoViagem;
+        try { oficial = await consultarEstadoViagem(turmaId); }
+        catch { throw new Error('O cancelamento não foi confirmado. Atualize antes de tentar novamente.'); }
+        if (cancelada(oficial)) return oficial;
+        if (falha) throw falha;
+        throw new Error('O servidor não confirmou o cancelamento desta viagem. Atualize o estado.');
+    } finally { cancelamentosPendentes.delete(turmaId); }
+}
+
 export class TrocaViagemError extends Error {
     constructor(public readonly etapa: 'verificar' | 'encerrar' | 'iniciar', public readonly anteriorEncerrada: boolean,
         public readonly estado: EstadoViagem | null, public readonly original: unknown) {

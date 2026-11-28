@@ -35,6 +35,7 @@ import {
 
 import {
     consultarEstadoViagem,
+    cancelarViagemConferida,
     iniciarViagem,
     type EstadoViagem,
 } from '../services/viagens';
@@ -520,6 +521,54 @@ export default function HomeMotorista() {
             inicioPendente.current = false;
             setIniciando(false);
         }
+    }
+
+    function solicitarCancelamentoViagem() {
+        const turma = turmaSelecionada;
+        const viagemId = estadoViagem?.status === 'ATIVA' ? estadoViagem.viagemId : undefined;
+        if (!turma || !viagemId || !user?.id || inicioPendente.current) return;
+        const usuarioId = user.id;
+        const vigente = () => emFoco.current && turmaSelecionadaRef.current?.id === turma.id;
+        Alert.alert(
+            'Cancelar viagem?',
+            'O rastreamento será encerrado e a viagem ficará registrada como cancelada. Se houver passageiros embarcados, registre os desembarques reais antes de cancelar.',
+            [
+                { text: 'Voltar', style: 'cancel' },
+                {
+                    text: 'Cancelar viagem',
+                    style: 'destructive',
+                    onPress: async () => {
+                        if (!vigente() || inicioPendente.current) return;
+                        inicioPendente.current = true;
+                        inicioExecutando.current = true;
+                        setIniciando(true);
+                        ++viagemRequest.current;
+                        try {
+                            const oficial = await cancelarViagemConferida(turma.id, viagemId);
+                            if (turmaSelecionadaRef.current?.id === turma.id) {
+                                ++viagemRequest.current;
+                                setEstadoViagem(oficial);
+                                setErroViagem(null);
+                                await AsyncStorage.multiRemove([
+                                    '@vanbora:viagem_ativa',
+                                    `@vanbora:viagem_ativa_${usuarioId}`,
+                                ]).catch(() => {});
+                            }
+                            if (vigente()) Alert.alert('Viagem cancelada', 'O rastreamento foi encerrado.');
+                        } catch (e) {
+                            if (vigente()) {
+                                await checarAmnesia(turma.id);
+                                Alert.alert('Cancelamento não confirmado', errorMessage(e));
+                            }
+                        } finally {
+                            inicioExecutando.current = false;
+                            inicioPendente.current = false;
+                            setIniciando(false);
+                        }
+                    },
+                },
+            ]
+        );
     }
 
     async function iniciarRota(sentido: Sentido) {
@@ -1153,6 +1202,22 @@ export default function HomeMotorista() {
                             )}
 
                         <View style={styles.flatMenu}>
+                            {viagemAtiva && (
+                                <>
+                                    <Pressable
+                                        accessibilityRole="button"
+                                        accessibilityLabel="Cancelar viagem"
+                                        disabled={iniciando}
+                                        onPress={solicitarCancelamentoViagem}
+                                        style={[styles.menuRow, iniciando && styles.disabled]}
+                                    >
+                                        <Ionicons name="close-circle-outline" size={24} color={theme.colors.danger} />
+                                        <Text style={[styles.menuTitle, styles.flex, { color: theme.colors.danger }]}>Cancelar viagem</Text>
+                                        <Ionicons name="chevron-forward" size={19} color={theme.colors.textLight} />
+                                    </Pressable>
+                                    <View style={styles.divider} />
+                                </>
+                            )}
                             <Pressable
                                 accessibilityRole="button"
                                 onPress={() =>

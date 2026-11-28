@@ -48,3 +48,37 @@ test('encerramento confere identidade e preserva erro quando a execução contin
  const rejected=harness({stage:'encerrar'});await assert.rejects(rejected.service.encerrarViagemConferida(7,11),/timeout/);assert.equal(rejected.writes.length,1);
  const unknown=harness({unreadable:true});await assert.rejects(unknown.service.encerrarViagemConferida(7,11),/não foi confirmado/);assert.equal(unknown.writes.length,1);
 });
+function cancelHarness({initial, outcome='ok'}={}) {
+    let estado=initial||{status:'ATIVA',viagemId:11,sentido:'IDA'};
+    const writes=[],exports={};
+    const cancelada={status:'INATIVA',estado:'CANCELADA',ultimaViagemId:11};
+    vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/services/viagens.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{exports,require:()=>({
+        apiRequest:async()=>{if(outcome==='offline'&&writes.length)throw Error('offline');return estado;},
+        apiFetch:async(path,options)=>{
+            writes.push({path,method:options.method});
+            if(outcome==='occupied')return {ok:false};
+            if(outcome==='wrong')estado={status:'INATIVA',estado:'FINALIZADA',ultimaViagemId:11};
+            else if(outcome!=='offline')estado=cancelada;
+            if(outcome==='timeout')throw Error('timeout');
+            return {ok:true};
+        },
+        readApiError:async()=>Error('Há passageiros na van'),
+    })});
+    return {service:exports,writes};
+}
+test('cancelamento utiliza a identidade exata da viagem e confirma estado CANCELADA',async()=>{
+    const h=cancelHarness();const result=await h.service.cancelarViagemConferida(7,11);
+    assert.equal(result.estado,'CANCELADA');assert.deepEqual(h.writes,[{path:'/viagens/11/cancelamento',method:'PUT'}]);
+    await h.service.cancelarViagemConferida(7,11);assert.equal(h.writes.length,1);
+    const outra=cancelHarness();await assert.rejects(outra.service.cancelarViagemConferida(7,99),/viagem mudou/);assert.equal(outra.writes.length,0);
+});
+test('cancelamento preserva bloqueio de passageiros e não confunde finalização com cancelamento',async()=>{
+    const h=cancelHarness({outcome:'occupied'});await assert.rejects(h.service.cancelarViagemConferida(7,11),/Há passageiros na van/);assert.equal(h.writes.length,1);
+    const wrong=cancelHarness({outcome:'wrong'});await assert.rejects(wrong.service.cancelarViagemConferida(7,11),/não confirmou/);
+});
+test('cancelamento recupera resposta perdida, bloqueia duplicação e não inventa sucesso offline',async()=>{
+    const h=cancelHarness({outcome:'timeout'});const pending=h.service.cancelarViagemConferida(7,11);
+    await assert.rejects(h.service.cancelarViagemConferida(7,11),/andamento/);
+    assert.equal((await pending).estado,'CANCELADA');assert.equal(h.writes.length,1);
+    const offline=cancelHarness({outcome:'offline'});await assert.rejects(offline.service.cancelarViagemConferida(7,11),/não foi confirmado/);
+});
