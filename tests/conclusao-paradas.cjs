@@ -61,7 +61,7 @@ test('dois pontos coincidentes exigem duas ações distintas; callback antigo n�
 test('passageiro aguardando bloqueia conclusão e acesso ao controle não inventa confirmação', async () => {
     const dados = fixture('PORTA_A_PORTA', 'IDA'), h = await start({ dados });
     const button = chegar(h, dados[1]); assert.equal(button.props.disabled, true);
-    assert.match(texto(h), /Pessoa 11: Aguardando/); assert.match(texto(h), /Há passageiros aguardando/);
+    assert.match(texto(h), /Pessoa 11\nAguardando/); assert.match(texto(h), /Há passageiros aguardando/);
     await button.props.onPress(); await flush(); assert.equal(saved(h).length, 0);
     nodes(h.render()).find(n => n.props.accessibilityLabel === 'Controle de embarque').props.onPress();
     assert.equal(h.paths[0].pathname, '/controle-viagem'); assert.equal(h.paths[0].params.id, '42');
@@ -74,7 +74,7 @@ test('embarque compartilhado só libera depois de todos os registros oficiais re
     await h.confirmar(11, 'EMBARCADO'); await h.refresh();
     assert.equal(botao(h).props.disabled, true); assert.equal(saved(h).length, 1);
     await h.confirmar(33, 'NAO_EMBARCOU'); await h.refresh();
-    assert.match(texto(h), /Pessoa 11: Embarcado/); assert.match(texto(h), /Pessoa 33: Não embarcou/);
+    assert.match(texto(h), /Pessoa 11\nEmbarcado/); assert.match(texto(h), /Pessoa 33\nNão embarcou/);
     await h.concluir(dados[2]); assert.equal(saved(h).length, 2); h.unmount();
 });
 
@@ -97,7 +97,7 @@ test('destino exige desembarques; conclusão não encerra viagem nem muda regist
 
 test('parada sem passageiros requer ação explícita e não cria registro operacional', async () => {
     const dados = fixture('PRIVADA_PARADAS', 'IDA'), h = await start({ dados });
-    chegar(h, dados[1]); assert.equal(saved(h).length, 0); assert.match(texto(h), /Sem passageiros previstos/);
+    chegar(h, dados[1]); assert.equal(saved(h).length, 0); assert.match(texto(h), /Sem passageiros neste ponto/);
     await botao(h).props.onPress(); await flush(); assert.equal(saved(h).length, 1);
     assert.equal(h.requests.some(url => url.includes('/estado')), false); h.unmount();
 });

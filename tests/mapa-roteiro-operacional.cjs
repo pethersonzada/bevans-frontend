@@ -33,7 +33,7 @@ test('origem é referência e a visita abrange paradas vazias, compartilhadas e 
     assert.equal([...h.storage.keys()].some(k => k.includes('visitadas')), false);
     for (const [i, p] of dados.slice(1, 3).entries()) {
         const tree = await h.concluir(p);
-        if (i === 0) assert.equal(nodes(tree).some(n => typeof n.props.children === 'string' && n.props.children.includes('Passageiros (2): Pessoa 11, Pessoa 33')), true);
+        if (i === 0) { const textos = nodes(tree).filter(n => n.type === 'Text').map(n => [n.props.children].flat(Infinity).join('')); for (const esperado of ['2 passageiros','Pessoa 11','Pessoa 33']) assert.ok(textos.includes(esperado), esperado); }
     }
     const key = r.chaveCacheRoteiro('visitadas', { usuarioId: 'driver', turmaId: 7, viagemId: 42, sentido: 'IDA' });
     const cache = JSON.parse(h.storage.get(key));
@@ -103,6 +103,6 @@ test('resposta de recálculo atrasada não ressuscita ponto visitado durante a c
     assert.equal(typeof concluir, 'function');
     await h.concluir(dados[1]); concluir(); await flush();
     const tree = h.render();
-    assert.equal(nodes(tree).some(n => n.type === 'Text' && typeof n.props.children === 'string' && n.props.children.includes('Passageiros (2): Pessoa 11, Pessoa 33')), true);
+    const textos = nodes(tree).filter(n => n.type === 'Text').map(n => [n.props.children].flat(Infinity).join('')); for (const esperado of ['2 passageiros','Pessoa 11','Pessoa 33']) assert.ok(textos.includes(esperado), esperado);
     h.unmount();
 });

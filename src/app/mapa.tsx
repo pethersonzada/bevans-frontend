@@ -1749,7 +1749,7 @@ export default function Mapa() {
                                     {proximaParada || 'Rota atualizada'}
                                 </Text>
                             </View>
-                            {paradasRestantes > 0 && <Text style={styles.paradaContagem}>{paradasRestantes} restantes</Text>}
+                            {paradasRestantes > 0 && <Text style={styles.paradaContagem}>{paradasRestantes} {paradasRestantes === 1 ? 'restante' : 'restantes'}</Text>}
                             <Ionicons name={painelAberto ? 'chevron-up' : 'chevron-down'} size={18} color="#94A3B8" />
                         </TouchableOpacity>
 

@@ -12,9 +12,9 @@ test('um passageiro: garagem não é waypoint nem parada restante; destino é fi
     const pontos = nodes(tela).find(n => n.type === 'Shape' && n.props.id === 'pontosOperacionaisSource').props.shape.features;
     assert.equal(pontos.length, 2); // embarque + destino, garagem fora
     assert.match(texto(h), /1 restante/);
-    assert.match(texto(h), new RegExp(`Próxima parada: ${dados[1].nome}`));
+    assert.match(texto(h), new RegExp(`PRÓXIMA PARADA\n${dados[1].nome}`));
     await h.concluir(dados[1]);
-    assert.match(texto(h), new RegExp(`Destino final: ${dados[2].nome}`));
+    assert.match(texto(h), new RegExp(`DESTINO FINAL\n${dados[2].nome}`));
     assert.doesNotMatch(texto(h), /[12] restantes/);
     h.unmount();
 });
