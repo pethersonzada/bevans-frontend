@@ -45,7 +45,7 @@ const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
 MapboxGL.setAccessToken(MAPBOX_TOKEN);
 
 const IMAGENS_NAVEGACAO = {
-    bevansVan: require('../../assets/images/van-navegacao.png'),
+    bevansSeta: require('../../assets/images/seta-navegacao.png'),
 };
 const FILTRO_ROTA_ATUAL = ['==', ['get', 'tipo'], 'rota-atual'] as const;
 const FILTRO_VAN = ['==', ['get', 'tipo'], 'van'] as const;
@@ -2105,7 +2105,7 @@ export default function Mapa() {
                             lineColor: '#00D2FF', lineWidth: 6, lineCap: 'round', lineJoin: 'round',
                         }} />
                     <MapboxGL.SymbolLayer id="vanNavegacaoLayer" filter={FILTRO_VAN as any} style={{
-                        iconImage: 'bevansVan', iconSize: 0.62, iconAnchor: 'center',
+                        iconImage: 'bevansSeta', iconSize: 0.72, iconAnchor: 'center',
                         iconRotate: ['get', 'heading'], iconRotationAlignment: 'map',
                         iconPitchAlignment: 'viewport', iconAllowOverlap: true,
                         iconIgnorePlacement: true, iconPadding: 0,
